@@ -20,6 +20,22 @@
   let sessionKeyConfigured = $state(false);
   let showKeyEdit = $state(false);
   let usageRefreshInterval = null;
+  let sidebarCollapsed = $state(
+    typeof localStorage !== 'undefined' ? localStorage.getItem('clauge-sidebar-collapsed') === 'true' : false
+  );
+
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
+    localStorage.setItem('clauge-sidebar-collapsed', String(sidebarCollapsed));
+    // Refit all terminals after transition
+    setTimeout(() => {
+      for (const [, entry] of terminalMap) {
+        if (entry.fitAddon && entry.container.offsetWidth > 0) {
+          try { entry.fitAddon.fit(); } catch(_) {}
+        }
+      }
+    }, 250);
+  }
 
   // Expand/collapse state — persisted to localStorage
   let expandedGroups = $state(
@@ -333,6 +349,7 @@
       const idx = parseInt(e.key) - 1;
       if (profiles[idx]) selectProfile(profiles[idx]);
     }
+    if (e.metaKey && e.key === 'b') { e.preventDefault(); toggleSidebar(); }
     if (e.key === 'Escape') { showModal = false; showSettings = false; }
   }
 
@@ -398,7 +415,7 @@
 <div class="app-wrapper">
 <div class="app">
   <div class="drag-bar"></div>
-  <aside class="sidebar">
+  <aside class="sidebar" class:collapsed={sidebarCollapsed}>
     <div class="sidebar-header">
       <span class="app-title">Clauge</span>
       <div class="header-actions">
@@ -460,6 +477,16 @@
       {/if}
     </div>
   </aside>
+
+  <button class="sidebar-toggle" onclick={toggleSidebar} title={sidebarCollapsed ? 'Expand sidebar (Cmd+B)' : 'Collapse sidebar (Cmd+B)'}>
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+      {#if sidebarCollapsed}
+        <path d="M4 1l5 5-5 5z"/>
+      {:else}
+        <path d="M8 1L3 6l5 5z"/>
+      {/if}
+    </svg>
+  </button>
 
   <div class="terminal-area">
     {#if !activeProfile}
@@ -661,7 +688,11 @@
   .app-wrapper { display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden; }
   .app { display: flex; flex: 1; min-height: 0; overflow: hidden; background: transparent; }
 
-  .sidebar { width: 220px; min-width: 220px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; user-select: none; }
+  .sidebar { width: 220px; min-width: 220px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; user-select: none; transition: width 0.2s ease, min-width 0.2s ease, opacity 0.2s ease; overflow: hidden; }
+  .sidebar.collapsed { width: 0; min-width: 0; border-right: none; opacity: 0; pointer-events: none; }
+  .sidebar-toggle { position: absolute; left: 220px; top: 50%; transform: translateY(-50%); z-index: 50; width: 16px; height: 32px; border: 1px solid var(--border); border-left: none; border-radius: 0 6px 6px 0; background: var(--sidebar-bg); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: left 0.2s ease, background 0.15s; -webkit-app-region: no-drag; }
+  .sidebar-toggle:hover { background: var(--border); color: var(--text-primary); }
+  .sidebar.collapsed ~ .sidebar-toggle { left: 0; }
   .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 14px; padding-top: 38px; border-bottom: 1px solid var(--border); -webkit-app-region: drag; }
   .app-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
   .header-actions { display: flex; gap: 6px; align-items: center; -webkit-app-region: no-drag; }
