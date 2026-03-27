@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#08080C"/>
+  <circle cx="256" cy="256" r="90" fill="none" stroke="#7F77DD" stroke-width="1.5" opacity="0.18"/>
+  <circle cx="256" cy="256" r="120" fill="none" stroke="#534AB7" stroke-width="1" opacity="0.1"/>
+  <!-- lines -->
+  <line x1="256" y1="201" x2="256" y2="156" stroke="#7F77DD" stroke-width="2.5" opacity="0.7"/>
+  <line x1="302" y1="228" x2="342" y2="204" stroke="#7F77DD" stroke-width="2.5" opacity="0.7"/>
+  <line x1="302" y1="284" x2="342" y2="308" stroke="#7F77DD" stroke-width="2.5" opacity="0.7"/>
+  <line x1="256" y1="311" x2="256" y2="356" stroke="#7F77DD" stroke-width="2.5" opacity="0.7"/>
+  <line x1="210" y1="284" x2="170" y2="308" stroke="#7F77DD" stroke-width="2.5" opacity="0.7"/>
+  <line x1="210" y1="228" x2="170" y2="204" stroke="#7F77DD" stroke-width="2.5" opacity="0.7"/>
+  <!-- outer nodes with terminal prompt symbols -->
+  <circle cx="256" cy="140" r="30" fill="#1a1640" stroke="#534AB7" stroke-width="2.5"/>
+  <text x="256" y="146" text-anchor="middle" font-family="monospace" font-size="22" font-weight="bold" fill="#7F77DD">&#x276F;</text>
+  <circle cx="358" cy="196" r="30" fill="#1a1640" stroke="#534AB7" stroke-width="2.5"/>
+  <text x="358" y="202" text-anchor="middle" font-family="monospace" font-size="22" font-weight="bold" fill="#7F77DD">&#x276F;</text>
+  <circle cx="358" cy="316" r="30" fill="#1a1640" stroke="#534AB7" stroke-width="2.5"/>
+  <text x="358" y="322" text-anchor="middle" font-family="monospace" font-size="22" font-weight="bold" fill="#7F77DD">&#x276F;</text>
+  <circle cx="256" cy="372" r="30" fill="#1a1640" stroke="#534AB7" stroke-width="2.5"/>
+  <text x="256" y="378" text-anchor="middle" font-family="monospace" font-size="22" font-weight="bold" fill="#7F77DD">&#x276F;</text>
+  <circle cx="154" cy="316" r="30" fill="#1a1640" stroke="#534AB7" stroke-width="2.5"/>
+  <text x="154" y="322" text-anchor="middle" font-family="monospace" font-size="22" font-weight="bold" fill="#7F77DD">&#x276F;</text>
+  <circle cx="154" cy="196" r="30" fill="#1a1640" stroke="#534AB7" stroke-width="2.5"/>
+  <text x="154" y="202" text-anchor="middle" font-family="monospace" font-size="22" font-weight="bold" fill="#7F77DD">&#x276F;</text>
+  <!-- center -->
+  <circle cx="256" cy="256" r="56" fill="#26215C" stroke="#7F77DD" stroke-width="3.5"/>
+  <circle cx="256" cy="256" r="42" fill="#1a1640" stroke="#534AB7" stroke-width="2"/>
+  <!-- sparkles ✦ in center -->
+  <g fill="#AFA9EC">
+    <!-- main sparkle -->
+    <path d="M256 234 L260 248 L274 252 L260 256 L256 270 L252 256 L238 252 L252 248 Z" opacity="0.95"/>
+    <!-- small sparkle top-right -->
+    <path d="M272 238 L274 244 L280 246 L274 248 L272 254 L270 248 L264 246 L270 244 Z" opacity="0.5" transform="scale(0.6) translate(196 160)"/>
+    <!-- small sparkle bottom-left -->
+    <path d="M240 260 L242 266 L248 268 L242 270 L240 276 L238 270 L232 268 L238 266 Z" opacity="0.4" transform="scale(0.5) translate(232 260)"/>
+  </g>
+</svg>

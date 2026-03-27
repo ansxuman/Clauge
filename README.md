@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src-tauri/icons/icon.png" alt="Clauge" width="120" />
+  <img src="src-tauri/icons/clauge-mark.svg" alt="Clauge" width="120" />
 </p>
 
 <h1 align="center">Clauge</h1>
