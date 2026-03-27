@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Changelog — Clauge</title>
+  <meta name="description" content="What's new in Clauge — the latest updates, features, and fixes.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="../src-tauri/icons/icon.png">
+  <style>
+    .changelog-hero { padding: 140px 0 60px; text-align: center; }
+    .changelog-hero h1 { font-family: var(--font-display); font-size: clamp(32px, 5vw, 48px); font-weight: 600; letter-spacing: -1px; color: var(--white); margin-bottom: 10px; }
+    .changelog-hero p { color: var(--text-muted); font-size: 16px; }
+    .changelog-hero a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px; font-size: 14px; }
+    .changelog-hero a:hover { color: var(--text); }
+
+    .releases { max-width: 720px; margin: 0 auto; padding: 0 24px 100px; }
+
+    .release {
+      border-left: 2px solid var(--border);
+      padding: 0 0 48px 32px;
+      position: relative;
+    }
+    .release:last-child { padding-bottom: 0; }
+    .release::before {
+      content: '';
+      position: absolute;
+      left: -6px; top: 6px;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--blue);
+      border: 2px solid var(--bg);
+    }
+
+    .release-date {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .release-version {
+      font-family: var(--font-display);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--white);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .release-version a { color: var(--white); }
+    .release-version a:hover { color: var(--blue); }
+    .release-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--blue);
+      background: rgba(88,166,255,0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .release-body {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.75;
+    }
+    .release-body h2 { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--text); margin: 20px 0 8px; }
+    .release-body h3 { font-size: 14px; font-weight: 500; color: var(--text); margin: 16px 0 6px; }
+    .release-body ul { padding-left: 18px; margin: 6px 0; }
+    .release-body li { margin-bottom: 4px; }
+    .release-body code { font-family: var(--font-mono); font-size: 12px; background: rgba(255,255,255,0.06); padding: 2px 5px; border-radius: 3px; }
+    .release-body a { color: var(--blue); text-decoration: underline; text-underline-offset: 2px; }
+    .release-body img {
+      max-width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin: 16px 0;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    .release-assets { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .release-asset {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--text-muted);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .release-asset:hover { border-color: var(--border-hover); color: var(--text); }
+    .release-asset svg { width: 14px; height: 14px; fill: currentColor; }
+
+    .loading { text-align: center; padding: 60px 0; color: var(--text-dim); font-size: 14px; }
+    .no-releases { text-align: center; padding: 60px 0; color: var(--text-dim); }
+  </style>
+</head>
+<body>
+
+<header id="header" class="scrolled">
+  <div class="inner">
+    <a href="index.html" class="logo">Clauge</a>
+    <div class="header-right">
+      <a href="index.html" class="header-link">Home</a>
+      <a href="changelog.html" class="header-link" style="color:var(--text);">Changelog</a>
+      <a href="https://github.com/ansxuman/Clauge" class="gh-link">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</header>
+
+<div class="changelog-hero">
+  <div class="container">
+    <h1>Changelog</h1>
+    <p>The latest updates, features, and fixes.</p>
+    <br>
+    <a href="https://github.com/ansxuman/Clauge/releases">View all releases on GitHub &rarr;</a>
+  </div>
+</div>
+
+<div class="releases" id="releases">
+  <div class="loading">Loading releases...</div>
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-left">
+        <div class="logo">Clauge</div>
+        <div class="footer-links">
+          <a href="index.html">Home</a>
+          <a href="https://github.com/ansxuman/Clauge">GitHub</a>
+          <a href="https://github.com/ansxuman/Clauge/issues">Report Bug</a>
+        </div>
+      </div>
+      <div class="footer-right">
+        <a href="https://buymeacoffee.com/ansxuman">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21.5c0 .28.22.5.5.5h15c.28 0 .5-.22.5-.5V18H2v3.5zM20 6h-1V4.5c0-.28-.22-.5-.5-.5h-15c-.28 0-.5.22-.5.5V6H2c-1.1 0-2 .9-2 2v2c0 1.1.9 2 2 2h1.47c.41 1.74 1.7 3.15 3.37 3.72l-.34.78c-.12.28.04.5.34.5h6.32c.3 0 .46-.22.34-.5l-.34-.78c1.67-.57 2.96-1.98 3.37-3.72H18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-2 4h-1V8h1v2z"/></svg>
+          Buy me a coffee
+        </a>
+      </div>
+    </div>
+    <div class="footer-bottom">Apache License 2.0</div>
+  </div>
+</footer>
+
+<script>
+  // Fetch releases from GitHub API and render
+  (async function() {
+    const container = document.getElementById('releases');
+    try {
+      const resp = await fetch('https://api.github.com/repos/ansxuman/Clauge/releases?per_page=20');
+      if (!resp.ok) throw new Error(resp.status);
+      const releases = await resp.json();
+
+      if (releases.length === 0) {
+        container.innerHTML = '<div class="no-releases">No releases yet. First release coming soon.</div>';
+        return;
+      }
+
+      container.innerHTML = releases.map(r => {
+        const date = new Date(r.published_at || r.created_at);
+        const dateStr = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        // Convert markdown body to basic HTML
+        let body = (r.body || '').trim();
+        // Headers
+        body = body.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+        body = body.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+        // Lists
+        body = body.replace(/^- (.+)$/gm, '<li>$1</li>');
+        body = body.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+        // Code
+        body = body.replace(/`([^`]+)`/g, '<code>$1</code>');
+        // Bold
+        body = body.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        // Links
+        body = body.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+        // Images (from body markdown)
+        body = body.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+        // Newlines
+        body = body.replace(/\n\n/g, '<br><br>');
+
+        // Image assets from release
+        const imageAssets = (r.assets || []).filter(a =>
+          /\.(png|jpg|jpeg|gif|webp)$/i.test(a.name)
+        );
+        const imageHtml = imageAssets.map(a =>
+          `<img src="${a.browser_download_url}" alt="${a.name}">`
+        ).join('');
+
+        // Download assets
+        const dlAssets = (r.assets || []).filter(a =>
+          /\.(dmg|zip|tar\.gz|app)$/i.test(a.name)
+        );
+        const dlHtml = dlAssets.length ? '<div class="release-assets">' + dlAssets.map(a =>
+          `<a href="${a.browser_download_url}" class="release-asset">
+            <svg viewBox="0 0 16 16"><path d="M2.75 14A1.75 1.75 0 011 12.25v-2.5a.75.75 0 011.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 00.25-.25v-2.5a.75.75 0 011.5 0v2.5A1.75 1.75 0 0113.25 14H2.75zM7.25 7.689V2a.75.75 0 011.5 0v5.689l1.97-1.969a.749.749 0 111.06 1.06l-3.25 3.25a.749.749 0 01-1.06 0L4.22 6.78a.749.749 0 111.06-1.06l1.97 1.969z"/></svg>
+            ${a.name}
+          </a>`
+        ).join('') + '</div>' : '';
+
+        return `
+          <div class="release">
+            <div class="release-date">${dateStr}</div>
+            <div class="release-version">
+              <a href="${r.html_url}">${r.name || r.tag_name}</a>
+              <span class="release-tag">${r.tag_name}</span>
+            </div>
+            ${imageHtml}
+            <div class="release-body">${body}</div>
+            ${dlHtml}
+          </div>
+        `;
+      }).join('');
+    } catch(e) {
+      container.innerHTML = '<div class="no-releases">Could not load releases. <a href="https://github.com/ansxuman/Clauge/releases">View on GitHub</a></div>';
+    }
+  })();
+</script>
+
+</body>
+</html>

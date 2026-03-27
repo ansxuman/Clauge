@@ -5,6 +5,10 @@ on:
       version:
         description: 'Version (e.g., 0.1.0)'
         required: true
+      release_notes:
+        description: 'Release notes (markdown). Leave empty for auto-generated changelog.'
+        required: false
+        default: ''
 
 jobs:
   release:
@@ -57,8 +61,8 @@ jobs:
         with:
           tag_name: v${{ github.event.inputs.version }}
           name: v${{ github.event.inputs.version }}
-          body: |
-            ## What's Changed
-            ${{ steps.changelog.outputs.changes }}
+          body: ${{ github.event.inputs.release_notes || format('## What''s Changed\n{0}', steps.changelog.outputs.changes) }}
           draft: false
           prerelease: false
+          # Images can be uploaded manually to the release after creation
+          # or via: gh release upload v0.1.0 screenshot.png --repo ansxuman/Clauge
