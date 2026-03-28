@@ -252,10 +252,19 @@
         };
         entry.channel = onOutput;
 
+        // Get existing session IDs BEFORE spawning so we can detect the new one
+        let existingSessionIds = [];
+        if (!profile.claudeSessionId) {
+          try {
+            const existing = await invoke("discover_sessions", { projectPath: profile.projectPath });
+            existingSessionIds = existing.map(s => s.sessionId);
+          } catch(e) {}
+        }
+
         const tid = await invoke("spawn_terminal", {
           sessionId: profile.claudeSessionId || null,
           projectPath: spawnPath,
-          contextPrompt: `${profile.purpose}|${profile.title}`,
+          contextPrompt: null,
           onOutput: onOutput,
         });
         entry.terminalId = tid;
@@ -263,17 +272,29 @@
         statusMsg = profile.title;
         showTermEntry(entry);
 
+        // For new sessions: inject purpose prompt via stdin after claude starts
         if (!profile.claudeSessionId) {
+          const prompt = getPurposePrompt(profile.purpose);
+          if (prompt) {
+            setTimeout(async () => {
+              try {
+                await invoke("write_to_terminal", { terminalId: tid, data: prompt + "\n" });
+              } catch(e) {}
+            }, 3000);
+          }
+
+          // Capture the NEW session ID (not an old one)
           setTimeout(async () => {
             try {
-              const sessions = await invoke("discover_sessions", { projectPath: profile.projectPath });
-              if (sessions.length > 0) {
-                await invoke("update_session_id", { id: profile.id, claudeSessionId: sessions[0].sessionId });
-                profile.claudeSessionId = sessions[0].sessionId;
+              const allSessions = await invoke("discover_sessions", { projectPath: profile.projectPath });
+              const newSession = allSessions.find(s => !existingSessionIds.includes(s.sessionId));
+              if (newSession) {
+                await invoke("update_session_id", { id: profile.id, claudeSessionId: newSession.sessionId });
+                profile.claudeSessionId = newSession.sessionId;
                 await loadProfiles();
               }
             } catch(e) {}
-          }, 3000);
+          }, 5000);
         }
 
         entry.fitAddon.fit();
@@ -440,6 +461,17 @@
         .catch(() => {});
     }
     if (typeof localStorage !== 'undefined') localStorage.setItem('clauge-last-seen-version', version);
+  }
+
+  function getPurposePrompt(purpose) {
+    const prompts = {
+      "Brainstorming": "You are in a brainstorming session. Explore multiple approaches, ask clarifying questions, think out loud with tradeoffs and alternatives. Do NOT write code unless explicitly asked. Focus on architecture and strategy. Challenge assumptions.",
+      "Development": "You are in a development session. Write clean working code, follow existing patterns, make small focused changes one at a time. Run tests and verify before moving on. If requirements are unclear, ask.",
+      "Code Review": "You are in a code review session. Review recent changes critically. Check for bugs, security issues, performance problems, edge cases. Reference specific files and lines. Be direct.",
+      "PR Review": "You are in a PR review session. Ask which branch or PR to review. Run git diff to see all changes. Review every file. Check for bugs, security, logic errors. Summarize what the PR does, what's good, what needs fixing.",
+      "Debugging": "You are in a debugging session. Reproduce the issue first. Form a hypothesis then verify with evidence. Do NOT guess fixes. Trace the root cause methodically. Explain root cause before proposing a fix. Verify the fix works.",
+    };
+    return prompts[purpose] || null;
   }
 
   function openExternal(url) {

@@ -161,30 +161,6 @@ You are in a PR review session. Your role:
     }
 }
 
-/// Write a CLAUDE.md file in the session's working directory
-/// Claude Code reads this automatically on every turn
-fn inject_claude_md(working_dir: &str, purpose: &str, _title: &str) -> Result<(), String> {
-    let prompt = get_context_prompt(purpose);
-    if prompt.is_empty() { return Ok(()); }
-
-    let claude_dir = PathBuf::from(working_dir).join(".claude");
-    let _ = std::fs::create_dir_all(&claude_dir);
-    let md_path = claude_dir.join("CLAUDE.md");
-
-    // Don't overwrite if it already exists (user may have customized it)
-    if md_path.exists() {
-        let existing = std::fs::read_to_string(&md_path).unwrap_or_default();
-        if existing.contains("# Session:") {
-            // Our file — safe to update
-            std::fs::write(&md_path, &prompt).map_err(|e| e.to_string())?;
-        }
-        // User's custom file — leave it alone
-    } else {
-        std::fs::write(&md_path, &prompt).map_err(|e| e.to_string())?;
-    }
-
-    Ok(())
-}
 
 // ---------------------------------------------------------------------------
 // Storage helpers
@@ -245,43 +221,6 @@ fn encode_project_path(project_path: &str) -> String {
     project_path.replace('/', "-")
 }
 
-fn discover_claude_session_id(project_path: &str) -> Option<String> {
-    let home = dirs::home_dir()?;
-    let encoded = encode_project_path(project_path);
-    let projects_dir = home.join(".claude").join("projects").join(&encoded);
-
-    if !projects_dir.exists() {
-        return None;
-    }
-
-    let mut best: Option<(String, std::time::SystemTime)> = None;
-
-    if let Ok(entries) = std::fs::read_dir(&projects_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("jsonl") {
-                if let Ok(meta) = path.metadata() {
-                    if let Ok(modified) = meta.modified() {
-                        let session_id = path
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or("")
-                            .to_string();
-                        if let Some((_, best_time)) = &best {
-                            if modified > *best_time {
-                                best = Some((session_id, modified));
-                            }
-                        } else {
-                            best = Some((session_id, modified));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    best.map(|(id, _)| id)
-}
 
 fn now_iso8601() -> String {
     chrono::Utc::now().to_rfc3339()
@@ -362,23 +301,11 @@ fn update_last_used(id: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Refresh claudeSessionId for all profiles that have null session IDs
+/// Get all profiles — no auto-discovery of session IDs
+/// Session IDs are only set when explicitly captured after a session starts
 #[tauri::command]
 fn refresh_session_ids() -> Result<Vec<SessionProfile>, String> {
-    let mut profiles = load_profiles();
-    let mut changed = false;
-    for profile in profiles.iter_mut() {
-        if profile.claude_session_id.is_none() {
-            if let Some(sid) = discover_claude_session_id(&profile.project_path) {
-                profile.claude_session_id = Some(sid);
-                changed = true;
-            }
-        }
-    }
-    if changed {
-        save_profiles(&profiles)?;
-    }
-    Ok(profiles)
+    Ok(load_profiles())
 }
 
 /// Update the claude session ID for a specific profile
@@ -687,7 +614,7 @@ fn spawn_terminal(
     state: State<'_, TerminalState>,
     session_id: Option<String>,
     project_path: String,
-    context_prompt: Option<String>,
+    _context_prompt: Option<String>,
     on_output: Channel<TerminalOutputPayload>,
 ) -> Result<String, String> {
     let terminal_id = Uuid::new_v4().to_string();
@@ -775,19 +702,6 @@ fn spawn_terminal(
             }
         }
     });
-
-    // Inject CLAUDE.md if this is a new session (no session_id = first run)
-    if session_id.is_none() {
-        if let Some(ref prompt) = context_prompt {
-            if !prompt.is_empty() {
-                // prompt format: "purpose|title" — extract and inject CLAUDE.md
-                let parts: Vec<&str> = prompt.splitn(2, '|').collect();
-                if parts.len() == 2 {
-                    let _ = inject_claude_md(&project_path, parts[0], parts[1]);
-                }
-            }
-        }
-    }
 
     let entry = TerminalEntry {
         master: pty_pair.master,
