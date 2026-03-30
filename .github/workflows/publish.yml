@@ -51,12 +51,12 @@ jobs:
           security create-keychain -p "" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "" $KEYCHAIN_PATH
-          security import $CERTIFICATE_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -k "" $KEYCHAIN_PATH
+          security import $CERTIFICATE_PATH -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH > /dev/null 2>&1
+          security set-key-partition-list -S apple-tool:,apple: -k "" $KEYCHAIN_PATH > /dev/null 2>&1
           security list-keychain -d user -s $KEYCHAIN_PATH
+          echo "Certificate imported successfully"
 
       - name: Build, sign and upload
-        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -73,76 +73,3 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
-
-      - name: Sign updater tarball and upload latest.json
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Determine target from args
-          TARGET=$(echo "${{ matrix.args }}" | grep -oP '(?<=--target )\S+')
-          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle/macos"
-          TARBALL="${BUNDLE_DIR}/Clauge.app.tar.gz"
-
-          if [ ! -f "$TARBALL" ]; then
-            echo "Tarball not found at $TARBALL"
-            exit 1
-          fi
-
-          # Sign the tarball
-          echo "Signing $TARBALL..."
-          bun tauri signer sign \
-            --private-key "$TAURI_SIGNING_PRIVATE_KEY" \
-            --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
-            "$TARBALL"
-
-          SIG=$(cat "${TARBALL}.sig")
-          echo "Signature: ${SIG:0:40}..."
-
-          # Determine platform key for latest.json
-          if [[ "$TARGET" == *"aarch64"* ]]; then
-            PLATFORM="darwin-aarch64"
-            ASSET_NAME="Clauge_aarch64.app.tar.gz"
-          else
-            PLATFORM="darwin-x86_64"
-            ASSET_NAME="Clauge_x64.app.tar.gz"
-          fi
-
-          VERSION=$(grep '"version"' src-tauri/tauri.conf.json | head -1 | grep -oP '[\d.]+')
-          TAG="${{ github.ref_name }}"
-          URL="https://github.com/ansxuman/Clauge/releases/download/${TAG}/${ASSET_NAME}"
-
-          # Upload .sig as release asset
-          gh release upload "$TAG" "${TARBALL}.sig#${ASSET_NAME}.sig" --clobber
-
-          # Create or update latest.json
-          # Download existing latest.json if it exists
-          gh release download "$TAG" -p "latest.json" -D /tmp 2>/dev/null || echo '{}' > /tmp/latest.json
-
-          # Build latest.json with jq
-          EXISTING=$(cat /tmp/latest.json)
-          if [ "$EXISTING" = "{}" ] || [ -z "$(echo "$EXISTING" | jq -r '.version // empty' 2>/dev/null)" ]; then
-            # Create new
-            jq -n \
-              --arg version "$VERSION" \
-              --arg notes "See the assets to download and install." \
-              --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-              --arg url "$URL" \
-              --arg sig "$SIG" \
-              --arg platform "$PLATFORM" \
-              '{version: $version, notes: $notes, pub_date: $pub_date, platforms: {($platform): {signature: $sig, url: $url}}}' \
-              > /tmp/latest.json
-          else
-            # Merge platform into existing
-            jq \
-              --arg url "$URL" \
-              --arg sig "$SIG" \
-              --arg platform "$PLATFORM" \
-              '.platforms[$platform] = {signature: $sig, url: $url}' \
-              /tmp/latest.json > /tmp/latest_updated.json
-            mv /tmp/latest_updated.json /tmp/latest.json
-          fi
-
-          echo "latest.json:"
-          cat /tmp/latest.json
-
-          gh release upload "$TAG" /tmp/latest.json --clobber
