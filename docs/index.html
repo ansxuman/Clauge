@@ -76,7 +76,7 @@
                         </a>
                     </div>
                     <p class="hero-meta reveal reveal-delay-3">
-                        macOS only &middot; ~7MB &middot; Apache 2.0
+                        macOS only &middot; ~7MB &middot; Apache 2.0 &middot; <a href="#" class="intel-link" style="display:none;">Intel Mac?</a>
                     </p>
                 </div>
                 <div class="hero-right reveal reveal-delay-1">
@@ -704,9 +704,8 @@
                     <span class="dl-text">Download for macOS</span>
                 </a>
                 <p class="below-btn">
-                    <a href="https://github.com/ansxuman/Clauge"
-                        >View source on GitHub</a
-                    >
+                    <a href="https://github.com/ansxuman/Clauge">View source on GitHub</a>
+                    &middot; <a href="#" class="intel-link" style="display:none;">Intel Mac?</a>
                 </p>
             </div>
         </section>
@@ -824,7 +823,7 @@
                 { passive: true },
             );
 
-            // Direct download — detect arch and link to the right DMG
+            // Direct download — default to Apple Silicon, show Intel link
             (async function () {
                 try {
                     const resp = await fetch(
@@ -832,37 +831,22 @@
                     );
                     if (!resp.ok) return;
                     const release = await resp.json();
-                    // Default to Apple Silicon — most Macs since 2020 are ARM
-                    // Use userAgentData for Chrome/Edge, fallback to aarch64
-                    let isArm = true;
-                    try {
-                        const ua = await navigator.userAgentData?.getHighEntropyValues(["architecture"]);
-                        if (ua?.architecture && ua.architecture !== "arm") isArm = false;
-                    } catch(_) {}
-                    const dmg =
-                        (release.assets || []).find(
-                            (a) =>
-                                a.name.endsWith(".dmg") &&
-                                (isArm
-                                    ? a.name.includes("aarch64")
-                                    : a.name.includes("x64") ||
-                                      a.name.includes("x86_64")),
-                        ) ||
-                        (release.assets || []).find((a) =>
-                            a.name.endsWith(".dmg"),
-                        );
+                    const assets = release.assets || [];
+                    const armDmg = assets.find(a => a.name.endsWith(".dmg") && a.name.includes("aarch64"));
+                    const intelDmg = assets.find(a => a.name.endsWith(".dmg") && (a.name.includes("x64") || a.name.includes("x86_64")));
+                    const version = release.tag_name;
 
-                    if (dmg) {
-                        const url = dmg.browser_download_url;
-                        const version = release.tag_name;
-                        const arch = isArm ? "Apple Silicon" : "Intel";
-                        document
-                            .querySelectorAll("#hero-download, #cta-download")
-                            .forEach((el) => {
-                                el.href = url;
-                                el.querySelector(".dl-text").textContent =
-                                    `Download ${version} (${arch})`;
-                            });
+                    if (armDmg) {
+                        document.querySelectorAll("#hero-download, #cta-download").forEach(el => {
+                            el.href = armDmg.browser_download_url;
+                            el.querySelector(".dl-text").textContent = `Download ${version} (Apple Silicon)`;
+                        });
+                    }
+                    if (intelDmg) {
+                        document.querySelectorAll(".intel-link").forEach(el => {
+                            el.href = intelDmg.browser_download_url;
+                            el.style.display = "inline";
+                        });
                     }
                 } catch (e) {}
             })();

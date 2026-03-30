@@ -215,6 +215,8 @@ header .inner {
   font-family: var(--font-mono);
   letter-spacing: 0.5px;
 }
+.intel-link { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
+.intel-link:hover { color: var(--text); }
 
 /* ─── Hero app mockup ─── */
 .hero-mockup {
