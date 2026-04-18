@@ -84,12 +84,13 @@
   let activeTermEntry = null;
 
   // Shell terminal management — one shell per profile
-  let shellOpen = $state(false);
+  let shellOpenMap = $state({}); // profileId → boolean
+  let shellOpen = $derived(activeProfile ? (shellOpenMap[activeProfile.id] ?? false) : false);
   let shellEl;
   let wrapperEl;
   const shellMap = new Map(); // profileId → { term, fitAddon, container, terminalId }
   let activeShellEntry = null;
-  let shellWidthMap = {};  // profileId → width percent
+  let shellWidthMap = $state({});  // profileId → width percent
   let isDraggingDivider = $state(false);
   let focusedPanel = $state('claude'); // 'claude' | 'shell'
 
@@ -169,9 +170,9 @@
     accentColor = color;
     localStorage.setItem('clauge-accent', color);
     document.documentElement.style.setProperty('--accent', color);
-    for (const [, entry] of terminalMap) {
-      if (entry.term) entry.term.options.theme = { ...themes[currentTheme].termTheme, cursor: color };
-    }
+    const theme = { ...themes[currentTheme].termTheme, cursor: color };
+    for (const [, entry] of terminalMap) { if (entry.term) entry.term.options.theme = theme; }
+    for (const [, entry] of shellMap) { if (entry.term) entry.term.options.theme = theme; }
   }
 
   async function loadProfiles() {
@@ -182,12 +183,29 @@
     }
   }
 
-  function createTermEntry(profileId) {
-    const t = new Terminal({
+  // Terminal font/opacity settings (persisted)
+  let termFontSize = $state(typeof localStorage !== 'undefined' ? parseInt(localStorage.getItem('clauge-font-size') || '13') : 13);
+
+  function getTermConfig() {
+    return {
       theme: { ...themes[currentTheme].termTheme, cursor: accentColor },
-      fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
-      fontSize: 13, lineHeight: 1.4, cursorBlink: true, cursorStyle: "bar", scrollback: 10000,
-    });
+      fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", "Source Code Pro", "IBM Plex Mono", "Menlo", "Monaco", "Consolas", monospace',
+      fontSize: termFontSize, lineHeight: 1.4, cursorBlink: true, cursorStyle: "bar",
+      scrollback: 10000,
+    };
+  }
+
+  async function loadWebGLAddon(term) {
+    try {
+      const { WebglAddon } = await import("@xterm/addon-webgl");
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => { webgl.dispose(); });
+      term.loadAddon(webgl);
+    } catch(_) {} // Falls back to canvas renderer silently
+  }
+
+  function createTermEntry(profileId) {
+    const t = new Terminal(getTermConfig());
     const fa = new FitAddon();
     t.loadAddon(fa);
 
@@ -195,6 +213,7 @@
     container.style.cssText = "width:100%;height:100%;display:none;";
     terminalEl.appendChild(container);
     t.open(container);
+    loadWebGLAddon(t);
 
     t.onData((data) => {
       const entry = terminalMap.get(profileId);
@@ -211,19 +230,21 @@
   }
 
   function showTermEntry(entry) {
-    if (activeTermEntry && activeTermEntry !== entry) activeTermEntry.container.style.display = "none";
+    if (activeTermEntry && activeTermEntry !== entry) {
+      activeTermEntry.container.style.display = "none";
+      // Reduce scrollback on inactive terminal to save memory
+      try { activeTermEntry.term.options.scrollback = 1000; } catch(_) {}
+    }
     entry.container.style.display = "block";
+    // Restore full scrollback on active terminal
+    try { entry.term.options.scrollback = 10000; } catch(_) {}
     activeTermEntry = entry;
     currentTerminalId = entry.terminalId;
     requestAnimationFrame(() => { try { entry.fitAddon.fit(); } catch(_) {} });
   }
 
   function createShellEntry(profileId) {
-    const t = new Terminal({
-      theme: { ...themes[currentTheme].termTheme, cursor: accentColor },
-      fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
-      fontSize: 13, lineHeight: 1.4, cursorBlink: true, cursorStyle: "bar", scrollback: 5000,
-    });
+    const t = new Terminal({ ...getTermConfig(), scrollback: 5000 });
     const fa = new FitAddon();
     t.loadAddon(fa);
 
@@ -231,14 +252,24 @@
     container.style.cssText = "width:100%;height:100%;display:none;";
     shellEl.appendChild(container);
     t.open(container);
+    loadWebGLAddon(t);
 
     t.onData((data) => {
       const sEntry = shellMap.get(profileId);
       if (sEntry?.terminalId) {
         invoke("write_to_terminal", { terminalId: sEntry.terminalId, data }).catch(() => {
-          // Shell process died — mark for respawn
+          // Shell process died — close shell panel
           sEntry.terminalId = null;
-          sEntry.term.write("\r\n\x1b[2m[shell exited — press Cmd+L to reopen]\x1b[0m\r\n");
+          if (activeProfile) {
+            shellOpenMap[activeProfile.id] = false;
+            shellOpenMap = {...shellOpenMap};
+            // Refit Claude terminal to full width with PTY resize
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                handleWindowResize();
+              });
+            });
+          }
         });
       }
     });
@@ -253,8 +284,12 @@
   }
 
   function showShellEntry(sEntry) {
-    if (activeShellEntry && activeShellEntry !== sEntry) activeShellEntry.container.style.display = "none";
+    if (activeShellEntry && activeShellEntry !== sEntry) {
+      activeShellEntry.container.style.display = "none";
+      try { activeShellEntry.term.options.scrollback = 500; } catch(_) {}
+    }
     sEntry.container.style.display = "block";
+    try { sEntry.term.options.scrollback = 5000; } catch(_) {}
     activeShellEntry = sEntry;
     requestAnimationFrame(() => { try { sEntry.fitAddon.fit(); } catch(_) {} });
   }
@@ -298,7 +333,7 @@
     document.body.style.userSelect = 'none';
     isDraggingDivider = true;
 
-    let rafId = null;
+    let fitTimer = null;
     function onMove(ev) {
       const rect = wrapper.getBoundingClientRect();
       const x = ev.clientX - rect.left;
@@ -307,8 +342,14 @@
         shellWidthMap[activeProfile.id] = Math.max(20, Math.min(80, 100 - pct));
         shellWidthMap = {...shellWidthMap};
       }
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => handleWindowResize());
+      // Throttle fit calls to every 100ms during drag — prevents xterm jank
+      if (!fitTimer) {
+        fitTimer = setTimeout(() => {
+          fitTimer = null;
+          try { activeTermEntry?.fitAddon?.fit(); } catch(_) {}
+          try { activeShellEntry?.fitAddon?.fit(); } catch(_) {}
+        }, 100);
+      }
     }
 
     function onUp() {
@@ -317,9 +358,12 @@
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       isDraggingDivider = false;
+      if (fitTimer) { clearTimeout(fitTimer); fitTimer = null; }
+      // Final fit + PTY resize after drag ends
       requestAnimationFrame(() => {
-        try { activeTermEntry?.fitAddon?.fit(); } catch(_) {}
-        try { activeShellEntry?.fitAddon?.fit(); } catch(_) {}
+        requestAnimationFrame(() => {
+          handleWindowResize();
+        });
       });
     }
 
@@ -329,8 +373,12 @@
 
   async function toggleShell() {
     if (!activeProfile && !shellOpen) return;
-    shellOpen = !shellOpen;
-    if (shellOpen && activeProfile) {
+    const newState = !shellOpen;
+    if (activeProfile) {
+      shellOpenMap[activeProfile.id] = newState;
+      shellOpenMap = {...shellOpenMap};
+    }
+    if (newState && activeProfile) {
       // Wait for DOM to render the shell panel
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -448,21 +496,41 @@
           // Detect action-required prompts and notify if window not focused
           checkForActionPrompt(payload.data, profile.title);
           // Detect Claude session exit (Ctrl+C, exit, /exit)
+          // Buffer recent output to catch multi-chunk patterns
+          if (!entry._exitBuffer) entry._exitBuffer = '';
           try {
             const text = atob(payload.data);
-            if (/Resume this session with:/.test(text)) {
+            entry._exitBuffer += text;
+            // Keep buffer small — only last 500 chars
+            if (entry._exitBuffer.length > 500) entry._exitBuffer = entry._exitBuffer.slice(-500);
+            // Strip ANSI codes for matching
+            const clean = entry._exitBuffer.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\x1b\][^\x07]*\x07/g, '');
+
+            if (/Resume this session with:/.test(clean) || /claude --resume [a-f0-9-]+/.test(clean)) {
               entry.terminalId = null;
-              const resumeMatch = text.match(/claude --resume ([a-f0-9-]+)/);
+              entry._exitBuffer = '';
+              const resumeMatch = clean.match(/claude --resume ([a-f0-9-]+)/);
               if (resumeMatch && !profile.claudeSessionId) {
                 const extractedSessionId = resumeMatch[1];
                 invoke("update_session_id", { id: profile.id, claudeSessionId: extractedSessionId }).then(() => {
                   profile.claudeSessionId = extractedSessionId;
                   loadProfiles();
-                  console.log("[Clauge] Session ID captured on exit:", extractedSessionId);
                 }).catch(() => {});
               }
               sessionActivity[profileId] = 'done';
               sessionActivity = { ...sessionActivity };
+              // Auto-close: hide terminal, switch to another session or show empty state
+              entry.container.style.display = "none";
+              if (activeProfile?.id === profileId) {
+                const otherProfile = profiles.find(p => p.id !== profileId && terminalMap.get(p.id)?.terminalId);
+                if (otherProfile) {
+                  selectProfile(otherProfile);
+                } else {
+                  activeProfile = null;
+                  activeTermEntry = null;
+                  currentTerminalId = null;
+                }
+              }
             }
           } catch(_) {}
           // Track activity for background sessions
@@ -611,6 +679,10 @@
       activeShellEntry = null;
       currentTerminalId = null;
     }
+    delete shellOpenMap[deletedId];
+    delete shellWidthMap[deletedId];
+    shellOpenMap = {...shellOpenMap};
+    shellWidthMap = {...shellWidthMap};
 
     deleteConfirm = null;
     await loadProfiles();
@@ -873,6 +945,7 @@ Anti-patterns to avoid:
 
   // Notification for action-required prompts
   let lastNotifyTime = 0;
+  let soundRepeatInterval = null;
   let outputBuffer = '';
   let bufferTimer = null;
 
@@ -919,6 +992,12 @@ Anti-patterns to avoid:
           getCurrentWindow().requestUserAttention(UserAttentionType.Critical);
         }).catch(() => {});
         playNotificationSound();
+        // Repeat sound every 3s until focused
+        if (soundRepeatInterval) clearInterval(soundRepeatInterval);
+        soundRepeatInterval = setInterval(() => {
+          if (document.hasFocus()) { clearInterval(soundRepeatInterval); soundRepeatInterval = null; return; }
+          playNotificationSound();
+        }, 3000);
       }
     }
   }
@@ -1361,6 +1440,24 @@ Anti-patterns to avoid:
         </div>
       </div>
 
+      <div class="stg-section">
+        <div class="stg-section-label">Terminal</div>
+        <div class="stg-field">
+          <span class="stg-label">Font Size</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="range" min="10" max="18" step="1" bind:value={termFontSize} class="stg-range"
+              oninput={(e) => {
+                const size = parseInt(e.target.value);
+                termFontSize = size;
+                localStorage.setItem('clauge-font-size', String(size));
+                for (const [, en] of terminalMap) { if (en.term) { en.term.options.fontSize = size; try { en.fitAddon.fit(); } catch(_) {} } }
+                for (const [, en] of shellMap) { if (en.term) { en.term.options.fontSize = size; try { en.fitAddon.fit(); } catch(_) {} } }
+              }} />
+            <span style="font-size:11px;color:var(--text-secondary);width:24px;text-align:right;font-variant-numeric:tabular-nums;">{termFontSize}px</span>
+          </div>
+        </div>
+      </div>
+
     {:else if settingsTab === 'usage'}
       {#if sessionKeyConfigured}
         <div class="key-status">
@@ -1763,8 +1860,10 @@ Anti-patterns to avoid:
   .stg-content { flex: 1; padding: 20px 24px; overflow-y: auto; min-width: 0; }
   .stg-section { margin-bottom: 20px; }
   .stg-section-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
-  .stg-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .stg-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
   .stg-label { font-size: 12px; color: var(--text-secondary); }
+  .stg-range { -webkit-appearance: none; width: 100px; height: 4px; border-radius: 2px; background: var(--border); outline: none; cursor: pointer; }
+  .stg-range::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; border: 2px solid var(--sidebar-bg); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 
   .plugins-list { display: flex; flex-direction: column; gap: 6px; }
   .plugin-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: rgba(255,255,255,0.02); transition: background 0.1s; }
