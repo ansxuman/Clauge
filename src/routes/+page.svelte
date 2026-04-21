@@ -92,9 +92,11 @@
   let modalSelectedSession = $state("");
   let modalCustomPrompt = $state("");
   let modalClaudePath = $state("");
+  let modalClaudePathEnabled = $state(false);
 
   // Global settings (disk-backed) + UI-only defaults (localStorage)
   let globalSettings = $state({ claudePath: null, defaultSkipPermissions: false });
+  let settingsClaudePathEnabled = $state(false);
   let defaultPurpose = $state(
     typeof localStorage !== 'undefined' ? (localStorage.getItem('clauge.defaultPurpose') || '') : ''
   );
@@ -106,6 +108,7 @@
         claudePath: s?.claudePath ?? null,
         defaultSkipPermissions: s?.defaultSkipPermissions ?? false,
       };
+      settingsClaudePathEnabled = !!globalSettings.claudePath;
     } catch(e) { /* keep defaults */ }
   }
 
@@ -560,7 +563,7 @@
       }
       showModal = false;
       modalPath = ""; modalTitle = ""; modalPurpose = ""; modalSkipPermissions = false;
-      modalExistingSessions = []; modalSelectedSession = ""; modalCustomPrompt = ""; modalClaudePath = "";
+      modalExistingSessions = []; modalSelectedSession = ""; modalCustomPrompt = ""; modalClaudePath = ""; modalClaudePathEnabled = false;
       await loadProfiles();
       await selectProfile(profile);
     } catch (e) { statusMsg = "Create failed: " + e; }
@@ -677,7 +680,7 @@
     }
     if (e.metaKey && e.key === 'b') { e.preventDefault(); toggleSidebar(); }
     if (e.metaKey && e.key === 'l') { e.preventDefault(); toggleShell(); }
-    if (e.key === 'Escape') { showModal = false; showSettings = false; modalExistingSessions = []; modalSelectedSession = ""; modalCustomPrompt = ""; modalClaudePath = ""; }
+    if (e.key === 'Escape') { showModal = false; showSettings = false; modalExistingSessions = []; modalSelectedSession = ""; modalCustomPrompt = ""; modalClaudePath = ""; modalClaudePathEnabled = false; }
   }
 
   function handleWindowResize() {
@@ -1161,7 +1164,7 @@ Anti-patterns to avoid:
 
 {#if showModal}
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-<div class="modal-backdrop" onclick={(e) => { if (e.target === e.currentTarget) { showModal = false; modalExistingSessions = []; modalSelectedSession = ""; modalCustomPrompt = ""; modalClaudePath = ""; } }}>
+<div class="modal-backdrop" onclick={(e) => { if (e.target === e.currentTarget) { showModal = false; modalExistingSessions = []; modalSelectedSession = ""; modalCustomPrompt = ""; modalClaudePath = ""; modalClaudePathEnabled = false; } }}>
   <div class="modal">
     <h2>New Session</h2>
     <label>Project Folder
@@ -1203,12 +1206,19 @@ Anti-patterns to avoid:
         <textarea class="custom-prompt" bind:value={modalCustomPrompt} placeholder="e.g. Focus on performance optimization, avoid breaking changes..." rows="3"></textarea>
       </label>
     {/if}
-    <label>Claude Binary Path <span style="font-size:10px;color:var(--text-secondary);font-weight:normal;">(optional, overrides auto-detect)</span>
-      <div class="row">
+    <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+    <div class="toggle-row">
+      <span class="toggle-label">Custom Claude binary</span>
+      <button class="toggle-switch" class:on={modalClaudePathEnabled} onclick={() => { modalClaudePathEnabled = !modalClaudePathEnabled; if (!modalClaudePathEnabled) modalClaudePath = ''; }}>
+        <span class="toggle-knob"></span>
+      </button>
+    </div>
+    {#if modalClaudePathEnabled}
+      <div class="row" style="margin-top:6px;">
         <input bind:value={modalClaudePath} placeholder="/usr/local/bin/claude" />
         <button onclick={browseClaudePath}>Browse</button>
       </div>
-    </label>
+    {/if}
     <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
     <div class="toggle-row">
       <span class="toggle-label">Skip permissions
@@ -1219,7 +1229,7 @@ Anti-patterns to avoid:
       </button>
     </div>
     <div class="modal-actions">
-      <button onclick={() => { showModal = false; modalExistingSessions = []; modalSelectedSession = ""; modalCustomPrompt = ""; modalClaudePath = ""; }}>Cancel</button>
+      <button onclick={() => { showModal = false; modalExistingSessions = []; modalSelectedSession = ""; modalCustomPrompt = ""; modalClaudePath = ""; modalClaudePathEnabled = false; }}>Cancel</button>
       <button class="create-btn" disabled={!modalPath || !modalTitle || !modalPurpose} onclick={createSession}>Create</button>
     </div>
   </div>
@@ -1236,17 +1246,24 @@ Anti-patterns to avoid:
     </div>
 
     {#if settingsTab === 'settings'}
-      <label>Claude Binary Path <span style="font-size:10px;color:var(--text-secondary);font-weight:normal;">(global fallback, empty = auto-detect)</span>
-        <div class="row">
+      <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+      <div class="toggle-row">
+        <span class="toggle-label">Custom Claude binary path</span>
+        <button class="toggle-switch" class:on={settingsClaudePathEnabled} onclick={() => { settingsClaudePathEnabled = !settingsClaudePathEnabled; if (!settingsClaudePathEnabled) { globalSettings.claudePath = null; persistGlobalSettings(); } }}>
+          <span class="toggle-knob"></span>
+        </button>
+      </div>
+      {#if settingsClaudePathEnabled}
+        <div class="row" style="margin-top:6px;">
           <input
             bind:value={globalSettings.claudePath}
-            placeholder="auto-detect"
+            placeholder="/usr/local/bin/claude"
             onblur={persistGlobalSettings}
             onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); persistGlobalSettings(); } }}
           />
           <button onclick={browseSettingsClaudePath}>Browse</button>
         </div>
-      </label>
+      {/if}
 
       <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
       <div class="toggle-row">

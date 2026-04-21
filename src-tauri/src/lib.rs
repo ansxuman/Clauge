@@ -210,8 +210,15 @@ fn load_settings() -> GlobalSettings {
         return GlobalSettings::default();
     }
     match std::fs::read_to_string(&path) {
-        Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
-        Err(_) => GlobalSettings::default(),
+        Ok(contents) => serde_json::from_str(&contents).unwrap_or_else(|e| {
+            eprintln!("[Clauge] Failed to parse settings.json: {} — using defaults", e);
+            let _ = std::fs::rename(&path, path.with_extension("json.bak"));
+            GlobalSettings::default()
+        }),
+        Err(e) => {
+            eprintln!("[Clauge] Failed to read settings.json: {}", e);
+            GlobalSettings::default()
+        }
     }
 }
 
