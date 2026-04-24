@@ -8,3 +8,4 @@ pub mod nosql_client;
 pub mod settings;
 pub mod sql_client;
 pub mod ai;
+pub mod agent_models;
