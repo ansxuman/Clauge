@@ -356,7 +356,29 @@
     try {
       await agentUpdateLastUsed(session.id);
 
-      const spawnPath = session.worktreePath || session.projectPath;
+      let spawnPath = session.worktreePath || session.projectPath;
+
+      // TODO: inject_session_context backend command needed — when session is selected,
+      // call agentGetSessionContexts(session.id) and inject contexts into CLAUDE.md
+
+      // Auto-create worktree for new sessions in git repos
+      if (!session.worktreePath && !session.claudeSessionId) {
+        try {
+          const isGit = await agentIsGitRepo(session.projectPath);
+          if (isGit) {
+            const rawBranch = `clauge/${session.purpose.toLowerCase().replace(/\s+/g, '-')}-${session.title.toLowerCase().replace(/\s+/g, '-')}`;
+            const branchName = rawBranch.replace(/[^a-zA-Z0-9/_\-.]/g, '').replace(/\.{2,}/g, '.').replace(/\.lock/g, '');
+            const worktreePath = await agentCreateWorktree(session.projectPath, branchName);
+            spawnPath = worktreePath;
+            await agentUpdateWorktree(session.id, worktreePath, branchName);
+            session.worktreePath = worktreePath;
+            session.worktreeBranch = branchName;
+            await loadAgentSessions();
+          }
+        } catch (e) {
+          console.warn('Worktree creation failed, using original path:', e);
+        }
+      }
 
       // Get existing session IDs BEFORE spawning
       let existingSessionIds: string[] = [];

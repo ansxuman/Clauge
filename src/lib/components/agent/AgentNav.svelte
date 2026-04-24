@@ -90,6 +90,14 @@
     return $agentSessionActivity.get(sessionId) ?? null;
   }
 
+  function relativeTime(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return `${Math.floor(diff / 86400000)}d ago`;
+  }
+
   function showSessionMenu(e: MouseEvent, session: AgentSession) {
     e.preventDefault();
     e.stopPropagation();
@@ -168,7 +176,13 @@
             oncontextmenu={(e) => showSessionMenu(e, session)}
           >
             <span class="purpose-dot" style="background:{purposeColor(session.purpose)}"></span>
-            <span class="session-title">{session.title}</span>
+            <div class="session-info">
+              <span class="session-title">{session.title}</span>
+              <span class="session-time">{relativeTime(session.lastUsedAt)}</span>
+            </div>
+            {#if session.worktreePath}
+              <span class="wt-badge">WT</span>
+            {/if}
             {#if pct !== null}
               <span class="ctx-badge {contextClass(pct)}">{pct}%</span>
             {/if}
@@ -291,7 +305,7 @@
   /* Session item */
   .session-item {
     width: 100%;
-    height: 30px;
+    min-height: 34px;
     border: none;
     background: transparent;
     display: flex;
@@ -311,6 +325,14 @@
     flex-shrink: 0;
   }
 
+  .session-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 1px;
+  }
+
   .session-title {
     font-family: var(--ui);
     font-size: 12px;
@@ -318,9 +340,27 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
   }
   .session-item.active .session-title { color: var(--t1); }
+
+  .session-time {
+    font-family: var(--ui);
+    font-size: 9px;
+    color: var(--t4);
+    white-space: nowrap;
+  }
+
+  .wt-badge {
+    font-size: 8px;
+    font-family: var(--mono);
+    font-weight: 700;
+    color: var(--acc, #7c5cf8);
+    background: rgba(124, 92, 248, 0.12);
+    padding: 1px 4px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    letter-spacing: 0.03em;
+  }
 
   /* Context usage badge */
   .ctx-badge {
