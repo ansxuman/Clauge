@@ -181,7 +181,7 @@
       case 'sync': activeModal.set('github'); break;
       case 'settings': activeModal.set('settings'); break;
       case 'check-updates': handleCheckForUpdates(); break;
-      case 'whats-new': openExternal('https://clauge.dev/changelog.html'); break;
+      case 'whats-new': openExternal('https://clauge.ssh-i.in/changelog.html'); break;
       case 'report': openExternal('https://github.com/ansxuman/Clauge/issues/new'); break;
       case 'coffee': openExternal('https://buymeacoffee.com/ansxuman'); break;
       case 'about': activeModal.set('settings'); break;
@@ -238,8 +238,8 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <div class="profile-menu" onclick={(e: MouseEvent) => e.stopPropagation()}>
+          <!-- TEMP: GitHub connect/sync hidden — re-enable when sync flow is finalized.
           {#if $githubConnected}
-            <!-- Sync status -->
             <div class="pm-sync-status">
               <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z"/><path d="M7.5 12l3 3 6-6"/></svg>
               <span class="pm-sync-label">All Data Synced</span>
@@ -247,12 +247,10 @@
                 <span class="pm-sync-time">· {formatSyncTime($lastSyncedAt)}</span>
               {/if}
             </div>
-            <!-- Sync Now -->
             <button class="pm-item" onclick={() => { handleSyncNow(); }}>
               <svg class:pm-spinning={$syncing} viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
               {$syncing ? 'Syncing...' : 'Sync Now'}
             </button>
-            <!-- GitHub user -->
             <button class="pm-item" onclick={() => openExternal(`https://github.com/${$githubUsername}`)}>
               <svg class="gh-icon" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
               <span class="pm-gh-user">@{$githubUsername}</span>
@@ -265,6 +263,8 @@
             </button>
           {/if}
           <div class="pm-sep"></div>
+          -->
+
           <button class="pm-item" onclick={() => handleProfileAction('settings')}>
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/></svg>
             Settings

@@ -12,9 +12,9 @@
   async function handleWhatsNew() {
     try {
       const { openUrl } = await import('@tauri-apps/plugin-opener');
-      await openUrl('https://clauge.dev/changelog.html');
+      await openUrl('https://clauge.ssh-i.in/changelog.html');
     } catch {
-      window.open('https://clauge.dev/changelog.html', '_blank');
+      window.open('https://clauge.ssh-i.in/changelog.html', '_blank');
     }
   }
 

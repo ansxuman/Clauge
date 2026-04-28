@@ -1444,7 +1444,7 @@
               <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               <span>Developer</span>
             </a>
-            <a class="about-link-btn" href="https://clauge.dev" target="_blank" rel="noopener" title="Website">
+            <a class="about-link-btn" href="https://clauge.ssh-i.in/" target="_blank" rel="noopener" title="Website">
               <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
               <span>Website</span>
             </a>

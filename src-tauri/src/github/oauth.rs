@@ -113,7 +113,7 @@ pub fn github_get_oauth_url() -> String {
         "{}?client_id={}&redirect_uri={}&scope=gist",
         GITHUB_OAUTH_URL,
         GITHUB_CLIENT_ID,
-        "https://clauge.dev/auth/callback"
+        "https://clauge.ssh-i.in/auth/callback"
     )
 }
 

@@ -55,7 +55,11 @@ pub fn agent_spawn_terminal(
 
     let user_shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
     let mut cmd = CommandBuilder::new(&user_shell);
-    cmd.arg("-l"); cmd.arg("-c"); cmd.arg(&claude_cmd);
+    // -l (login) sources ~/.zprofile, but nvm/fnm/asdf set up node on PATH inside
+    // ~/.zshrc which only loads under -i (interactive). Without -i, Claude Code's
+    // node-based hooks fail with "node: command not found" even though the user's
+    // Terminal works fine. resolve_claude_path() above already uses -l -i -c.
+    cmd.arg("-l"); cmd.arg("-i"); cmd.arg("-c"); cmd.arg(&claude_cmd);
     cmd.cwd(&project_path);
     if let Some(home) = dirs::home_dir() { cmd.env("HOME", home.to_string_lossy().to_string()); }
     cmd.env("TERM", "xterm-256color");
