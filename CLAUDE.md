@@ -3,7 +3,7 @@
 > Read this BEFORE editing any file in this repo. These rules govern every change, regardless of who or what is editing.
 >
 > Pair docs (read alongside this file):
-> - `/Users/macbook/Personal/Ctx/PROJECT.md` — current architecture snapshot. **Lives outside this repo**, in the user's personal context store. It describes the post-refactor reality (modes/, shared/, repos, registries, CLI trait, credential store, schema, behaviors).
+> - `/Users/macbook/Personal/Ctx/CLAUGE_ARCHITECTURE.md` — current architecture snapshot. **Lives outside this repo**, in the user's personal context store. It describes the post-refactor reality (modes/, shared/, repos, registries, CLI trait, credential store, schema, behaviors).
 
 This file describes the codebase **as it stands** after the Wave 1–4A refactor completed 2026-04-29. The refactor is done; the structure is settled. New work extends what's here, it doesn't re-shape it.
 
@@ -156,6 +156,6 @@ Never use `--no-verify`, `--no-gpg-sign`, or skip hooks.
 
 ## 9. When in doubt
 
-1. Read `/Users/macbook/Personal/Ctx/PROJECT.md` — current architecture snapshot.
+1. Read `/Users/macbook/Personal/Ctx/CLAUGE_ARCHITECTURE.md` — current architecture snapshot.
 2. Open the active mode folder (`src/lib/modes/<mode>/` and `src-tauri/src/modes/<mode>/`) — the slice tells you the patterns in use.
 3. If a new pattern is needed (new top-level folder, new registry, new shared concept), **ask before introducing it.** The shared kernel is intentionally thin.
