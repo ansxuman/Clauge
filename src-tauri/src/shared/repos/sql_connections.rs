@@ -24,6 +24,19 @@ pub async fn get_by_id(
         .await
 }
 
+/// Variant of [`get_by_id`] that returns `Ok(None)` when no row matches, instead
+/// of `Err(sqlx::Error::RowNotFound)`. Useful for callers that want to fall back
+/// to a different lookup path on a missing id.
+pub async fn get_by_id_optional(
+    pool: &SqlitePool,
+    id: &str,
+) -> Result<Option<SqlSavedConnection>, sqlx::Error> {
+    sqlx::query_as::<_, SqlSavedConnection>("SELECT * FROM sql_connections WHERE id = ?")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+}
+
 pub async fn max_sort_order(pool: &SqlitePool) -> Result<(i32,), sqlx::Error> {
     sqlx::query_as("SELECT COALESCE(MAX(sort_order), -1) FROM sql_connections")
         .fetch_one(pool)

@@ -42,25 +42,23 @@ async fn ensure_pool(
     }
 
     // Pool not found — try to auto-connect using saved connection config
-    let saved = sqlx::query_as::<_, (String, String, String, i32, String, String, String, i32)>(
-        "SELECT id, driver, host, port, database_name, username, password, ssl FROM sql_connections WHERE id = ?"
-    )
-    .bind(saved_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| format!("DB error: {}", e))?;
+    let saved = crate::shared::repos::sql_connections::get_by_id_optional(pool, saved_id)
+        .await
+        .map_err(|e| format!("DB error: {}", e))?;
 
-    if let Some((_id, driver, host, port, db_name, username, password, ssl)) = saved {
-        let target_db = database.unwrap_or(&db_name);
+    if let Some(saved) = saved {
+        let target_db = database.unwrap_or(&saved.database_name);
+        let host = saved.host.clone();
+        let port = saved.port;
         let config = crate::modes::sql::client::SqlConnectionConfig {
             name: String::new(),
-            driver,
-            host: host.clone(),
-            port: port as u16,
+            driver: saved.driver,
+            host: saved.host,
+            port: saved.port as u16,
             database: target_db.to_string(),
-            username,
-            password,
-            ssl: ssl == 1,
+            username: saved.username,
+            password: saved.password,
+            ssl: saved.ssl == 1,
         };
 
         let new_pool = crate::modes::sql::client::create_pool(&config).await
@@ -90,24 +88,20 @@ pub async fn execute_sql_tool(
 ) -> String {
     match tool_name {
         "list_connections" => {
-            let conns = sqlx::query_as::<_, (String, String, String, String, i32, String)>(
-                "SELECT id, name, driver, host, port, database_name FROM sql_connections ORDER BY sort_order ASC",
-            )
-            .fetch_all(pool)
-            .await;
+            let conns = crate::shared::repos::sql_connections::list_all(pool).await;
 
             match conns {
                 Ok(rows) => {
                     let result: Vec<serde_json::Value> = rows
                         .iter()
-                        .map(|(id, name, driver, host, port, db)| {
+                        .map(|c| {
                             serde_json::json!({
-                                "id": id,
-                                "name": name,
-                                "driver": driver,
-                                "host": host,
-                                "port": port,
-                                "database": db,
+                                "id": c.id,
+                                "name": c.name,
+                                "driver": c.driver,
+                                "host": c.host,
+                                "port": c.port,
+                                "database": c.database_name,
                                 "note": "Use the connection_id from <context> envVars for tool calls, not this id. This is the saved config ID.",
                             })
                         })
