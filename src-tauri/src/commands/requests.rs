@@ -4,6 +4,7 @@ use tauri::State;
 use uuid::Uuid;
 
 use crate::db::models::{Request, RequestHeader, RequestParam};
+use crate::shared::repos::requests as requests_repo;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,13 +39,9 @@ pub async fn list_requests(
     pool: State<'_, SqlitePool>,
     collection_id: String,
 ) -> Result<Vec<Request>, String> {
-    sqlx::query_as::<_, Request>(
-        "SELECT * FROM requests WHERE collection_id = ? ORDER BY sort_order ASC",
-    )
-    .bind(&collection_id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())
+    requests_repo::list_by_collection(pool.inner(), &collection_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -52,27 +49,17 @@ pub async fn get_request(
     pool: State<'_, SqlitePool>,
     id: String,
 ) -> Result<RequestWithDetails, String> {
-    let request = sqlx::query_as::<_, Request>("SELECT * FROM requests WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    let request = requests_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())?;
 
-    let headers = sqlx::query_as::<_, RequestHeader>(
-        "SELECT * FROM request_headers WHERE request_id = ? ORDER BY sort_order ASC",
-    )
-    .bind(&id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let headers = requests_repo::list_headers(pool.inner(), &id)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    let params = sqlx::query_as::<_, RequestParam>(
-        "SELECT * FROM request_params WHERE request_id = ? ORDER BY sort_order ASC",
-    )
-    .bind(&id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let params = requests_repo::list_params(pool.inner(), &id)
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(RequestWithDetails {
         request,
@@ -90,29 +77,22 @@ pub async fn create_request(
 ) -> Result<Request, String> {
     let id = Uuid::new_v4().to_string();
 
-    let max_order: (i32,) = sqlx::query_as(
-        "SELECT COALESCE(MAX(sort_order), -1) FROM requests WHERE collection_id = ?",
+    let max_order = requests_repo::max_sort_order(pool.inner(), &collection_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    requests_repo::insert(
+        pool.inner(),
+        &id,
+        &collection_id,
+        &name,
+        &method,
+        max_order.0 + 1,
     )
-    .bind(&collection_id)
-    .fetch_one(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
-    sqlx::query(
-        "INSERT INTO requests (id, collection_id, name, method, sort_order) VALUES (?, ?, ?, ?, ?)",
-    )
-    .bind(&id)
-    .bind(&collection_id)
-    .bind(&name)
-    .bind(&method)
-    .bind(max_order.0 + 1)
-    .execute(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
-
-    sqlx::query_as::<_, Request>("SELECT * FROM requests WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    requests_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -160,37 +140,20 @@ pub async fn update_request(
         values.push(pre_script.clone());
     }
 
-    if !sets.is_empty() {
-        sets.push("updated_at = datetime('now')".to_string());
-        let sql = format!("UPDATE requests SET {} WHERE id = ?", sets.join(", "));
+    requests_repo::update_dynamic(pool.inner(), &sets, &values, &id)
+        .await
+        .map_err(|e| e.to_string())?;
 
-        let mut query = sqlx::query(&sql);
-        for v in &values {
-            query = query.bind(v);
-        }
-        query = query.bind(&id);
-
-        query
-            .execute(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
-    }
-
-    sqlx::query_as::<_, Request>("SELECT * FROM requests WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    requests_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn delete_request(pool: State<'_, SqlitePool>, id: String) -> Result<(), String> {
-    sqlx::query("DELETE FROM requests WHERE id = ?")
-        .bind(&id)
-        .execute(pool.inner())
+    requests_repo::delete_by_id(pool.inner(), &id)
         .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -198,94 +161,76 @@ pub async fn duplicate_request(
     pool: State<'_, SqlitePool>,
     id: String,
 ) -> Result<Request, String> {
-    let original = sqlx::query_as::<_, Request>("SELECT * FROM requests WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    let original = requests_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())?;
 
     let new_id = Uuid::new_v4().to_string();
 
-    let max_order: (i32,) = sqlx::query_as(
-        "SELECT COALESCE(MAX(sort_order), -1) FROM requests WHERE collection_id = ?",
-    )
-    .bind(&original.collection_id)
-    .fetch_one(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let max_order = requests_repo::max_sort_order(pool.inner(), &original.collection_id)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    sqlx::query(
-        "INSERT INTO requests (id, collection_id, name, description, method, url, body, body_type, auth_type, auth_data, pre_script, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    let copy_name = format!("{} (copy)", &original.name);
+    requests_repo::insert_full(
+        pool.inner(),
+        &new_id,
+        &original.collection_id,
+        &copy_name,
+        &original.description,
+        &original.method,
+        &original.url,
+        &original.body,
+        &original.body_type,
+        &original.auth_type,
+        &original.auth_data,
+        &original.pre_script,
+        max_order.0 + 1,
     )
-    .bind(&new_id)
-    .bind(&original.collection_id)
-    .bind(format!("{} (copy)", &original.name))
-    .bind(&original.description)
-    .bind(&original.method)
-    .bind(&original.url)
-    .bind(&original.body)
-    .bind(&original.body_type)
-    .bind(&original.auth_type)
-    .bind(&original.auth_data)
-    .bind(&original.pre_script)
-    .bind(max_order.0 + 1)
-    .execute(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     // Duplicate headers
-    let headers = sqlx::query_as::<_, RequestHeader>(
-        "SELECT * FROM request_headers WHERE request_id = ?",
-    )
-    .bind(&id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let headers = requests_repo::list_headers_unsorted(pool.inner(), &id)
+        .await
+        .map_err(|e| e.to_string())?;
 
     for h in &headers {
         let hid = Uuid::new_v4().to_string();
-        sqlx::query(
-            "INSERT INTO request_headers (id, request_id, key, value, enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+        requests_repo::insert_header(
+            pool.inner(),
+            &hid,
+            &new_id,
+            &h.key,
+            &h.value,
+            h.enabled,
+            h.sort_order,
         )
-        .bind(&hid)
-        .bind(&new_id)
-        .bind(&h.key)
-        .bind(&h.value)
-        .bind(h.enabled)
-        .bind(h.sort_order)
-        .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
     }
 
     // Duplicate params
-    let params = sqlx::query_as::<_, RequestParam>(
-        "SELECT * FROM request_params WHERE request_id = ?",
-    )
-    .bind(&id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let params = requests_repo::list_params_unsorted(pool.inner(), &id)
+        .await
+        .map_err(|e| e.to_string())?;
 
     for p in &params {
         let pid = Uuid::new_v4().to_string();
-        sqlx::query(
-            "INSERT INTO request_params (id, request_id, key, value, enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+        requests_repo::insert_param(
+            pool.inner(),
+            &pid,
+            &new_id,
+            &p.key,
+            &p.value,
+            p.enabled,
+            p.sort_order,
         )
-        .bind(&pid)
-        .bind(&new_id)
-        .bind(&p.key)
-        .bind(&p.value)
-        .bind(p.enabled)
-        .bind(p.sort_order)
-        .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
     }
 
-    sqlx::query_as::<_, Request>("SELECT * FROM requests WHERE id = ?")
-        .bind(&new_id)
-        .fetch_one(pool.inner())
+    requests_repo::get_by_id(pool.inner(), &new_id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -296,27 +241,15 @@ pub async fn move_request(
     id: String,
     target_collection_id: String,
 ) -> Result<Request, String> {
-    let max_order: (i32,) = sqlx::query_as(
-        "SELECT COALESCE(MAX(sort_order), -1) FROM requests WHERE collection_id = ?",
-    )
-    .bind(&target_collection_id)
-    .fetch_one(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let max_order = requests_repo::max_sort_order(pool.inner(), &target_collection_id)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    sqlx::query(
-        "UPDATE requests SET collection_id = ?, sort_order = ?, updated_at = datetime('now') WHERE id = ?",
-    )
-    .bind(&target_collection_id)
-    .bind(max_order.0 + 1)
-    .bind(&id)
-    .execute(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    requests_repo::move_to_collection(pool.inner(), &id, &target_collection_id, max_order.0 + 1)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    sqlx::query_as::<_, Request>("SELECT * FROM requests WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    requests_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -328,36 +261,29 @@ pub async fn update_request_headers(
     headers: Vec<KVInput>,
 ) -> Result<Vec<RequestHeader>, String> {
     // Delete existing headers
-    sqlx::query("DELETE FROM request_headers WHERE request_id = ?")
-        .bind(&request_id)
-        .execute(pool.inner())
+    requests_repo::delete_headers_for_request(pool.inner(), &request_id)
         .await
         .map_err(|e| e.to_string())?;
 
     // Insert new headers
     for (i, h) in headers.iter().enumerate() {
         let id = Uuid::new_v4().to_string();
-        sqlx::query(
-            "INSERT INTO request_headers (id, request_id, key, value, enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+        requests_repo::insert_header(
+            pool.inner(),
+            &id,
+            &request_id,
+            &h.key,
+            &h.value,
+            h.enabled,
+            i as i32,
         )
-        .bind(&id)
-        .bind(&request_id)
-        .bind(&h.key)
-        .bind(&h.value)
-        .bind(h.enabled)
-        .bind(i as i32)
-        .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
     }
 
-    sqlx::query_as::<_, RequestHeader>(
-        "SELECT * FROM request_headers WHERE request_id = ? ORDER BY sort_order ASC",
-    )
-    .bind(&request_id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())
+    requests_repo::list_headers(pool.inner(), &request_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -367,34 +293,27 @@ pub async fn update_request_params(
     params: Vec<KVInput>,
 ) -> Result<Vec<RequestParam>, String> {
     // Delete existing params
-    sqlx::query("DELETE FROM request_params WHERE request_id = ?")
-        .bind(&request_id)
-        .execute(pool.inner())
+    requests_repo::delete_params_for_request(pool.inner(), &request_id)
         .await
         .map_err(|e| e.to_string())?;
 
     // Insert new params
     for (i, p) in params.iter().enumerate() {
         let id = Uuid::new_v4().to_string();
-        sqlx::query(
-            "INSERT INTO request_params (id, request_id, key, value, enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+        requests_repo::insert_param(
+            pool.inner(),
+            &id,
+            &request_id,
+            &p.key,
+            &p.value,
+            p.enabled,
+            i as i32,
         )
-        .bind(&id)
-        .bind(&request_id)
-        .bind(&p.key)
-        .bind(&p.value)
-        .bind(p.enabled)
-        .bind(i as i32)
-        .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
     }
 
-    sqlx::query_as::<_, RequestParam>(
-        "SELECT * FROM request_params WHERE request_id = ? ORDER BY sort_order ASC",
-    )
-    .bind(&request_id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())
+    requests_repo::list_params(pool.inner(), &request_id)
+        .await
+        .map_err(|e| e.to_string())
 }

@@ -4,17 +4,15 @@ use tauri::State;
 use uuid::Uuid;
 
 use crate::db::models::{EnvVariable, Environment};
+use crate::shared::repos::environments as environments_repo;
 
 #[tauri::command]
 pub async fn list_environments(
     pool: State<'_, SqlitePool>,
 ) -> Result<Vec<Environment>, String> {
-    sqlx::query_as::<_, Environment>(
-        "SELECT * FROM environments ORDER BY sort_order ASC",
-    )
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())
+    environments_repo::list_all(pool.inner())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -25,34 +23,28 @@ pub async fn create_environment(
 ) -> Result<Environment, String> {
     let id = Uuid::new_v4().to_string();
 
-    let max_order: (i32,) =
-        sqlx::query_as("SELECT COALESCE(MAX(sort_order), -1) FROM environments")
-            .fetch_one(pool.inner())
-            .await
-            .map_err(|e| e.to_string())?;
+    let max_order = environments_repo::max_sort_order(pool.inner())
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Auto-set as default if no environments exist yet
-    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM environments")
-        .fetch_one(pool.inner())
+    let count = environments_repo::count(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
     let is_default = if count.0 == 0 { 1 } else { 0 };
 
-    sqlx::query(
-        "INSERT INTO environments (id, name, color, is_default, sort_order) VALUES (?, ?, ?, ?, ?)",
+    environments_repo::insert(
+        pool.inner(),
+        &id,
+        &name,
+        &color,
+        is_default,
+        max_order.0 + 1,
     )
-    .bind(&id)
-    .bind(&name)
-    .bind(&color)
-    .bind(is_default)
-    .bind(max_order.0 + 1)
-    .execute(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
-    sqlx::query_as::<_, Environment>("SELECT * FROM environments WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    environments_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -64,19 +56,11 @@ pub async fn update_environment(
     name: String,
     color: String,
 ) -> Result<Environment, String> {
-    sqlx::query(
-        "UPDATE environments SET name = ?, color = ?, updated_at = datetime('now') WHERE id = ?",
-    )
-    .bind(&name)
-    .bind(&color)
-    .bind(&id)
-    .execute(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    environments_repo::update(pool.inner(), &id, &name, &color)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    sqlx::query_as::<_, Environment>("SELECT * FROM environments WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    environments_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -86,27 +70,19 @@ pub async fn delete_environment(
     pool: State<'_, SqlitePool>,
     id: String,
 ) -> Result<(), String> {
-    let env = sqlx::query_as::<_, Environment>("SELECT * FROM environments WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    let env = environments_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())?;
 
     // Delete the environment
-    sqlx::query("DELETE FROM environments WHERE id = ?")
-        .bind(&id)
-        .execute(pool.inner())
+    environments_repo::delete_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())?;
 
     // If it was the default, promote another env to default (if any remain)
     if env.is_default == 1 {
-        sqlx::query(
-            "UPDATE environments SET is_default = 1 WHERE id = (SELECT id FROM environments ORDER BY sort_order ASC LIMIT 1)"
-        )
-        .execute(pool.inner())
-        .await
-        .ok(); // No-op if no environments remain
+        // No-op if no environments remain
+        let _ = environments_repo::promote_first_to_default(pool.inner()).await;
     }
 
     Ok(())
@@ -118,15 +94,12 @@ pub async fn set_default_environment(
     id: String,
 ) -> Result<(), String> {
     // Set is_default=0 on all environments
-    sqlx::query("UPDATE environments SET is_default = 0")
-        .execute(pool.inner())
+    environments_repo::clear_default_flag(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
 
     // Set is_default=1 on the specified one
-    sqlx::query("UPDATE environments SET is_default = 1 WHERE id = ?")
-        .bind(&id)
-        .execute(pool.inner())
+    environments_repo::set_default(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -138,13 +111,9 @@ pub async fn list_env_variables(
     pool: State<'_, SqlitePool>,
     environment_id: String,
 ) -> Result<Vec<EnvVariable>, String> {
-    sqlx::query_as::<_, EnvVariable>(
-        "SELECT * FROM env_variables WHERE environment_id = ? ORDER BY sort_order ASC",
-    )
-    .bind(&environment_id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())
+    environments_repo::list_variables(pool.inner(), &environment_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -157,54 +126,40 @@ pub async fn set_env_variable(
 ) -> Result<EnvVariable, String> {
     let id = Uuid::new_v4().to_string();
 
-    let max_order: (i32,) = sqlx::query_as(
-        "SELECT COALESCE(MAX(sort_order), -1) FROM env_variables WHERE environment_id = ?",
-    )
-    .bind(&environment_id)
-    .fetch_one(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let max_order = environments_repo::max_variable_sort_order(pool.inner(), &environment_id)
+        .await
+        .map_err(|e| e.to_string())?;
 
     // Upsert: try to find existing variable with same environment_id + key
-    let existing: Option<EnvVariable> = sqlx::query_as::<_, EnvVariable>(
-        "SELECT * FROM env_variables WHERE environment_id = ? AND key = ?",
+    let existing = environments_repo::get_variable_by_env_and_key(
+        pool.inner(),
+        &environment_id,
+        &key,
     )
-    .bind(&environment_id)
-    .bind(&key)
-    .fetch_optional(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let final_id = if let Some(existing) = existing {
-        sqlx::query(
-            "UPDATE env_variables SET value = ?, is_secret = ? WHERE id = ?",
-        )
-        .bind(&value)
-        .bind(is_secret)
-        .bind(&existing.id)
-        .execute(pool.inner())
-        .await
-        .map_err(|e| e.to_string())?;
+        environments_repo::update_variable_value(pool.inner(), &existing.id, &value, is_secret)
+            .await
+            .map_err(|e| e.to_string())?;
         existing.id
     } else {
-        sqlx::query(
-            "INSERT INTO env_variables (id, environment_id, key, value, is_secret, sort_order) VALUES (?, ?, ?, ?, ?, ?)",
+        environments_repo::insert_variable(
+            pool.inner(),
+            &id,
+            &environment_id,
+            &key,
+            &value,
+            is_secret,
+            max_order.0 + 1,
         )
-        .bind(&id)
-        .bind(&environment_id)
-        .bind(&key)
-        .bind(&value)
-        .bind(is_secret)
-        .bind(max_order.0 + 1)
-        .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
         id
     };
 
-    sqlx::query_as::<_, EnvVariable>("SELECT * FROM env_variables WHERE id = ?")
-        .bind(&final_id)
-        .fetch_one(pool.inner())
+    environments_repo::get_variable_by_id(pool.inner(), &final_id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -217,20 +172,11 @@ pub async fn update_env_variable(
     value: String,
     is_secret: i32,
 ) -> Result<EnvVariable, String> {
-    sqlx::query(
-        "UPDATE env_variables SET key = ?, value = ?, is_secret = ? WHERE id = ?",
-    )
-    .bind(&key)
-    .bind(&value)
-    .bind(is_secret)
-    .bind(&id)
-    .execute(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    environments_repo::update_variable(pool.inner(), &id, &key, &value, is_secret)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    sqlx::query_as::<_, EnvVariable>("SELECT * FROM env_variables WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    environments_repo::get_variable_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -240,12 +186,9 @@ pub async fn delete_env_variable(
     pool: State<'_, SqlitePool>,
     id: String,
 ) -> Result<(), String> {
-    sqlx::query("DELETE FROM env_variables WHERE id = ?")
-        .bind(&id)
-        .execute(pool.inner())
+    environments_repo::delete_variable_by_id(pool.inner(), &id)
         .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -253,13 +196,9 @@ pub async fn get_env_variables_for_resolution(
     pool: State<'_, SqlitePool>,
     environment_id: String,
 ) -> Result<HashMap<String, String>, String> {
-    let vars = sqlx::query_as::<_, EnvVariable>(
-        "SELECT * FROM env_variables WHERE environment_id = ?",
-    )
-    .bind(&environment_id)
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())?;
+    let vars = environments_repo::list_variables_unsorted(pool.inner(), &environment_id)
+        .await
+        .map_err(|e| e.to_string())?;
 
     let mut map = HashMap::new();
     for var in vars {
@@ -267,4 +206,3 @@ pub async fn get_env_variables_for_resolution(
     }
     Ok(map)
 }
-

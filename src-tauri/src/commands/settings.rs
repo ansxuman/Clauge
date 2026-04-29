@@ -2,19 +2,16 @@ use sqlx::SqlitePool;
 use std::collections::HashMap;
 use tauri::State;
 
-use crate::db::models::Setting;
+use crate::shared::repos::settings as settings_repo;
 
 #[tauri::command]
 pub async fn get_setting(
     pool: State<'_, SqlitePool>,
     key: String,
 ) -> Result<Option<String>, String> {
-    let setting = sqlx::query_as::<_, Setting>("SELECT * FROM settings WHERE key = ?")
-        .bind(&key)
-        .fetch_optional(pool.inner())
+    let setting = settings_repo::get_by_key(pool.inner(), &key)
         .await
         .map_err(|e| e.to_string())?;
-
     Ok(setting.map(|s| s.value))
 }
 
@@ -24,21 +21,16 @@ pub async fn set_setting(
     key: String,
     value: String,
 ) -> Result<(), String> {
-    sqlx::query("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)")
-        .bind(&key)
-        .bind(&value)
-        .execute(pool.inner())
+    settings_repo::upsert(pool.inner(), &key, &value)
         .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn get_all_settings(
     pool: State<'_, SqlitePool>,
 ) -> Result<HashMap<String, String>, String> {
-    let settings = sqlx::query_as::<_, Setting>("SELECT * FROM settings")
-        .fetch_all(pool.inner())
+    let settings = settings_repo::list_all(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
 

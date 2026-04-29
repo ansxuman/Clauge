@@ -1,18 +1,14 @@
 use crate::commands::credential_store::{credential_store, CredentialStore};
 use crate::commands::ssh_models::SshProfile;
+use crate::shared::repos::ssh_profiles as ssh_profiles_repo;
 use sqlx::SqlitePool;
 use tauri::State;
 
 #[tauri::command]
 pub async fn ssh_list_profiles(pool: State<'_, SqlitePool>) -> Result<Vec<SshProfile>, String> {
-    sqlx::query_as::<_, SshProfile>(
-        "SELECT id, name, host, port, username, auth_type, key_path, accent_color, last_used_at, created_at \
-         FROM ssh_profiles \
-         ORDER BY (last_used_at IS NULL), last_used_at DESC, created_at DESC",
-    )
-    .fetch_all(pool.inner())
-    .await
-    .map_err(|e| e.to_string())
+    ssh_profiles_repo::list_all(pool.inner())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -33,20 +29,18 @@ pub async fn ssh_create_profile(
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
 
-    sqlx::query(
-        "INSERT INTO ssh_profiles (id, name, host, port, username, auth_type, key_path, accent_color, last_used_at, created_at) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)",
+    ssh_profiles_repo::insert(
+        pool.inner(),
+        &id,
+        &name,
+        &host,
+        port,
+        &username,
+        &auth_type,
+        key_path.as_deref(),
+        accent_color.as_deref(),
+        &now,
     )
-    .bind(&id)
-    .bind(&name)
-    .bind(&host)
-    .bind(port)
-    .bind(&username)
-    .bind(&auth_type)
-    .bind(&key_path)
-    .bind(&accent_color)
-    .bind(&now)
-    .execute(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
@@ -59,9 +53,7 @@ pub async fn ssh_create_profile(
         }
     }
 
-    sqlx::query_as::<_, SshProfile>("SELECT * FROM ssh_profiles WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    ssh_profiles_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -80,34 +72,22 @@ pub async fn ssh_update_profile(
     secret: Option<String>,
 ) -> Result<SshProfile, String> {
     if let Some(ref n) = name {
-        sqlx::query("UPDATE ssh_profiles SET name = ? WHERE id = ?")
-            .bind(n)
-            .bind(&id)
-            .execute(pool.inner())
+        ssh_profiles_repo::update_name(pool.inner(), &id, n)
             .await
             .map_err(|e| e.to_string())?;
     }
     if let Some(ref h) = host {
-        sqlx::query("UPDATE ssh_profiles SET host = ? WHERE id = ?")
-            .bind(h)
-            .bind(&id)
-            .execute(pool.inner())
+        ssh_profiles_repo::update_host(pool.inner(), &id, h)
             .await
             .map_err(|e| e.to_string())?;
     }
     if let Some(p) = port {
-        sqlx::query("UPDATE ssh_profiles SET port = ? WHERE id = ?")
-            .bind(p)
-            .bind(&id)
-            .execute(pool.inner())
+        ssh_profiles_repo::update_port(pool.inner(), &id, p)
             .await
             .map_err(|e| e.to_string())?;
     }
     if let Some(ref u) = username {
-        sqlx::query("UPDATE ssh_profiles SET username = ? WHERE id = ?")
-            .bind(u)
-            .bind(&id)
-            .execute(pool.inner())
+        ssh_profiles_repo::update_username(pool.inner(), &id, u)
             .await
             .map_err(|e| e.to_string())?;
     }
@@ -115,26 +95,17 @@ pub async fn ssh_update_profile(
         if a != "key" && a != "password" {
             return Err(format!("invalid auth_type: {}", a));
         }
-        sqlx::query("UPDATE ssh_profiles SET auth_type = ? WHERE id = ?")
-            .bind(a)
-            .bind(&id)
-            .execute(pool.inner())
+        ssh_profiles_repo::update_auth_type(pool.inner(), &id, a)
             .await
             .map_err(|e| e.to_string())?;
     }
     if let Some(ref kp) = key_path {
-        sqlx::query("UPDATE ssh_profiles SET key_path = ? WHERE id = ?")
-            .bind(kp)
-            .bind(&id)
-            .execute(pool.inner())
+        ssh_profiles_repo::update_key_path(pool.inner(), &id, kp)
             .await
             .map_err(|e| e.to_string())?;
     }
     if let Some(ref ac) = accent_color {
-        sqlx::query("UPDATE ssh_profiles SET accent_color = ? WHERE id = ?")
-            .bind(ac)
-            .bind(&id)
-            .execute(pool.inner())
+        ssh_profiles_repo::update_accent_color(pool.inner(), &id, ac)
             .await
             .map_err(|e| e.to_string())?;
     }
@@ -150,9 +121,7 @@ pub async fn ssh_update_profile(
         }
     }
 
-    sqlx::query_as::<_, SshProfile>("SELECT * FROM ssh_profiles WHERE id = ?")
-        .bind(&id)
-        .fetch_one(pool.inner())
+    ssh_profiles_repo::get_by_id(pool.inner(), &id)
         .await
         .map_err(|e| e.to_string())
 }
@@ -164,12 +133,9 @@ pub async fn ssh_delete_profile(
 ) -> Result<(), String> {
     // Best-effort: clear credential first. Failures here shouldn't block row deletion.
     let _ = credential_store().delete(&id).await;
-    sqlx::query("DELETE FROM ssh_profiles WHERE id = ?")
-        .bind(&id)
-        .execute(pool.inner())
+    ssh_profiles_repo::delete_by_id(pool.inner(), &id)
         .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -181,13 +147,9 @@ pub async fn ssh_touch_profile(
     // SQLite's `datetime('now')` returns "YYYY-MM-DD HH:MM:SS" which can yield
     // Invalid Date in Safari/WKWebView. Match the format used by created_at.
     let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-    sqlx::query("UPDATE ssh_profiles SET last_used_at = ? WHERE id = ?")
-        .bind(&now)
-        .bind(&id)
-        .execute(pool.inner())
+    ssh_profiles_repo::touch_last_used(pool.inner(), &id, &now)
         .await
-        .map_err(|e| e.to_string())?;
-    Ok(())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

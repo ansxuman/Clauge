@@ -2,6 +2,7 @@ mod appearance;
 mod commands;
 mod db;
 mod github;
+mod shared;
 
 use std::str::FromStr;
 use std::sync::Arc;

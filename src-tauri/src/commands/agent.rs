@@ -1,4 +1,5 @@
-use crate::commands::agent_models::{AgentSession, AgentContext};
+use crate::commands::agent_models::{AgentContext, AgentSession};
+use crate::shared::repos::sessions as sessions_repo;
 use sqlx::SqlitePool;
 use std::path::PathBuf;
 use tauri::{Manager, State};
@@ -20,8 +21,7 @@ fn project_name_from_path(path: &str) -> String {
 
 #[tauri::command]
 pub async fn agent_list_sessions(pool: State<'_, SqlitePool>) -> Result<Vec<AgentSession>, String> {
-    sqlx::query_as::<_, AgentSession>("SELECT * FROM agent_sessions ORDER BY last_used_at DESC")
-        .fetch_all(pool.inner()).await.map_err(|e| e.to_string())
+    sessions_repo::list_sessions(pool.inner()).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -36,12 +36,23 @@ pub async fn agent_create_session(
     let project_name = project_name_from_path(&project_path);
     let context_prompt = custom_prompt.unwrap_or_else(|| get_purpose_prompt(&purpose));
     let skip = if skip_permissions.unwrap_or(false) { 1 } else { 0 };
-    sqlx::query("INSERT INTO agent_sessions (id, title, purpose, project_path, project_name, context_prompt, skip_permissions, git_name, git_email, created_at, last_used_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .bind(&id).bind(&title).bind(&purpose).bind(&project_path).bind(&project_name)
-        .bind(&context_prompt).bind(skip).bind(&git_name).bind(&git_email).bind(&now).bind(&now)
-        .execute(pool.inner()).await.map_err(|e| e.to_string())?;
-    sqlx::query_as::<_, AgentSession>("SELECT * FROM agent_sessions WHERE id = ?")
-        .bind(&id).fetch_one(pool.inner()).await.map_err(|e| e.to_string())
+    sessions_repo::insert_session(
+        pool.inner(),
+        &id,
+        &title,
+        &purpose,
+        &project_path,
+        &project_name,
+        &context_prompt,
+        skip,
+        git_name.as_deref(),
+        git_email.as_deref(),
+        &now,
+        &now,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    sessions_repo::get_session_by_id(pool.inner(), &id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -50,76 +61,80 @@ pub async fn agent_update_session(
     title: Option<String>, skip_permissions: Option<bool>,
     git_name: Option<String>, git_email: Option<String>, context_prompt: Option<String>,
 ) -> Result<(), String> {
-    if let Some(t) = title { sqlx::query("UPDATE agent_sessions SET title = ? WHERE id = ?").bind(&t).bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?; }
-    if let Some(sp) = skip_permissions { let val = if sp { 1 } else { 0 }; sqlx::query("UPDATE agent_sessions SET skip_permissions = ? WHERE id = ?").bind(val).bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?; }
-    if let Some(ref name) = git_name { sqlx::query("UPDATE agent_sessions SET git_name = ? WHERE id = ?").bind(name).bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?; }
-    if let Some(ref email) = git_email { sqlx::query("UPDATE agent_sessions SET git_email = ? WHERE id = ?").bind(email).bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?; }
-    if let Some(ref prompt) = context_prompt { sqlx::query("UPDATE agent_sessions SET context_prompt = ? WHERE id = ?").bind(prompt).bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?; }
+    if let Some(t) = title {
+        sessions_repo::update_session_title(pool.inner(), &id, &t).await.map_err(|e| e.to_string())?;
+    }
+    if let Some(sp) = skip_permissions {
+        let val = if sp { 1 } else { 0 };
+        sessions_repo::update_session_skip_permissions(pool.inner(), &id, val).await.map_err(|e| e.to_string())?;
+    }
+    if let Some(ref name) = git_name {
+        sessions_repo::update_session_git_name(pool.inner(), &id, name).await.map_err(|e| e.to_string())?;
+    }
+    if let Some(ref email) = git_email {
+        sessions_repo::update_session_git_email(pool.inner(), &id, email).await.map_err(|e| e.to_string())?;
+    }
+    if let Some(ref prompt) = context_prompt {
+        sessions_repo::update_session_context_prompt(pool.inner(), &id, prompt).await.map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
 #[tauri::command]
 pub async fn agent_delete_session(pool: State<'_, SqlitePool>, id: String) -> Result<(), String> {
-    sqlx::query("DELETE FROM agent_sessions WHERE id = ?").bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?;
-    Ok(())
+    sessions_repo::delete_session(pool.inner(), &id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn agent_update_session_id(pool: State<'_, SqlitePool>, id: String, claude_session_id: String) -> Result<(), String> {
     let val = if claude_session_id.is_empty() { None } else { Some(claude_session_id) };
-    sqlx::query("UPDATE agent_sessions SET claude_session_id = ? WHERE id = ?").bind(&val).bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?;
-    Ok(())
+    sessions_repo::update_session_claude_id(pool.inner(), &id, val.as_deref()).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn agent_update_last_used(pool: State<'_, SqlitePool>, id: String) -> Result<(), String> {
     let now = chrono::Utc::now().to_rfc3339();
-    sqlx::query("UPDATE agent_sessions SET last_used_at = ? WHERE id = ?").bind(&now).bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?;
-    Ok(())
+    sessions_repo::update_session_last_used(pool.inner(), &id, &now).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn agent_update_worktree(pool: State<'_, SqlitePool>, id: String, worktree_path: Option<String>, worktree_branch: Option<String>) -> Result<(), String> {
-    sqlx::query("UPDATE agent_sessions SET worktree_path = ?, worktree_branch = ? WHERE id = ?").bind(&worktree_path).bind(&worktree_branch).bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?;
-    Ok(())
+    sessions_repo::update_session_worktree(pool.inner(), &id, worktree_path.as_deref(), worktree_branch.as_deref()).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn agent_list_contexts(pool: State<'_, SqlitePool>) -> Result<Vec<AgentContext>, String> {
-    sqlx::query_as::<_, AgentContext>("SELECT * FROM agent_contexts ORDER BY name").fetch_all(pool.inner()).await.map_err(|e| e.to_string())
+    sessions_repo::list_contexts(pool.inner()).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn agent_save_context(pool: State<'_, SqlitePool>, id: Option<String>, name: String, content: String) -> Result<AgentContext, String> {
     let now = chrono::Utc::now().to_rfc3339();
     let ctx_id = id.unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-    sqlx::query("INSERT INTO agent_contexts (id, name, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, content = excluded.content, updated_at = excluded.updated_at")
-        .bind(&ctx_id).bind(&name).bind(&content).bind(&now).bind(&now).execute(pool.inner()).await.map_err(|e| e.to_string())?;
-    sqlx::query_as::<_, AgentContext>("SELECT * FROM agent_contexts WHERE id = ?").bind(&ctx_id).fetch_one(pool.inner()).await.map_err(|e| e.to_string())
+    sessions_repo::upsert_context(pool.inner(), &ctx_id, &name, &content, &now, &now)
+        .await
+        .map_err(|e| e.to_string())?;
+    sessions_repo::get_context_by_id(pool.inner(), &ctx_id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn agent_delete_context(pool: State<'_, SqlitePool>, id: String) -> Result<(), String> {
-    sqlx::query("DELETE FROM agent_contexts WHERE id = ?").bind(&id).execute(pool.inner()).await.map_err(|e| e.to_string())?;
-    Ok(())
+    sessions_repo::delete_context(pool.inner(), &id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn agent_get_session_contexts(pool: State<'_, SqlitePool>, session_id: String) -> Result<Vec<AgentContext>, String> {
-    sqlx::query_as::<_, AgentContext>("SELECT c.* FROM agent_contexts c INNER JOIN agent_session_contexts sc ON c.id = sc.context_id WHERE sc.session_id = ? ORDER BY c.name")
-        .bind(&session_id).fetch_all(pool.inner()).await.map_err(|e| e.to_string())
+    sessions_repo::list_contexts_for_session(pool.inner(), &session_id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn agent_attach_context(pool: State<'_, SqlitePool>, session_id: String, context_id: String) -> Result<(), String> {
-    sqlx::query("INSERT OR IGNORE INTO agent_session_contexts (session_id, context_id) VALUES (?, ?)").bind(&session_id).bind(&context_id).execute(pool.inner()).await.map_err(|e| e.to_string())?;
-    Ok(())
+    sessions_repo::attach_context_to_session(pool.inner(), &session_id, &context_id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn agent_detach_context(pool: State<'_, SqlitePool>, session_id: String, context_id: String) -> Result<(), String> {
-    sqlx::query("DELETE FROM agent_session_contexts WHERE session_id = ? AND context_id = ?").bind(&session_id).bind(&context_id).execute(pool.inner()).await.map_err(|e| e.to_string())?;
-    Ok(())
+    sessions_repo::detach_context_from_session(pool.inner(), &session_id, &context_id).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -129,8 +144,9 @@ pub async fn agent_inject_contexts(pool: State<'_, SqlitePool>, project_path: St
     // Fetch context content from DB by ID
     let mut contexts: Vec<(String, String)> = Vec::new();
     for id in &context_ids {
-        let row: Option<(String, String)> = sqlx::query_as("SELECT name, content FROM agent_contexts WHERE id = ?")
-            .bind(id).fetch_optional(pool.inner()).await.map_err(|e| e.to_string())?;
+        let row = sessions_repo::get_context_name_and_content(pool.inner(), id)
+            .await
+            .map_err(|e| e.to_string())?;
         if let Some(ctx) = row {
             contexts.push(ctx);
         }
