@@ -103,7 +103,7 @@ async fn execute_tool_inner(
                         .collect();
 
                     // Execute using quick_execute logic
-                    match crate::commands::http_executor::quick_execute_internal(
+                    match crate::modes::rest::http_executor::quick_execute_internal(
                         pool,
                         &req.method,
                         &req.url,
@@ -316,7 +316,7 @@ async fn execute_tool_inner(
 
             let request_id = resolve_request_id(pool, request_id_input).await;
 
-            match crate::commands::http_executor::execute_request_internal(
+            match crate::modes::rest::http_executor::execute_request_internal(
                 pool,
                 &request_id,
                 environment_id,
@@ -448,7 +448,7 @@ async fn execute_tool_inner(
 
                 let mut results = Vec::new();
                 for (req_id, name, method, url) in &requests {
-                    let result = match crate::commands::http_executor::execute_request_internal(
+                    let result = match crate::modes::rest::http_executor::execute_request_internal(
                         pool,
                         req_id,
                         environment_id,
