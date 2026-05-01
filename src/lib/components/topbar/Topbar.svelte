@@ -11,8 +11,10 @@
   import EnvPill from './EnvPill.svelte';
   import { agentSessions, activeAgentSession, agentShellOpen, agentTerminalIds, agentShellIds } from '$lib/modes/agent/stores';
   import { agentKillTerminal } from '$lib/modes/agent/commands';
-  import { sshProfiles, activeSshProfile, sshTerminalIds } from '$lib/modes/ssh/stores';
+  import { sshProfiles, activeSshProfile, sshTerminalIds, sshConnStates } from '$lib/modes/ssh/stores';
   import { sshKillTerminal } from '$lib/modes/ssh/commands';
+  import { profileIdFromTabKey } from '$lib/modes/ssh/tabkey';
+  import { showContextMenu } from '$lib/shared/primitives/contextmenu';
   import { SSH_EVENT, AGENT_EVENT, APP_EVENT } from '$lib/shared/constants/events';
 
   // SQL disconnect
@@ -119,7 +121,7 @@
       const nextSshTab = remaining.find((t) => t.mode === 'ssh');
       if (nextSshTab?.key) {
         const profiles = get(sshProfiles);
-        const profile = profiles.find((p) => p.id === nextSshTab.key);
+        const profile = profiles.find((p) => p.id === profileIdFromTabKey(nextSshTab.key as string));
         if (profile) activeSshProfile.set(profile);
       } else {
         activeSshProfile.set(null);
@@ -196,6 +198,26 @@
   // SQL script modal state
   let showSqlScriptModal = $state(false);
   let sqlScriptName = $state('');
+
+  // Right-click menu on a tab. Currently only SSH tabs have an entry
+  // ("Duplicate Session"); other modes get no menu (just suppress the
+  // browser default context menu).
+  function handleTabContextMenu(e: MouseEvent, tab: { id: number; mode: string; key: string | null }) {
+    e.preventDefault();
+    if (tab.mode !== 'ssh' || !tab.key) return;
+    const profileId = profileIdFromTabKey(tab.key);
+    const profile = get(sshProfiles).find((p) => p.id === profileId);
+    if (!profile) return;
+    showContextMenu(e.clientX, e.clientY, [
+      {
+        label: 'Duplicate Session',
+        icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>',
+        action: () => {
+          window.dispatchEvent(new CustomEvent(SSH_EVENT.DUPLICATE_SESSION, { detail: profile }));
+        },
+      },
+    ]);
+  }
 
   // "+" button
   function handleAddTab(btn?: HTMLElement) {
@@ -357,6 +379,7 @@
           class="tab"
           class:on={$activeTabId === tab.id}
           onclick={() => handleTabClick(tab.id)}
+          oncontextmenu={(e: MouseEvent) => handleTabContextMenu(e, tab)}
         >
           {#if tab.mode === 'rest' && (tab.dirty || tab.unsaved)}
             <span class="dirty-dot"></span>

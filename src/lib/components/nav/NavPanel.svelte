@@ -19,17 +19,16 @@
   let sshNavRef: ReturnType<typeof SshNav> | undefined = $state();
   let showImportExport = $state(false);
 
-  // Pin/unpin: pinned = always visible in layout, unpinned = overlay panel
-  // toggled via clicking sidebar icons.
+  // Pin/unpin: pinned = always visible in layout, unpinned = overlay panel.
   //
-  // No hover trigger — the previous edge-strip + leftward-streak design caused
-  // two problems:
-  //   1. Dragging text leftward (e.g. selecting from an xterm terminal) would
-  //      accidentally reveal the panel mid-selection.
-  //   2. When the window was zoomed/fit-to-screen, the cursor couldn't move
-  //      further left than x=0, so the leftward-streak never accumulated and
-  //      the trigger felt broken.
-  // Click-to-open removes both classes of issue.
+  // Open/close behaviour (unpinned mode):
+  //   - Click a sidebar mode icon → opens the panel
+  //   - Click the same mode icon again → closes the panel
+  //   - Cursor exits the panel from the right edge → closes the panel
+  //
+  // No hover trigger anywhere — keeps the panel out of the way during
+  // text selection from xterm terminals, and removes the fit-to-screen
+  // edge-detection problem (cursor at x=0 couldn't move further left).
   let navPinned = $state(getNavPinned());
 
   function togglePin() {
@@ -40,10 +39,16 @@
 
   let navPanelEl: HTMLElement;
 
-  function handleMouseLeavePanel(_e: MouseEvent) {
-    // No-op — close is now driven by sidebar icon click or overlay dismiss
-    // events, not by mouse leave. Keeping the binding so future tweaks
-    // (e.g. close-on-outside-click) have a hook.
+  function handleMouseLeavePanel(e: MouseEvent) {
+    if (navPinned) return;
+    if (!navPanelEl) return;
+    const rect = navPanelEl.getBoundingClientRect();
+    // Close only when cursor exits from the RIGHT edge of the panel (into
+    // content area). Exits from top/bottom keep it open so the user can
+    // hover-scan the panel without it disappearing.
+    if (e.clientX >= rect.right - 2) {
+      navOpen.set(false);
+    }
   }
 
   // Close overlay when any session action dispatches (edit/reset/relaunch

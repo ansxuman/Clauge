@@ -20,11 +20,27 @@ pub fn run() {
     // attempt (e.g. clauge:// OAuth callbacks) to the existing process.
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
+            }
+            // Explicitly forward clauge:// URIs from the new launch to the
+            // running deep-link plugin. The single-instance plugin's
+            // deep-link cargo feature is supposed to do this automatically,
+            // but the auto-forward can miss on Linux .deb installs (the
+            // .desktop handoff produces a slightly different argv shape).
+            // Manual emission guarantees the frontend's onOpenUrl handler
+            // (GitHubConnect.svelte / Onboarding.svelte) fires.
+            use tauri::Emitter;
+            let uris: Vec<String> = args
+                .iter()
+                .filter(|a| a.starts_with("clauge://"))
+                .cloned()
+                .collect();
+            if !uris.is_empty() {
+                let _ = app.emit("deep-link://new-url", &uris);
             }
         }));
     }

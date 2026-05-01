@@ -19,7 +19,8 @@
     sshKillTerminal,
     sshTouchProfile,
   } from '../commands';
-  import { tabs as tabsStore, addTab, activateTab, closeTab } from '$lib/shared/stores/tabs';
+  import { tabs as tabsStore, activeTabId, addTab, activateTab, closeTab } from '$lib/shared/stores/tabs';
+  import { newSshTabKey, profileIdFromTabKey } from '../tabkey';
   import { getTerminalTheme } from '$lib/utils/theme';
   import { appearance } from '$lib/stores/settings';
   import { showToast } from '$lib/shared/primitives/toast';
@@ -70,7 +71,8 @@
     resolveSshCapture(cap.requestId, cleaned + note);
   }
 
-  // Map keyed by tabKey (we use profile.id+timestamp for uniqueness).
+  // Map keyed by tabKey. Each spawn gets a unique key (`profileId#timestamp-N`)
+  // so a single profile can have multiple independent tabs (Duplicate Session).
   const termEntries = new Map<string, TermEntry>();
   let activeEntry: TermEntry | null = null;
 
@@ -290,9 +292,32 @@
     }
   }
 
-  async function activateProfile(profile: SshProfile) {
+  /**
+   * Bring a tab into view. Two call shapes:
+   *
+   *  - `activateProfile(profile)` — used when the user picks a profile from
+   *    the nav. Reuses the most recent active tab for that profile if one
+   *    exists (existing UX). Creates a new tab + spawn if none.
+   *
+   *  - `activateProfile(profile, { tabKey })` — used when a specific tab is
+   *    activated (tab click, duplicate-session, OPEN_TAB with explicit key).
+   *    Finds or recreates the entry for that exact tabKey.
+   */
+  async function activateProfile(profile: SshProfile, opts: { tabKey?: string } = {}) {
     if (!terminalEl) return;
-    const tabKey = profile.id;
+
+    let tabKey = opts.tabKey ?? null;
+    if (!tabKey) {
+      // No explicit key — find the most recent existing tab for this profile.
+      const all = get(tabsStore);
+      const matching = all.filter((t) => t.mode === 'ssh' && t.key && profileIdFromTabKey(t.key) === profile.id);
+      if (matching.length > 0) {
+        const last = matching[matching.length - 1];
+        tabKey = last.key as string;
+      } else {
+        tabKey = newSshTabKey(profile.id);
+      }
+    }
 
     // Re-attach existing entry if still alive
     let entry = termEntries.get(tabKey);
@@ -374,11 +399,11 @@
     if (!profile) return;
 
     const all = get(tabsStore);
-    const existing = all.find((t) => t.mode === 'ssh' && t.key === profile.id);
+    const existing = all.find((t) => t.mode === 'ssh' && t.key && profileIdFromTabKey(t.key) === profile.id);
     if (existing) {
       activateTab(existing.id);
     } else {
-      addTab(profile.name, 'ssh', profile.id, 'var(--ssh)');
+      addTab(profile.name, 'ssh', newSshTabKey(profile.id), 'var(--ssh)');
     }
     activeSshProfile.set(profile);
     // Bump last_used_at on every open path (NewProfileModal save, Topbar +
@@ -386,6 +411,21 @@
     sshTouchProfile(profile.id)
       .then(() => loadSshProfiles())
       .catch(() => {});
+  }
+
+  /** Always-create flow: a new tab + new session for the same profile. */
+  function handleDuplicateSession(e: Event) {
+    const profile = (e as CustomEvent<SshProfile>).detail;
+    if (!profile) return;
+    // Compute next "session number" for the label so the user can tell tabs
+    // apart at a glance. Counts existing tabs for this profile + 1.
+    const all = get(tabsStore);
+    const existing = all.filter((t) => t.mode === 'ssh' && t.key && profileIdFromTabKey(t.key) === profile.id);
+    const n = existing.length + 1;
+    const label = `${profile.name} #${n}`;
+    addTab(label, 'ssh', newSshTabKey(profile.id), 'var(--ssh)');
+    activeSshProfile.set(profile);
+    sshTouchProfile(profile.id).then(() => loadSshProfiles()).catch(() => {});
   }
 
   function handleCloseTab(e: Event) {
@@ -450,10 +490,30 @@
 
   // ── Reactive subscriptions ──────────────────────────────────────────────────
 
+  // Activate the right TermEntry whenever the tabs store's activeTabId
+  // points at an SSH tab. This handles:
+  //   - Initial mount (existing SSH tab is active)
+  //   - User clicks an SSH tab in the topbar
+  //   - DUPLICATE_SESSION creates a new tab (addTab also activates it)
+  // Multiple tabs for the same profile each have a distinct tabKey, so we
+  // key off the tab's `key` field rather than the profile id.
+  const unsubActiveTab = activeTabId.subscribe((tabId) => {
+    if (tabId < 0) return;
+    const all = get(tabsStore);
+    const tab = all.find((t) => t.id === tabId);
+    if (!tab || tab.mode !== 'ssh' || !tab.key) return;
+    if (tab.key === currentTabKey) return;
+    const profileId = profileIdFromTabKey(tab.key);
+    const profile = get(sshProfiles).find((p) => p.id === profileId);
+    if (!profile) return;
+    activeSshProfile.set(profile);
+    requestAnimationFrame(() => activateProfile(profile, { tabKey: tab.key as string }));
+  });
+
+  // Hide the panel when there's no active SSH profile (e.g. user closed the
+  // last SSH tab). The activeTabId subscriber handles the "switch in" case.
   const unsubProfile = activeSshProfile.subscribe((profile) => {
-    if (profile && profile.id !== currentTabKey) {
-      requestAnimationFrame(() => activateProfile(profile));
-    } else if (!profile) {
+    if (!profile) {
       currentTabKey = null;
       if (activeEntry) {
         activeEntry.container.style.display = 'none';
@@ -512,6 +572,7 @@
   onMount(async () => {
     window.addEventListener(SSH_EVENT.OPEN_TAB, handleOpenTab);
     window.addEventListener(SSH_EVENT.CLOSE_TAB, handleCloseTab);
+    window.addEventListener(SSH_EVENT.DUPLICATE_SESSION, handleDuplicateSession);
     window.addEventListener(SSH_EVENT.INSERT_COMMAND, handleInsertCommand);
     window.addEventListener(SSH_EVENT.EXECUTE_CAPTURE_REQUEST, handleExecuteCaptureRequest);
 
@@ -537,9 +598,11 @@
 
   onDestroy(() => {
     unsubProfile();
+    unsubActiveTab();
     unsubAppearance();
     window.removeEventListener(SSH_EVENT.OPEN_TAB, handleOpenTab);
     window.removeEventListener(SSH_EVENT.CLOSE_TAB, handleCloseTab);
+    window.removeEventListener(SSH_EVENT.DUPLICATE_SESSION, handleDuplicateSession);
     window.removeEventListener(SSH_EVENT.INSERT_COMMAND, handleInsertCommand);
     window.removeEventListener(SSH_EVENT.EXECUTE_CAPTURE_REQUEST, handleExecuteCaptureRequest);
     rejectAllSshCaptures('SSH panel unmounted');

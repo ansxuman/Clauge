@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { sshProfiles, activeSshProfile, loadSshProfiles, sshTerminalIds, sshConnStates } from '../stores';
-  import { sshTouchProfile, sshDeleteProfile, sshCreateProfile } from '../commands';
+  import { sshTouchProfile, sshDeleteProfile } from '../commands';
+  import { profileIdFromTabKey } from '../tabkey';
   import { showContextMenu } from '$lib/shared/primitives/contextmenu';
   import { showToast } from '$lib/shared/primitives/toast';
   import NewSshProfileModal from './NewSshProfileModal.svelte';
@@ -36,6 +37,12 @@
 
   onMount(() => {
     loadSshProfiles();
+    // The "+" near tabs in Topbar and the picker's "+ New SSH Profile" both
+    // dispatch SSH_EVENT.NEW_PROFILE. Listen here since the modal lives in
+    // this component.
+    const onNewProfile = () => { showAdd = true; };
+    window.addEventListener(SSH_EVENT.NEW_PROFILE, onNewProfile);
+    return () => window.removeEventListener(SSH_EVENT.NEW_PROFILE, onNewProfile);
   });
 
   export function showAddProfile() {
@@ -67,7 +74,16 @@
     e.preventDefault();
     e.stopPropagation();
 
-    showContextMenu(e.clientX, e.clientY, [
+    // "Duplicate Session" only makes sense when the profile has at least
+    // one connected terminal — duplicating creates a second independent
+    // session in parallel.
+    const tids = $sshTerminalIds;
+    const states = $sshConnStates;
+    const hasConnected = Array.from(tids.keys()).some(
+      (k) => profileIdFromTabKey(k) === profile.id && states.get(k) === 'connected'
+    );
+
+    const items: any[] = [
       {
         label: 'Connect',
         icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>',
@@ -82,51 +98,40 @@
           showEdit = true;
         },
       },
-      {
-        label: 'Duplicate',
+    ];
+
+    if (hasConnected) {
+      items.push({
+        label: 'Duplicate Session',
         icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>',
-        action: async () => {
+        action: () => {
+          window.dispatchEvent(new CustomEvent(SSH_EVENT.DUPLICATE_SESSION, { detail: profile }));
+        },
+      });
+    }
+
+    items.push({ label: '', action: () => {}, separator: true });
+    items.push({
+      label: 'Delete',
+      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>',
+      danger: true,
+      action: () => {
+        confirmTitle = 'Delete SSH Profile';
+        confirmMessage = `Delete "${profile.name}"? This cannot be undone.`;
+        confirmAction = async () => {
           try {
-            await sshCreateProfile({
-              name: profile.name + ' (copy)',
-              host: profile.host,
-              port: profile.port,
-              username: profile.username,
-              authType: profile.authType,
-              keyPath: profile.keyPath,
-              accentColor: profile.accentColor,
-              // Secrets do not duplicate — user must re-enter for the copy
-              secret: null,
-              passphrase: null,
-            });
+            await sshDeleteProfile(profile.id);
             await loadSshProfiles();
-            showToast('Profile duplicated — re-enter secret if needed', 'info');
+            showToast('Profile deleted', 'success');
           } catch (e: any) {
             showToast(String(e), 'error');
           }
-        },
+        };
+        confirmShow = true;
       },
-      { label: '', action: () => {}, separator: true },
-      {
-        label: 'Delete',
-        icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>',
-        danger: true,
-        action: () => {
-          confirmTitle = 'Delete SSH Profile';
-          confirmMessage = `Delete "${profile.name}"? This cannot be undone.`;
-          confirmAction = async () => {
-            try {
-              await sshDeleteProfile(profile.id);
-              await loadSshProfiles();
-              showToast('Profile deleted', 'success');
-            } catch (e: any) {
-              showToast(String(e), 'error');
-            }
-          };
-          confirmShow = true;
-        },
-      },
-    ]);
+    });
+
+    showContextMenu(e.clientX, e.clientY, items);
   }
 
   async function handleConfirmOk() {

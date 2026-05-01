@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { mode, navOpen, aiPanelOpen, activeModal } from '$lib/stores/app';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { isMac } from '$lib/utils/platform';
+  import { isMac, isLinux } from '$lib/utils/platform';
   import { activeHistoryEntry } from '$lib/modes/rest/stores';
   import { githubConnected, githubUsername, githubAvatarUrl, syncing, lastSyncedAt, setSyncing, setLastSynced, setDisconnected, showSyncRestorePrompt, markSynced } from '$lib/stores/github';
   import { gistSyncPush, gistSyncPull, githubDisconnect } from '$lib/commands/github';
@@ -22,9 +22,11 @@
   let previousMode: AppMode = 'rest';
   let isFullscreen = $state(false);
 
-  // Custom traffic-light controls only on macOS, where the window is configured
-  // with decorations:false (via tauri.macos.conf.json). Win/Linux use native chrome.
-  const showCustomChrome = isMac();
+  // Custom traffic-light controls render on macOS + Linux — both run with
+  // decorations:false (mac via tauri.macos.conf.json for vibrancy; Linux via
+  // tauri.linux.conf.json to escape GTK's thick title bar). Windows keeps
+  // native chrome since we don't ship a Win-specific custom titlebar.
+  const showCustomChrome = isMac() || isLinux();
 
 
   onMount(() => {
@@ -47,8 +49,9 @@
   }
 
   function setMode(m: AppMode) {
-    // Click same mode again → toggle nav panel closed.
-    // Click different mode → switch and ensure panel is open.
+    // Click same mode again with panel already open → close it (cursor is
+    // on the sidebar so this is the only way to actively dismiss without
+    // moving across to content).
     if ($mode === m && $navOpen) {
       navOpen.set(false);
       return;
@@ -60,16 +63,19 @@
   }
 
   function toggleHistory() {
-    if ($mode === 'history') {
+    if ($mode === 'history' && $navOpen) {
       mode.set(previousMode);
       activeHistoryEntry.set(null);
-      if ($navOpen) navOpen.set(false);
+      navOpen.set(false);
       return;
     }
-    previousMode = $mode as any;
-    mode.set('history');
+    if ($mode !== 'history') {
+      previousMode = $mode as any;
+      mode.set('history');
+    }
     navOpen.set(true);
   }
+
 
   function toggleProfileMenu() {
     profileMenuOpen = !profileMenuOpen;

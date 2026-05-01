@@ -5,12 +5,11 @@
   import { get } from 'svelte/store';
   import { testAiKey } from '$lib/commands/ai';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { isMac } from '$lib/utils/platform';
+  import { isMac, isLinux } from '$lib/utils/platform';
 
-  // Custom traffic-light controls only render on macOS, where the window
-  // is configured with decorations:false (via tauri.macos.conf.json).
-  // Win/Linux use native window chrome — duplicating buttons would clash.
-  const showCustomChrome = isMac();
+  // Custom traffic-light controls render on macOS + Linux (both run with
+  // decorations:false). Windows keeps native chrome.
+  const showCustomChrome = isMac() || isLinux();
 
   async function wcClose() { await getCurrentWindow().close(); }
   async function wcMinimize() { await getCurrentWindow().minimize(); }

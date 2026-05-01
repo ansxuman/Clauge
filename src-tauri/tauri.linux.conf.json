@@ -1,4 +1,17 @@
 {
+  "app": {
+    "windows": [
+      {
+        "title": "Clauge",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "center": true,
+        "decorations": false
+      }
+    ]
+  },
   "bundle": {
     "linux": {
       "deb": {

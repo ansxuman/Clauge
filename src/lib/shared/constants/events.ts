@@ -43,6 +43,9 @@ export const SSH_EVENT = {
   PROFILE_CREATED: 'ssh:profile-created',
   PROFILE_UPDATED: 'ssh:profile-updated',
   NEW_PROFILE: 'ssh:new-profile',
+  /** Open a NEW independent SSH tab for the given profile (always creates,
+   * never activates an existing tab). Detail: SshProfile. */
+  DUPLICATE_SESSION: 'ssh:duplicate-session',
 } as const;
 
 export const AGENT_EVENT = {

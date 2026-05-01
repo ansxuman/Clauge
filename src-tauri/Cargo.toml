@@ -54,8 +54,12 @@ russh = "0.45"
 russh-keys = "0.45"
 async-trait = "0.1"
 sha2 = "0.10"
-# Cross-platform credential store (macOS Keychain / Windows Credential Manager / Linux Secret Service)
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+# Credential store for Windows + Linux (Win Credential Manager / libsecret).
+# macOS uses a separate shell-out path to /usr/bin/security in
+# shared/platform/credential_store.rs — keeps Keychain access prompts to a
+# minimum since /usr/bin/security is implicitly trusted by macOS.
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+keyring = { version = "3", features = ["windows-native", "sync-secret-service"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.26"
