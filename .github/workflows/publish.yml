@@ -25,6 +25,11 @@ jobs:
           - platform: 'ubuntu-22.04'
             args: ''
             rust-targets: ''
+          # Native ARM64 Linux runner (free for public repos). Builds an
+          # arm64 .deb / .rpm / .AppImage in ~10 minutes, no QEMU needed.
+          - platform: 'ubuntu-22.04-arm'
+            args: ''
+            rust-targets: ''
 
     runs-on: ${{ matrix.platform }}
     env:
