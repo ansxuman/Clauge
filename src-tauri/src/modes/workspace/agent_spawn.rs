@@ -640,11 +640,11 @@ fn build_persona_prompt(
         out.push_str("\n\n");
         out.push_str(prompt);
     }
-    // Identity + workflow + lineage block. Tells the agent:
+    // Identity + workflow block. Tells the agent:
     //   • who it is (so it attributes MCP writes correctly)
     //   • when to move the card through columns (Todo → In Review → Review)
     //   • when to create a worktree (only if it's about to write code)
-    //   • how to mark sub-cards (parentCardId)
+    //   • how to communicate lineage when spinning off a related card
     // Without this, work happens silently and the kanban drifts from
     // reality.
     out.push_str(&format!(
@@ -656,8 +656,11 @@ fn build_persona_prompt(
          cards_update, cards_move, etc.) pass `coworkerId: \"{cw_id}\"` so the \
          work is attributed to you.\n\
          \n\
-         Lineage: when you spin off sub-cards related to this discussion, pass \
-         `parentCardId: \"{card_id}\"` on cards_create so the new cards link back here.\n\
+         Spinning off related cards: if you discover a separate task while \
+         discussing this one, create a normal card via cards_create AND drop a \
+         comment on THIS card (cards_add_comment) noting the new card's id. \
+         That's how the user traces lineage — there is no first-class \
+         parent/child relationship between cards.\n\
          \n\
          Card status: this card lives in a kanban column. If it's currently in a \
          column called 'Todo' (or similar) and you've started actively engaging, \

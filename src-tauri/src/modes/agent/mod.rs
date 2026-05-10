@@ -11,7 +11,6 @@
 // `usage` stay intact for now; a later wave will introduce a `CliRunner`
 // trait that abstracts the binary path and arguments.
 
-pub mod ai_tools;
 pub mod commands;
 pub mod git;
 pub mod models;

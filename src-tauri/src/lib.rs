@@ -136,13 +136,14 @@ pub fn run() {
             // Register every mode's AI tools into the shared dispatch registry.
             // Adding a new tool to a mode = one new function + one entry in
             // that mode's `register_tools()`; zero edits to the dispatch loop.
-            modes::agent::ai_tools::register_tools();
+            // Workspace + agent skip this — they have no in-app AI panel
+            // (workspace owns the MCP server in `mcp/`; agent shells out
+            // to the Claude CLI which manages its own tool calls).
             modes::rest::ai_tools::register_tools();
             modes::sql::ai_tools::register_tools();
             modes::nosql::ai_tools::register_tools();
             modes::ssh::ai_tools::register_tools();
             modes::explorer::ai_tools::register_tools();
-            modes::workspace::ai_tools::register_tools();
             // Workspace MCP server state — single global handle.
             // Started/stopped via workspace_mcp_start/stop commands.
             app.manage(modes::workspace::commands::McpServerState::default());

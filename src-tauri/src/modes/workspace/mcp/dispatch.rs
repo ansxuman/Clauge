@@ -440,7 +440,6 @@ pub(super) async fn dispatch_tool(
             let priority = str_arg("priority");
             let tags_json = serde_json::to_string(&str_array("tags")).unwrap_or("[]".into());
             let coworker_id = str_arg("coworkerId");
-            let parent_card_id = str_arg("parentCardId");
             // Place at end of the destination column.
             let existing_in_col: Vec<_> = repo::list_cards_in_board(pool, &column_id, repo::Pagination::default())
                 .await.unwrap_or_default()
@@ -451,7 +450,6 @@ pub(super) async fn dispatch_tool(
                 pool, &id, &column_id, &title, &description,
                 priority.as_deref(), &tags_json, pos,
                 None, None, None,
-                parent_card_id.as_deref(),
                 coworker_id.as_deref(),
                 actor, &now,
             )
@@ -779,7 +777,6 @@ pub(super) async fn dispatch_tool(
                 pool, &id, &column_id, &title, &description,
                 None, "[]", pos,
                 Some(&branch), None, None,
-                None, // parent_card_id — branch-created cards are top-level
                 None, // coworker_id — branches don't carry persona context
                 actor, &now,
             )

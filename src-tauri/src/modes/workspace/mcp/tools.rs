@@ -138,17 +138,16 @@ fn tool_descriptors() -> Value {
         },
         {
             "name": "cards_create",
-            "description": "Create a new card inside a column. Pass `coworkerId` to attribute the card to a persona (the persona's avatar/name will appear on the card foot). Pass `parentCardId` to record lineage when this card is spawned from another card's discussion — the UI shows a 'From card X' breadcrumb.",
+            "description": "Create a new card inside a column. Pass `coworkerId` to attribute the card to a persona (the persona's avatar/name will appear on the card foot). When you spin off a card while discussing another card, drop a comment on the source card linking to the new one — that's how lineage is communicated, there's no first-class parent/child relationship.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "columnId":     { "type": "string" },
-                    "title":        { "type": "string" },
-                    "description":  { "type": "string" },
-                    "priority":     { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
-                    "tags":         { "type": "array", "items": { "type": "string" } },
-                    "coworkerId":   { "type": "string", "description": "Persona that's creating this card. Use your declared coworker_id when acting as a persona." },
-                    "parentCardId": { "type": "string", "description": "Card this one was spawned from, for lineage." }
+                    "columnId":    { "type": "string" },
+                    "title":       { "type": "string" },
+                    "description": { "type": "string" },
+                    "priority":    { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+                    "tags":        { "type": "array", "items": { "type": "string" } },
+                    "coworkerId":  { "type": "string", "description": "Persona that's creating this card. Use your declared coworker_id when acting as a persona." }
                 },
                 "required": ["columnId", "title"]
             }

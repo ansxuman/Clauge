@@ -107,7 +107,6 @@ export const workspaceCardCreate = (params: {
   externalId?: string | null;
   externalUrl?: string | null;
   linkedSessionId?: string | null;
-  parentCardId?: string | null;
   coworkerId?: string | null;
   actor: string;
 }) => invoke<WorkspaceBoardCard>('workspace_card_create', params);

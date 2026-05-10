@@ -573,7 +573,6 @@ pub async fn workspace_card_create(
     external_id: Option<String>,
     external_url: Option<String>,
     linked_session_id: Option<String>,
-    parent_card_id: Option<String>,
     coworker_id: Option<String>,
     actor: String,
 ) -> Result<WorkspaceBoardCard, String> {
@@ -593,7 +592,6 @@ pub async fn workspace_card_create(
         external_id.as_deref(),
         external_url.as_deref(),
         linked_session_id.as_deref(),
-        parent_card_id.as_deref(),
         coworker_id.as_deref(),
         &actor,
         &now,

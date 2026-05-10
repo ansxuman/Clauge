@@ -3,15 +3,12 @@
 //
 // `commands` hosts `#[tauri::command]` handlers; `models` carries the
 // shared data types. All persistence funnels through
-// `crate::shared::repos::workspaces`.
-//
-// Agent integration (MCP server exposing notes/boards as tools) is
-// architected here but registered separately when the workspace
-// transport lands; for now `ai_tools::register_tools` is a no-op
-// (mirrors agent mode's shape).
+// `crate::shared::repos::workspaces`. Agent integration is the MCP
+// server in `mcp/` — workspace mode does NOT register tools into the
+// shared in-app AI dispatch (the AIPanel is gated out for this mode
+// in the frontend).
 
 pub mod agent_spawn;
-pub mod ai_tools;
 pub mod cli_errors;
 pub mod commands;
 pub mod mcp;

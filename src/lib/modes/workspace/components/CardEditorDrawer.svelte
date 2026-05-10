@@ -603,15 +603,6 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="cd-resize" onmousedown={startResize} title="Drag to resize"></div>
     <!-- ─────────── Header ─────────── -->
-    {#if card.parentCardId}
-      <!-- Lineage breadcrumb — when a sub-card was spawned during a
-           discussion on another card. Quiet style, 1 line, links back. -->
-      <div class="cd-lineage" title="This card was spawned from a discussion on another card">
-        <span class="cd-lineage-ico">↳</span>
-        <span class="cd-lineage-label">From card</span>
-        <code class="cd-lineage-id">{card.parentCardId.slice(0, 8)}</code>
-      </div>
-    {/if}
     <div class="cd-head">
       <input
         class="cd-title"
@@ -907,28 +898,6 @@
   @keyframes slideIn { from { transform: translateX(20px); opacity: 0.6; } to { transform: none; opacity: 1; } }
 
   /* ── Header ───────────────────────────── */
-  .cd-lineage {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    background: rgba(255, 255, 255, 0.02);
-    border-bottom: 1px solid var(--b1);
-    font-family: var(--ui);
-    font-size: 11px;
-    color: var(--t3);
-    flex-shrink: 0;
-  }
-  .cd-lineage-ico { color: var(--acc); font-size: 13px; }
-  .cd-lineage-label { color: var(--t4); }
-  .cd-lineage-id {
-    font-family: var(--mono);
-    background: rgba(255, 255, 255, 0.06);
-    padding: 1px 6px;
-    border-radius: 3px;
-    color: var(--t2);
-    font-size: 10.5px;
-  }
   .cd-head {
     display: flex;
     align-items: center;

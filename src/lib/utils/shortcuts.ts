@@ -104,7 +104,11 @@ function handleKeydown(e: KeyboardEvent) {
     e.preventDefault();
   }
 
-  // Cmd+L: toggle AI panel (or shell in agent mode)
+  // Cmd+L: toggle AI panel — but only in modes that actually wire up
+  // a system prompt + tools for it (REST / SQL / NoSQL / SSH /
+  // Explorer). Workspace and agent both render the panel as an empty
+  // useless chat, so the shortcut is a no-op there. Agent mode keeps
+  // its own special meaning: toggle the shell panel.
   if (meta && e.key === 'l' && !e.shiftKey) {
     const currentMode = get(mode);
     if (currentMode === 'agent') {
@@ -115,6 +119,10 @@ function handleKeydown(e: KeyboardEvent) {
         unsub();
         if (hasSession) agentShellOpen.update(v => !v);
       });
+      e.preventDefault();
+      return;
+    }
+    if (currentMode === 'workspace') {
       e.preventDefault();
       return;
     }

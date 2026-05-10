@@ -554,7 +554,6 @@ pub async fn insert_card(
     external_id: Option<&str>,
     external_url: Option<&str>,
     linked_session_id: Option<&str>,
-    parent_card_id: Option<&str>,
     coworker_id: Option<&str>,
     actor: &str,
     now: &str,
@@ -565,11 +564,11 @@ pub async fn insert_card(
     sqlx::query(
         "INSERT INTO workspace_board_cards \
          (id, column_id, title, description, priority, tags, position, \
-          external_id, external_url, linked_session_id, parent_card_id, \
+          external_id, external_url, linked_session_id, \
           review_pending, review_checklist, \
           created_at, created_by, created_by_coworker_id, \
           updated_at, updated_by, updated_by_coworker_id) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?, ?, ?, ?, ?)",
     )
     .bind(id)
     .bind(column_id)
@@ -581,7 +580,6 @@ pub async fn insert_card(
     .bind(external_id)
     .bind(external_url)
     .bind(linked_session_id)
-    .bind(parent_card_id)
     .bind(now)
     .bind(actor)
     .bind(coworker_id)

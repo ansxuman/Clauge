@@ -88,9 +88,6 @@ export interface WorkspaceBoardCard {
    *  be null even when claimedSessionId is set if a manual terminal
    *  session claimed the card. */
   claimedCoworkerId: string | null;
-  /** Lineage — the card this one was spawned from (an agent created
-   *  it during a discussion on the parent). null for top-level cards. */
-  parentCardId: string | null;
   /** Persona that created the card, when known. UI looks up the
    *  current name via the coworker store so renames are safe. */
   createdByCoworkerId: string | null;

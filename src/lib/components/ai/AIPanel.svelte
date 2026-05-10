@@ -693,6 +693,12 @@
   }
 </script>
 
+<!-- Workspace + agent modes don't wire up a system prompt or tools
+     for the AI panel — opening it would render an empty, useless
+     chat. Topbar already hides the toggle button in those modes;
+     this guard makes sure stray sources (settings / persisted
+     `aiPanelOpenPerMode`) can't bring the panel back. -->
+{#if $mode !== 'workspace' && $mode !== 'agent'}
 <aside
   class="ai-panel"
   class:open={$aiPanelOpen}
@@ -1013,6 +1019,7 @@
     {/if}
   </div>
 </aside>
+{/if}
 
 <SshExecuteConfirmModal
   show={sshModalShow}

@@ -202,10 +202,6 @@ pub struct WorkspaceBoardCard {
     /// session claimed the card (terminal sessions don't have a
     /// persona today — that's a future enhancement).
     pub claimed_coworker_id: Option<String>,
-    /// Lineage — the card this one was spawned from, when an agent
-    /// (or user) created a sub-card from a discussion. NULL for top-
-    /// level cards.
-    pub parent_card_id: Option<String>,
     /// Persona that created this card, when known. The agent slug is
     /// always in `created_by`; this column resolves the *display name*
     /// safely against renames (we look up the coworker row at render).

@@ -102,10 +102,6 @@ CREATE TABLE IF NOT EXISTS workspace_coworkers (
 -- `*_by_coworker_id` FKs identify which persona was acting at the
 -- time. Renaming a coworker doesn't break historical attribution
 -- because we resolve the name through the FK at render time.
---
--- parent_card_id: optional lineage. When @alex creates a sub-card
--- while chatting on card 123, the new card stamps `parent_card_id =
--- 123` so the UI can show a "From card X" breadcrumb.
 CREATE TABLE IF NOT EXISTS workspace_board_cards (
     id                       TEXT PRIMARY KEY,
     column_id                TEXT NOT NULL,
@@ -127,7 +123,6 @@ CREATE TABLE IF NOT EXISTS workspace_board_cards (
     frozen                   INTEGER NOT NULL DEFAULT 0,
     claimed_coworker_id      TEXT,
     claimed_session_id       TEXT,
-    parent_card_id           TEXT,
     created_at               TEXT NOT NULL DEFAULT (datetime('now')),
     created_by               TEXT NOT NULL DEFAULT 'user',
     created_by_coworker_id   TEXT,
@@ -138,7 +133,6 @@ CREATE TABLE IF NOT EXISTS workspace_board_cards (
     FOREIGN KEY (linked_session_id)       REFERENCES agent_sessions(id)          ON DELETE SET NULL,
     FOREIGN KEY (claimed_session_id)      REFERENCES agent_sessions(id)          ON DELETE SET NULL,
     FOREIGN KEY (claimed_coworker_id)     REFERENCES workspace_coworkers(id)     ON DELETE SET NULL,
-    FOREIGN KEY (parent_card_id)          REFERENCES workspace_board_cards(id)   ON DELETE SET NULL,
     FOREIGN KEY (created_by_coworker_id)  REFERENCES workspace_coworkers(id)     ON DELETE SET NULL,
     FOREIGN KEY (updated_by_coworker_id)  REFERENCES workspace_coworkers(id)     ON DELETE SET NULL
 );
@@ -169,8 +163,6 @@ CREATE INDEX IF NOT EXISTS idx_workspace_columns_board
     ON workspace_board_columns(board_id);
 CREATE INDEX IF NOT EXISTS idx_workspace_cards_column
     ON workspace_board_cards(column_id);
-CREATE INDEX IF NOT EXISTS idx_workspace_cards_parent
-    ON workspace_board_cards(parent_card_id) WHERE parent_card_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_card_comments_card_id_created_at
     ON workspace_card_comments(card_id, created_at);
 
