@@ -5,11 +5,13 @@ compatibility_flags = ["nodejs_compat"]
 
 # Worker handles:
 #   /auth/token*       — legacy GitHub OAuth exchange (deprecated, kept for 1 release)
-#   /api/*             — all new endpoints (auth + sync)
-# Pages handles every other path on clauge.in (marketing site + callback HTML pages).
+#   /api/auth/*        — cloud auth (exchange, me, link, unlink, refresh)
+#   /api/sync/*        — per-domain blob sync
+# Pages handles every other path on clauge.in (marketing site, callback HTML, Pages Functions like /api/contact).
 routes = [
   { pattern = "clauge.in/auth/token*", zone_name = "clauge.in" },
-  { pattern = "clauge.in/api/*",       zone_name = "clauge.in" }
+  { pattern = "clauge.in/api/auth/*",  zone_name = "clauge.in" },
+  { pattern = "clauge.in/api/sync/*",  zone_name = "clauge.in" }
 ]
 
 [vars]
