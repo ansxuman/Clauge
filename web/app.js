@@ -783,9 +783,11 @@
     .then(list => {
       if (!Array.isArray(list) || !list.length) return;
       const isAlphaLike = (r) => /\balpha\b/.test((r.tag_name || '').toLowerCase());
-      const release = showAlpha
-        ? list[0]
-        : list.find(r => !isAlphaLike(r)) || list[0];
+      /* When showAlpha is OFF, never fall back to an alpha release — let the
+         link sit at releases/latest so the visitor sees "no stable build yet"
+         rather than silently being handed an alpha binary. */
+      const release = showAlpha ? list[0] : list.find(r => !isAlphaLike(r));
+      if (!release) return; /* no eligible release — keep default hrefs */
       const assets = release.assets || [];
 
       /* Build slot → asset URL map */
