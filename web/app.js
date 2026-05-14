@@ -798,12 +798,10 @@
     return null;
   })();
 
-  const hideAllSlots = () => slots.forEach(a => { a.style.display = 'none'; });
-
   const applyRelease = (release) => {
     const assets = release.assets || [];
 
-    /* Build slot → asset URL map */
+    /* slot → asset URL */
     const urls = {};
     for (const [slot, match] of Object.entries(MATCHERS)) {
       const hit = assets.find(a => match(a.name));
@@ -821,16 +819,13 @@
         a.href = url;
         a.removeAttribute('target');  /* same-tab download for direct binaries */
         a.setAttribute('download', '');
-      } else {
-        /* No matching asset in the chosen release for this slot. Don't fall
-           back to a GitHub page or to an alpha binary — hide the link. */
-        a.style.display = 'none';
       }
+      /* else: leave the static href alone — once stable ships builds for
+         every OS, every slot will match and this branch is unreachable. */
     });
   };
 
-  /* Use cache if fresh; otherwise hit the API. On API failure with no
-     cache, hide all download buttons (better than punting to GitHub). */
+  /* Use cache if fresh; otherwise hit the API. */
   if (cached) {
     applyRelease(cached);
     return;
@@ -840,13 +835,13 @@
     .then(r => r.ok ? r.json() : Promise.reject(r.status))
     .then(payload => {
       const release = Array.isArray(payload) ? payload[0] : payload;
-      if (!release) { hideAllSlots(); return; }
+      if (!release) return;
       try {
         localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), release }));
       } catch {}
       applyRelease(release);
     })
-    .catch(() => { hideAllSlots(); });
+    .catch(() => { /* rate-limit / offline: leave static hrefs in place */ });
 })();
 
 /* ── OS-aware downloads: customize hero CTA + bottom card based on detected OS ── */
