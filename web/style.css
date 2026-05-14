@@ -34,7 +34,7 @@
   --bg:          #07070f;
   --bg-1:        var(--s);
   --bg-2:        var(--n);
-  --bg-card:     var(--n);
+  --bg-card:     color-mix(in srgb, var(--n) 55%, transparent);
   --bg-glass:    rgba(18, 18, 31, 0.62);
   --border:      var(--b1);
   --border-2:    var(--b2);
