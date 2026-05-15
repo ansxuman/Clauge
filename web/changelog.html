@@ -131,18 +131,28 @@
       return 'fa-solid fa-download';
     };
 
-    const archHint = (name) => {
-      const n = name.toLowerCase();
-      if (/(arm64|aarch64|apple[-_ ]?silicon)/.test(n)) return 'Apple Silicon';
-      if (/(x86_64|x64|amd64|intel)/.test(n)) return 'Intel';
-      return '';
-    };
-
     const platformOf = (name) => {
       const n = name.toLowerCase();
       if (n.endsWith('.dmg') || n.endsWith('.pkg')) return 'macOS';
       if (n.endsWith('.exe') || n.endsWith('.msi')) return 'Windows';
       if (n.endsWith('.deb') || n.endsWith('.rpm') || n.endsWith('.appimage')) return 'Linux';
+      return '';
+    };
+
+    // Apple Silicon / Intel only mean anything on macOS (Apple shipped both).
+    // Windows + Linux use ARM64 / AMD64.
+    const archHint = (name) => {
+      const n = name.toLowerCase();
+      const plat = platformOf(name);
+      const isArm = /(arm64|aarch64|apple[-_ ]?silicon)/.test(n);
+      const isX64 = /(x86_64|x64|amd64|intel)/.test(n);
+      if (plat === 'macOS') {
+        if (isArm) return 'Apple Silicon';
+        if (isX64) return 'Intel';
+      } else {
+        if (isArm) return 'ARM64';
+        if (isX64) return 'AMD64';
+      }
       return '';
     };
 
