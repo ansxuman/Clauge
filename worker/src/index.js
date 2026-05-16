@@ -4,7 +4,7 @@ import { preflight, err } from './cors.js';
 import {
   handleGitHubExchange, handleGoogleExchange, handleGoogleRefresh,
   handleMe, handleUpdateProfile, handleDeleteAccount, handleLink, handleUnlink,
-  handleLegacyAuthToken, authenticate,
+  handleLegacyAuthToken, authenticate, buildMeResponse,
 } from './auth.js';
 import {
   handleSyncState, handleSyncPull, handleSyncPush, handleSyncWipe,
@@ -12,6 +12,7 @@ import {
 import { handleBillingWebhook, handleCreateCheckout, handleCreatePortal } from './billing.js';
 import { sweepPastDue } from './cron.js';
 import { handleAiChat, handleAiBalance, handleAiUsage } from './ai.js';
+import { checkKeyRpm } from './ratelimit.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -41,7 +42,12 @@ export default {
 
       // ─── /api/auth/me — bearer required ────────────────────
       if (path === '/api/auth/me' && method === 'GET') {
-        return await handleMe(request, env);
+        const ctx = await authenticate(request, env);
+        if (!ctx?.userId) return new Response("unauthorized", { status: 401 });
+        if (!(await checkKeyRpm(`me:${ctx.userId}`, 60, env))) {
+          return new Response("rate limited", { status: 429 });
+        }
+        return buildMeResponse(env, ctx.userId);
       }
       if (path === '/api/auth/me' && method === 'PATCH') {
         return await handleUpdateProfile(request, env);
@@ -78,19 +84,31 @@ export default {
 
       // ─── /api/billing/webhook — server-to-server, no bearer ─
       if (path === '/api/billing/webhook' && method === 'POST') {
+        const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+        if (!(await checkKeyRpm(`webhook:${ip}`, 100, env))) {
+          return new Response("rate limited", { status: 429 });
+        }
         return await handleBillingWebhook(request, env);
       }
 
       // ─── /api/billing/checkout — bearer required ────────────
       if (path === '/api/billing/checkout' && method === 'POST') {
         const checkoutCtx = await authenticate(request, env);
-        return handleCreateCheckout(request, env, checkoutCtx?.userId ?? null);
+        const checkoutUserId = checkoutCtx?.userId ?? null;
+        if (checkoutUserId && !(await checkKeyRpm(`checkout:${checkoutUserId}`, 5, env))) {
+          return new Response("rate limited", { status: 429 });
+        }
+        return handleCreateCheckout(request, env, checkoutUserId);
       }
 
       // ─── /api/billing/portal — bearer required ──────────────
       if (request.method === 'POST' && path === '/api/billing/portal') {
         const ctx = await authenticate(request, env);
-        return handleCreatePortal(env, ctx?.userId ?? null);
+        const portalUserId = ctx?.userId ?? null;
+        if (portalUserId && !(await checkKeyRpm(`portal:${portalUserId}`, 5, env))) {
+          return new Response("rate limited", { status: 429 });
+        }
+        return handleCreatePortal(env, portalUserId);
       }
 
       // ─── /api/sync/* — bearer required ─────────────────────

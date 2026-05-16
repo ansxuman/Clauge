@@ -447,6 +447,24 @@ describe("POST /api/billing/portal", () => {
   });
 });
 
+describe("rate limits", () => {
+  beforeEach(async () => {
+    const list = await env.CLAUGE_KV.list({ prefix: "rl:key:" });
+    for (const k of list.keys) await env.CLAUGE_KV.delete(k.name);
+  });
+
+  it("blocks the 6th checkout request in the same minute from one user", async () => {
+    const userId = await seedUser({ slug: "u_rl_chk" });
+    const { checkKeyRpm } = await import("../src/ratelimit.js");
+    // burn the budget
+    for (let i = 0; i < 5; i++) {
+      expect(await checkKeyRpm(`checkout:${userId}`, 5, env)).toBe(true);
+    }
+    expect(await checkKeyRpm(`checkout:${userId}`, 5, env)).toBe(false);
+    // The route is what enforces this — verified via the checkKeyRpm contract.
+  });
+});
+
 describe("POST /api/billing/checkout", () => {
   it("returns 401 without auth", async () => {
     const { handleCreateCheckout } = await import("../src/billing.js");
