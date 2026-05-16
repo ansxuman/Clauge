@@ -352,6 +352,117 @@ pub async fn link_pr_url(
     Ok(())
 }
 
+/// Host-side state of a card's PR. Driven by `gh pr view --json state`
+/// / `glab mr view --output json` so it reflects what's actually true
+/// on the host, not any cached Clauge-side state. Consumed by the
+/// auto-move-on-merge poll in the frontend and the matching MCP tool.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PrState {
+    Open,
+    Merged,
+    Closed,
+    /// gh/glab returned something the parser didn't recognise. Callers
+    /// should treat as a no-op (don't auto-move, don't bubble error).
+    Unknown,
+}
+
+/// Query the host for a card's PR state. Pure read — never mutates.
+///
+/// Errors with the usual `CliError` variants when gh/glab is missing,
+/// the user isn't authed, the network fails, etc. so the UI can surface
+/// install-modals the same way the create / push paths do.
+pub async fn check_pr_state(
+    pool: &SqlitePool,
+    card_id: &str,
+) -> Result<PrState, CliError> {
+    let row: Option<(Option<String>, String)> = sqlx::query_as(
+        "SELECT c.pr_url, b.workspace_id \
+         FROM workspace_board_cards c \
+         JOIN workspace_board_columns col ON col.id = c.column_id \
+         JOIN workspace_boards b ON b.id = col.board_id \
+         WHERE c.id = ?",
+    )
+    .bind(card_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| CliError::Other { stderr: format!("DB: {e}") })?;
+
+    let (pr_url, ws_id) = row.ok_or_else(|| CliError::Other {
+        stderr: "Card not found".into(),
+    })?;
+    let pr_url = pr_url
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| CliError::Other {
+            stderr: "Card has no PR URL yet".into(),
+        })?;
+
+    let workspace = repo::get_workspace_by_id(pool, &ws_id)
+        .await
+        .map_err(|e| CliError::Other { stderr: format!("DB: {e}") })?;
+    let repo_url = workspace
+        .repo_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| CliError::Other {
+            stderr: "Workspace has no repo URL set".into(),
+        })?
+        .to_string();
+
+    let lower = repo_url.to_lowercase();
+    let tool = if lower.contains("github.com") {
+        "gh"
+    } else if lower.contains("gitlab") {
+        "glab"
+    } else {
+        return Err(CliError::Other {
+            stderr: format!("Unsupported repo URL: {repo_url}"),
+        });
+    };
+    if !is_on_path(tool) {
+        return Err(CliError::NotInstalled {
+            tool: tool.into(),
+            install_url: install_url_for(tool).into(),
+        });
+    }
+    let tool_bin = crate::shared::platform::path::find_binary(tool).ok_or_else(|| {
+        CliError::NotInstalled {
+            tool: tool.into(),
+            install_url: install_url_for(tool).into(),
+        }
+    })?;
+
+    let mut cmd = Command::new(&tool_bin);
+    crate::shared::platform::path::apply_user_path(&mut cmd);
+    if tool == "gh" {
+        // `gh pr view <url> --json state` → {"state":"OPEN" | "MERGED" | "CLOSED"}
+        cmd.args(["pr", "view", &pr_url, "--json", "state"]);
+    } else {
+        // `glab mr view <url> --output json` → full record including .state ("opened"/"merged"/"closed")
+        cmd.args(["mr", "view", &pr_url, "--output", "json"]);
+    }
+    let out = cmd.output().map_err(|e| CliError::Other {
+        stderr: format!("{tool} failed to spawn: {e}"),
+    })?;
+    if let Some(err) = classify_output(tool, &out, None) {
+        return Err(err);
+    }
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let v: serde_json::Value = serde_json::from_str(&stdout).unwrap_or(serde_json::Value::Null);
+    let raw = v
+        .get("state")
+        .and_then(|s| s.as_str())
+        .unwrap_or("")
+        .to_ascii_uppercase();
+    Ok(match raw.as_str() {
+        "OPEN" | "OPENED" => PrState::Open,
+        "MERGED" => PrState::Merged,
+        "CLOSED" => PrState::Closed,
+        _ => PrState::Unknown,
+    })
+}
+
 /// Pull the first http(s) URL out of stdout whose host contains the
 /// given marker. Both `gh pr create` and `glab mr create` print the
 /// URL as the only content on the last line of stdout, so this is a

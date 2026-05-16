@@ -242,7 +242,7 @@
     border-bottom: 1px solid var(--b-subtle);
   }
   .hv-header-row:hover {
-    background: rgba(255,255,255,0.02);
+    background: var(--surface-hover);
   }
   .hv-hkey {
     color: var(--t2);

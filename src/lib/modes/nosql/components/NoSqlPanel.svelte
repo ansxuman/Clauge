@@ -361,7 +361,7 @@
     padding: 0 8px;
     border-radius: 5px;
     border: 1px solid var(--b1);
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     color: var(--t1);
     font-size: 12.5px;
     font-family: var(--mono);
@@ -475,7 +475,7 @@
   }
   .nosql-sel {
     height: 26px;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     padding: 0 8px;

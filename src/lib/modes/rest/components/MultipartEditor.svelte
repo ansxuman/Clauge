@@ -217,7 +217,7 @@
     cursor: pointer; flex-shrink: 0;
     transition: color 0.1s, background 0.1s;
   }
-  .mp-del:hover { color: var(--err); background: rgba(255,255,255,0.05); }
+  .mp-del:hover { color: var(--err); background: var(--surface-hover); }
 
   .mp-add {
     margin-top: 6px; align-self: flex-start;

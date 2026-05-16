@@ -120,8 +120,8 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.6);
-    z-index: 9999;
+    background: var(--scrim-strong);
+    z-index: var(--z-drawer);
     display: flex;
     align-items: center;
     justify-content: center;

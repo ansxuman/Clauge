@@ -655,7 +655,7 @@
   .fb-btn:hover:not(:disabled) {
     color: var(--t1);
     border-color: var(--b2);
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
   }
   .fb-btn:disabled { opacity: 0.4; cursor: default; }
   .fb-icon-btn { width: 28px; padding: 0; }
@@ -679,7 +679,7 @@
     cursor: default;
     border-radius: 3px;
   }
-  .fb-crumb:hover { color: var(--t1); background: rgba(255,255,255,0.05); }
+  .fb-crumb:hover { color: var(--t1); background: var(--surface-hover); }
   .fb-sep { color: var(--t4); }
   .fb-spacer { flex: 1; }
   .fb-body {
@@ -749,7 +749,7 @@
     color: var(--t3);
     padding: 3px 5px;
   }
-  .fb-crumb-root:hover { color: var(--acc); background: rgba(255,255,255,0.05); }
+  .fb-crumb-root:hover { color: var(--acc); background: var(--surface-hover); }
 
   /* Connect-state overlay — design ported from SshPanel.ssh-loading so
      SSH and Explorer use the same visual language for "we're talking to
@@ -757,7 +757,11 @@
   .fb-overlay {
     position: absolute;
     inset: 0;
-    background: var(--n);
+    /* --modal-bg is the only surface token guaranteed opaque on every
+       theme, including dark-glass. The previous `var(--n)` resolved to
+       a 40% translucent panel on glass, letting the "Empty Directory"
+       empty-state bleed through during connect. */
+    background: var(--modal-bg);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -766,6 +770,10 @@
     z-index: 5;
     cursor: default;
     animation: fb-overlay-fade 0.3s ease;
+  }
+  :global(body.glass-mode) .fb-overlay {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
   }
   .fb-overlay-text {
     display: flex;
@@ -817,7 +825,7 @@
     transition: background 0.12s, border-color 0.12s, color 0.12s;
   }
   .fb-overlay-btn:hover {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border-color: var(--b2);
     color: var(--t1);
   }
@@ -854,7 +862,7 @@
     border-bottom: 1px solid #111128;
     color: var(--t1);
   }
-  .fb-row:hover { background: rgba(255,255,255,0.03); }
+  .fb-row:hover { background: var(--surface-hover); }
   .fb-col-name { width: auto; }
   .fb-col-size { width: 100px; color: var(--t2); }
   .fb-col-mod { width: 200px; color: var(--t3); }
@@ -881,7 +889,7 @@
   .fb-prompt { display: flex; flex-direction: column; gap: 14px; }
   .fb-prompt-row { display: flex; flex-direction: column; gap: 4px; font-family: var(--ui); font-size: 12px; color: var(--t2); }
   .fb-prompt-input {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     color: var(--t1);

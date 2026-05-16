@@ -155,7 +155,7 @@
     height: 28px;
     padding: 0 8px 0 4px;
     border: 1px solid var(--b1);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     border-radius: 6px;
     cursor: default;
     color: var(--t1);
@@ -163,7 +163,7 @@
     font-size: 12px;
     transition: border-color 0.12s, background 0.12s;
   }
-  .cp-trigger:hover:not(:disabled) { border-color: var(--acc); background: rgba(255,255,255,0.05); }
+  .cp-trigger:hover:not(:disabled) { border-color: var(--acc); background: var(--surface-hover); }
   .cp-trigger:disabled { opacity: 0.5; cursor: not-allowed; }
   .cp-compact .cp-trigger { height: 26px; font-size: 11.5px; padding-left: 4px; }
 
@@ -210,7 +210,7 @@
   .cp-search {
     width: 100%;
     box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     padding: 5px 8px;
@@ -250,7 +250,7 @@
     font-family: var(--ui);
     transition: background 0.1s;
   }
-  .cp-item:hover { background: rgba(255, 255, 255, 0.06); }
+  .cp-item:hover { background: var(--surface-hover); }
   .cp-item-selected { background: color-mix(in srgb, var(--acc) 12%, transparent); }
   .cp-item-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .cp-item-name { font-size: 12px; font-weight: 600; }
@@ -269,7 +269,7 @@
     margin-top: 4px;
     cursor: default;
   }
-  .cp-add:hover { background: rgba(255, 255, 255, 0.04); }
+  .cp-add:hover { background: var(--surface-hover); }
 
   .cp-empty {
     padding: 10px 12px;

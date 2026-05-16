@@ -78,7 +78,7 @@
       color: 'var(--t4)', fontSize: '11px', fontFamily: 'var(--mono)', minWidth: '36px',
     },
     '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--t2)' },
-    '.cm-activeLine': { backgroundColor: 'rgba(255,255,255,0.03)' },
+    '.cm-activeLine': { backgroundColor: 'var(--surface-hover)' },
     '.cm-selectionBackground': { backgroundColor: 'rgba(124,92,248,0.2) !important' },
     '&.cm-focused .cm-selectionBackground': { backgroundColor: 'rgba(124,92,248,0.3) !important' },
     '.cm-tooltip-autocomplete': {

@@ -205,7 +205,7 @@
   .ud-scroll { max-height: 160px; overflow-y: auto; }
 
   .ud-row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 5px; }
-  .ud-row:hover { background: rgba(255,255,255,0.03); }
+  .ud-row:hover { background: var(--surface-hover); }
   .ud-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
   .ud-row-name { font-size: 12px; font-weight: 500; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ud-row-meta { font-size: 10px; color: var(--t3); }
@@ -213,7 +213,7 @@
 
   .ud-tool-row { display: flex; align-items: center; gap: 8px; padding: 3px 8px; font-size: 11px; }
   .ud-tool-name { width: 80px; flex-shrink: 0; color: var(--t1); font-weight: 500; font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ud-tool-bar { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+  .ud-tool-bar { flex: 1; height: 4px; background: var(--surface-hover); border-radius: 2px; overflow: hidden; }
   .ud-tool-fill { height: 100%; background: var(--acc); border-radius: 2px; opacity: 0.7; }
   .ud-tool-ct { width: 44px; text-align: right; color: var(--t3); font-family: var(--mono); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 

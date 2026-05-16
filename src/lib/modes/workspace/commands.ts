@@ -165,6 +165,12 @@ export const workspaceCardRaisePr = (
 ) =>
   invoke<RaisePrResult>('workspace_card_raise_pr', { cardId, actor, title, body });
 
+export type PrState = 'open' | 'merged' | 'closed' | 'unknown';
+/** Read the host's current PR state. Pure read — never mutates the
+ *  card. Used by the auto-move-on-merge loop and the matching MCP tool. */
+export const workspaceCardCheckPrState = (cardId: string) =>
+  invoke<PrState>('workspace_card_check_pr_state', { cardId });
+
 // ── Card claim + drawer chat (migration 14) ──────────────────────
 
 import type { AgentSession } from '$lib/modes/agent/types';

@@ -157,7 +157,7 @@
     flex-shrink: 0;
     transition: color 0.1s, background 0.1s;
   }
-  .form-kv-del:hover { color: var(--err); background: rgba(255,255,255,0.05); }
+  .form-kv-del:hover { color: var(--err); background: var(--surface-hover); }
 
   .form-kv-add {
     margin-top: 6px;

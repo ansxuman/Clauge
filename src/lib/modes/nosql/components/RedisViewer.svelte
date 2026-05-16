@@ -262,7 +262,7 @@
               class:selected={selectedKey?.key === keyInfo.key}
               onclick={() => selectKey(keyInfo)}
             >
-              <span class="rv-key-type" style="color: {TYPE_COLORS[keyInfo.keyType] ?? 'var(--t3)'}; background: {TYPE_BG[keyInfo.keyType] ?? 'rgba(255,255,255,0.05)'}">
+              <span class="rv-key-type" style="color: {TYPE_COLORS[keyInfo.keyType] ?? 'var(--t3)'}; background: {TYPE_BG[keyInfo.keyType] ?? 'var(--surface-hover)'}">
                 {keyInfo.keyType}
               </span>
               <span class="rv-key-name">{keyInfo.key}</span>
@@ -289,7 +289,7 @@
         {:else if selectedKey}
           <div class="rv-value-header">
             <span class="rv-value-key">{selectedKey.key}</span>
-            <span class="rv-value-type" style="color: {TYPE_COLORS[selectedKey.keyType] ?? 'var(--t3)'}; background: {TYPE_BG[selectedKey.keyType] ?? 'rgba(255,255,255,0.05)'}">
+            <span class="rv-value-type" style="color: {TYPE_COLORS[selectedKey.keyType] ?? 'var(--t3)'}; background: {TYPE_BG[selectedKey.keyType] ?? 'var(--surface-hover)'}">
               {selectedKey.keyType}
             </span>
             <span class="rv-value-ttl">{formatTtl(selectedKey.ttl)}</span>
@@ -439,7 +439,7 @@
   .rv-search-input {
     flex: 1;
     height: 26px;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     padding: 0 8px;
@@ -629,7 +629,7 @@
   }
   .rv-console-prompt { color: var(--acc); font-family: var(--mono); font-size: 14px; font-weight: 700; flex-shrink: 0; }
   .rv-console-input {
-    flex: 1; height: 26px; background: rgba(255,255,255,0.04);
+    flex: 1; height: 26px; background: var(--surface-hover);
     border: 1px solid var(--b1); border-radius: 5px; padding: 0 8px;
     font-family: var(--mono); font-size: 12px; color: var(--t1); outline: none;
   }
@@ -674,13 +674,13 @@
     text-transform: uppercase; letter-spacing: 0.05em;
   }
   .rv-field-input {
-    height: 32px; background: rgba(255,255,255,0.04); border: 1px solid var(--b1);
+    height: 32px; background: var(--surface-hover); border: 1px solid var(--b1);
     border-radius: var(--radius-md); padding: 0 10px; font-size: 12px;
     color: var(--t1); font-family: var(--mono); outline: none;
   }
   .rv-field-input:focus { border-color: var(--acc); }
   .rv-field-ta {
-    min-height: 80px; background: rgba(255,255,255,0.04); border: 1px solid var(--b1);
+    min-height: 80px; background: var(--surface-hover); border: 1px solid var(--b1);
     border-radius: var(--radius-md); padding: 8px 10px; font-size: 12px;
     color: var(--t1); font-family: var(--mono); outline: none; resize: none;
   }

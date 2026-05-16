@@ -931,6 +931,20 @@ pub async fn workspace_card_raise_pr(
     .map_err(|e| e.message())
 }
 
+/// Read the host's current state for a card's PR / MR. Returns one of
+/// `"open" | "merged" | "closed" | "unknown"` (lowercase). Pure read,
+/// no state changes — used by the frontend's poll-on-focus loop to
+/// detect merged PRs and auto-move the card to the "Done"-like column.
+#[tauri::command]
+pub async fn workspace_card_check_pr_state(
+    pool: State<'_, SqlitePool>,
+    card_id: String,
+) -> Result<super::pr::PrState, String> {
+    super::pr::check_pr_state(pool.inner(), &card_id)
+        .await
+        .map_err(|e| e.message())
+}
+
 /// Add a comment to a card. Each comment is its own row in
 /// `workspace_card_comments`; the helper also bumps `card.updated_at`
 /// + `updated_by` so the inbox and per-card unread tracking continue

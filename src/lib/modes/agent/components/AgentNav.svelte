@@ -559,7 +559,7 @@
   }
   .session-ellipsis svg { width: 14px; height: 14px; }
   .session-item:hover .session-ellipsis { display: flex; }
-  .session-ellipsis:hover { background: rgba(255,255,255,0.08); color: var(--t1); }
+  .session-ellipsis:hover { background: var(--surface-hover); color: var(--t1); }
 
 
   /* Claude plan badge */

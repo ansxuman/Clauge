@@ -22,6 +22,15 @@ export interface Theme {
   textFaint: string;
   // Modal (always opaque)
   modalBg: string;
+  // Elevated surface for cards, kanban items, list rows, tile grids.
+  // MUST be readable on its own — on translucent themes this means it
+  // must be opaque enough (>= ~0.85 alpha) so text on top doesn't bleed
+  // into the wallpaper / vibrancy behind the window. Replaces the
+  // anti-pattern of writing `rgba(255,255,255,0.025)` in component CSS.
+  surfaceCard: string;
+  // Hover state for cards, list rows, menu items. Same opacity contract
+  // as surfaceCard — guaranteed visible on every theme.
+  surfaceHover: string;
   // Status colors (--ok / --warn / --err). Per-theme so a theme can pick a
   // palette that reads well on its own surfaces (e.g. soft pinks on a
   // violet base) instead of falling back to one global dark/light pair.
@@ -96,6 +105,14 @@ const themes: Record<string, Theme> = {
     // legibility comes from --t* foreground variables which are at full
     // alpha, not from a heavy modal background.
     modalBg: 'rgba(26,26,44,0.50)',
+    // Same near-invisible white-wash as the solid themes — preserves
+    // the original look the codebase had everywhere. The handful of
+    // components that genuinely need an opaque container on glass
+    // (kanban cards on a translucent column) should target
+    // `body.glass-mode .X` explicitly instead of forcing all surfaces
+    // to a solid color globally.
+    surfaceCard: 'rgba(255,255,255,0.025)',
+    surfaceHover: 'rgba(255,255,255,0.05)',
     ok: '#1dc880',
     warn: '#f5a623',
     err: '#f04444',
@@ -119,6 +136,15 @@ const themes: Record<string, Theme> = {
     textMuted: '#b0b0c8',
     textFaint: '#7878a0',
     modalBg: '#151528',
+    // Opaque themes get a near-invisible white-wash — same look as the
+    // original `rgba(255,255,255,0.025)` / `0.04` inlines that were
+    // scattered across components. The bulk refactor routed every one
+    // through these tokens; keeping the values as rgba whites means the
+    // visual end-state is identical to before on solid themes. Only
+    // dark-glass uses an actual opaque colour, where the original
+    // approach broke (invisible cards on vibrancy).
+    surfaceCard: 'rgba(255,255,255,0.025)',
+    surfaceHover: 'rgba(255,255,255,0.05)',
     ok: '#1dc880',
     warn: '#f5a623',
     err: '#f04444',
@@ -142,6 +168,8 @@ const themes: Record<string, Theme> = {
     textMuted: '#999999',
     textFaint: '#666666',
     modalBg: '#0e0e0e',
+    surfaceCard: 'rgba(255,255,255,0.025)',
+    surfaceHover: 'rgba(255,255,255,0.05)',
     ok: '#1dc880',
     warn: '#f5a623',
     err: '#f04444',
@@ -170,6 +198,8 @@ const themes: Record<string, Theme> = {
     textMuted: '#908caa',
     textFaint: '#6e6a86',
     modalBg: '#2a273f',
+    surfaceCard: 'rgba(255,255,255,0.025)',
+    surfaceHover: 'rgba(255,255,255,0.05)',
     ok: '#3e8fb0',
     warn: '#f6c177',
     err: '#eb6f92',
@@ -200,6 +230,8 @@ const themes: Record<string, Theme> = {
     textMuted: '#8a887f',
     textFaint: '#5a5852',
     modalBg: '#14141a',
+    surfaceCard: '#16161c',
+    surfaceHover: '#1f1f26',
     ok: '#84a17d',
     warn: '#d4a373',
     err: '#c3736e',
@@ -224,6 +256,8 @@ const themes: Record<string, Theme> = {
     textMuted: '#3aa83a',
     textFaint: '#237823',
     modalBg: '#0a100a',
+    surfaceCard: '#0a140a',
+    surfaceHover: '#102010',
     ok: '#00ff80',
     warn: '#ffe066',
     err: '#ff7766',
@@ -248,6 +282,8 @@ const themes: Record<string, Theme> = {
     textMuted: '#a0a4c0',
     textFaint: '#7078a0',
     modalBg: '#161928',
+    surfaceCard: 'rgba(28,32,52,0.88)',
+    surfaceHover: 'rgba(42,48,72,0.92)',
     ok: '#1dc880',
     warn: '#f5a623',
     err: '#f04444',
@@ -276,6 +312,8 @@ export function applyTheme(themeId: string, accentColor?: string) {
   root.style.setProperty('--t3', theme.textMuted);
   root.style.setProperty('--t4', theme.textFaint);
   root.style.setProperty('--modal-bg', theme.modalBg);
+  root.style.setProperty('--surface-card', theme.surfaceCard);
+  root.style.setProperty('--surface-hover', theme.surfaceHover);
 
   // Locked themes force their designer-chosen accent and ignore the
   // user's picker. Free themes fall back to the user-supplied accent

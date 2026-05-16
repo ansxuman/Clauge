@@ -26,7 +26,7 @@
     position: fixed;
     bottom: 40px;
     right: 20px;
-    z-index: 1200;
+    z-index: var(--z-toast);
     display: flex;
     flex-direction: column-reverse;
     gap: 8px;

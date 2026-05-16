@@ -73,10 +73,10 @@
 <style>
   .ssh-modal-backdrop {
     position: fixed; inset: 0;
-    background: rgba(0, 0, 0, 0.55);
+    background: var(--scrim);
     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     display: flex; align-items: center; justify-content: center;
-    z-index: 9999;
+    z-index: var(--z-drawer);
     animation: ssh-fade 0.12s ease;
   }
   @keyframes ssh-fade {
@@ -112,7 +112,7 @@
   .ssh-modal-cmd {
     margin: 0 0 12px;
     padding: 12px 14px;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-left: 3px solid var(--ssh, #10b981);
     border-radius: 6px;
@@ -161,7 +161,7 @@
     cursor: pointer;
     transition: background 0.12s, border-color 0.12s, color 0.12s;
   }
-  .ssh-modal-btn:hover { background: rgba(255,255,255,0.04); border-color: var(--b2); color: var(--t1); }
+  .ssh-modal-btn:hover { background: var(--surface-hover); border-color: var(--b2); color: var(--t1); }
   .ssh-modal-btn:focus-visible {
     outline: 2px solid var(--acc);
     outline-offset: 2px;

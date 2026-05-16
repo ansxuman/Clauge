@@ -205,7 +205,7 @@
   }
   kbd {
     font-family: var(--mono);
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--surface-hover);
     padding: 0 4px;
     border-radius: 3px;
     font-size: 9.5px;

@@ -121,7 +121,7 @@
     background: transparent; color: var(--t3); cursor: default;
     transition: color 0.1s, border-color 0.1s, background 0.1s;
   }
-  .cn-copy:hover { color: var(--t1); border-color: var(--b2); background: rgba(255,255,255,0.05); }
+  .cn-copy:hover { color: var(--t1); border-color: var(--b2); background: var(--surface-hover); }
   .cn-after {
     display: flex; align-items: flex-start; gap: 7px;
     font-size: 12px; color: var(--t3); line-height: 1.5;

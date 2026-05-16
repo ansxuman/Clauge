@@ -201,7 +201,7 @@
   .te-select {
     width: 100%;
     height: 26px;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: var(--radius-md);
     padding: 0 8px;

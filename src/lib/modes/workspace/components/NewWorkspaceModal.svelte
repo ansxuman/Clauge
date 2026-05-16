@@ -179,7 +179,7 @@
   }
   .nw-chip.active .nw-chip-dot { background: var(--acc); }
   .nw-input {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: var(--radius-md, 6px);
     padding: 7px 10px;

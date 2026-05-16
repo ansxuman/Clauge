@@ -807,7 +807,7 @@
     color: var(--t3); transition: background 0.1s, color 0.1s;
   }
   .tree-db:hover .db-action { display: flex; }
-  .db-action:hover { background: rgba(255,255,255,0.08); color: var(--t1); }
+  .db-action:hover { background: var(--surface-hover); color: var(--t1); }
   .db-action-danger:hover { background: rgba(240,68,68,0.12); color: var(--err); }
 
   /* Collection ellipsis */
@@ -818,7 +818,7 @@
     color: var(--t3); transition: background 0.1s, color 0.1s;
   }
   .tree-coll:hover .coll-ellipsis { display: flex; }
-  .coll-ellipsis:hover { background: rgba(255,255,255,0.08); color: var(--t1); }
+  .coll-ellipsis:hover { background: var(--surface-hover); color: var(--t1); }
 
   .tree-loading {
     padding: 6px 0; font-size: 10px; color: var(--t4); font-family: var(--ui);
@@ -827,7 +827,7 @@
   /* Rename dialog still uses .nn-confirm-* classes below — kept for it. */
   .nn-confirm-overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(0,0,0,0.4); z-index: 9999;
+    background: var(--scrim); z-index: var(--z-drawer);
     display: flex; align-items: center; justify-content: center;
   }
   .nn-confirm {
@@ -857,7 +857,7 @@
 
   .nn-rename-input {
     width: 100%; padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;
-    border: 1px solid var(--b1); background: rgba(255,255,255,0.04);
+    border: 1px solid var(--b1); background: var(--surface-hover);
     color: var(--t1); font-size: 13px; font-family: var(--ui); outline: none;
   }
   .nn-rename-input:focus { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 12%, transparent); }

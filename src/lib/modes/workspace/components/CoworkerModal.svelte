@@ -318,7 +318,7 @@
     color: var(--t3); font-size: 20px; line-height: 1;
     border-radius: 5px; cursor: default;
   }
-  .cm-x:hover { background: rgba(255,255,255,0.06); color: var(--t1); }
+  .cm-x:hover { background: var(--surface-hover); color: var(--t1); }
 
   .cm-body {
     flex: 1;
@@ -368,7 +368,7 @@
   }
 
   .cm-input, .cm-textarea {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 6px;
     padding: 7px 10px;

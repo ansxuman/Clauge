@@ -155,7 +155,7 @@
   .form { display: flex; flex-direction: column; gap: 10px; }
   .row { display: flex; flex-direction: column; gap: 4px; font-family: var(--ui); font-size: 12px; color: var(--t2); }
   .inp {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     color: var(--t1);

@@ -1032,7 +1032,7 @@
     cursor: default; display: flex; align-items: center; gap: 4px;
     transition: color 0.1s, border-color 0.1s, background 0.1s;
   }
-  .rt-footer-btn:hover { color: var(--t1); border-color: var(--b2); background: rgba(255,255,255,0.03); }
+  .rt-footer-btn:hover { color: var(--t1); border-color: var(--b2); background: var(--surface-hover); }
   .rt-save-btn { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 40%, transparent); font-weight: 600; }
   .rt-save-btn:hover { color: #fff; border-color: var(--acc); background: var(--acc); }
   .rt-discard-btn { color: var(--err); border-color: color-mix(in srgb, var(--err) 30%, transparent); }
@@ -1111,7 +1111,7 @@
   .rt-save-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
   .rt-save-count { font-size: 12px; color: var(--t2); font-family: var(--ui); margin-bottom: 10px; }
   .rt-save-sql {
-    background: rgba(255,255,255,0.02); border: 1px solid var(--b1);
+    background: var(--surface-hover); border: 1px solid var(--b1);
     border-radius: 6px; overflow: hidden;
   }
   .rt-save-stmt {

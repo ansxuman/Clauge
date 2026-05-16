@@ -132,7 +132,7 @@
     padding: 10px 14px;
     border: 1px solid var(--b1);
     border-radius: 8px;
-    background: rgba(255,255,255,0.02);
+    background: var(--surface-hover);
     width: 100%;
     max-width: 500px;
   }

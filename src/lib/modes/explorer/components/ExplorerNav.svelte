@@ -672,7 +672,7 @@
   }
   .ex-kind-grid button {
     text-align: left;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     color: var(--t1);
     padding: 12px 14px;
@@ -681,7 +681,7 @@
     display: flex; flex-direction: column; gap: 3px;
     transition: border-color 0.12s, background 0.12s;
   }
-  .ex-kind-grid button:hover { border-color: var(--acc); background: rgba(255,255,255,0.06); }
+  .ex-kind-grid button:hover { border-color: var(--acc); background: var(--surface-hover); }
   .ex-kind-grid strong { font-size: 13px; font-weight: 600; }
   .ex-kind-grid span { font-size: 11.5px; color: var(--t3); }
 </style>

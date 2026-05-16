@@ -1037,7 +1037,7 @@ ORDER BY ordinal_position;`);
     color: var(--t3); transition: background 0.1s, color 0.1s;
   }
   .tree-db:hover .db-ellipsis { display: flex; }
-  .db-ellipsis:hover { background: rgba(255,255,255,0.08); color: var(--t1); }
+  .db-ellipsis:hover { background: var(--surface-hover); color: var(--t1); }
 
   /* Table ellipsis */
   .table-ellipsis {
@@ -1047,7 +1047,7 @@ ORDER BY ordinal_position;`);
     color: var(--t3); transition: background 0.1s, color 0.1s;
   }
   .tree-table:hover .table-ellipsis { display: flex; }
-  .table-ellipsis:hover { background: rgba(255,255,255,0.08); color: var(--t1); }
+  .table-ellipsis:hover { background: var(--surface-hover); color: var(--t1); }
 
   .tree-icon {
     width: 11px; height: 11px; stroke-width: 1.5; stroke-linecap: round; flex-shrink: 0;
@@ -1097,7 +1097,7 @@ ORDER BY ordinal_position;`);
      app's small dialogs. */
   .sql-prompt-overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(0,0,0,0.6); z-index: 9999;
+    background: var(--scrim-strong); z-index: var(--z-drawer);
     display: flex; align-items: center; justify-content: center;
   }
   .sql-prompt {

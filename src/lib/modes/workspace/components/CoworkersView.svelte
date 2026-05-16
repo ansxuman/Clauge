@@ -133,7 +133,7 @@
   }
   .cv-tile {
     border: 1px solid var(--b1);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--surface-card);
     border-radius: 10px;
     padding: 16px 14px 14px;
     display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
@@ -141,7 +141,7 @@
     text-align: left;
     transition: border-color 0.12s, background 0.12s;
   }
-  .cv-tile:hover { border-color: var(--acc); background: rgba(255,255,255,0.04); }
+  .cv-tile:hover { border-color: var(--acc); background: var(--surface-hover); }
   .cv-tile-name {
     font-family: var(--ui);
     font-size: 13.5px;

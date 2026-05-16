@@ -204,7 +204,7 @@
   .row.checkbox { flex-direction: row; align-items: center; gap: 8px; cursor: default; font-size: 11.5px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .inp {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     color: var(--t1);

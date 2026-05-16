@@ -79,9 +79,9 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0,0,0,0.4);
+    background: var(--scrim);
     backdrop-filter: blur(8px);
-    z-index: 1000;
+    z-index: var(--z-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -173,7 +173,7 @@
   }
 
   .wn-body :global(code) {
-    background: rgba(255,255,255,0.06);
+    background: var(--surface-hover);
     padding: 1px 5px;
     border-radius: 4px;
     font-family: var(--mono);
@@ -221,7 +221,7 @@
   }
 
   .wn-btn:hover {
-    background: rgba(255,255,255,0.06);
+    background: var(--surface-hover);
     color: var(--t1);
   }
 

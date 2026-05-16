@@ -104,7 +104,7 @@
     border: 1px solid var(--b1);
     border-radius: var(--radius-lg);
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-    z-index: 2000;
+    z-index: var(--z-popover);
     min-width: 180px;
     padding: 4px 0;
     animation: fadeIn 0.1s ease;

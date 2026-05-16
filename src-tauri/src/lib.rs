@@ -487,6 +487,7 @@ pub fn run() {
             modes::workspace::commands::workspace_card_comment_delete,
             modes::workspace::commands::workspace_card_push_to_repo,
             modes::workspace::commands::workspace_card_raise_pr,
+            modes::workspace::commands::workspace_card_check_pr_state,
             modes::workspace::commands::workspace_card_get_claim,
             modes::workspace::commands::workspace_card_drawer_chat,
             modes::workspace::commands::workspace_card_release,

@@ -139,7 +139,7 @@
     display: inline-flex; align-items: center; justify-content: center; cursor: default;
     transition: background 0.1s, color 0.1s;
   }
-  .ib-refresh:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); color: var(--t1); }
+  .ib-refresh:hover:not(:disabled) { background: var(--surface-hover); color: var(--t1); }
   .ib-refresh:disabled { opacity: 0.5; }
   .spinning { animation: spin 1s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }

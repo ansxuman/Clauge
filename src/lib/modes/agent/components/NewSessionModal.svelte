@@ -506,7 +506,7 @@
     background: transparent; color: var(--t2); font-size: 12px; cursor: pointer;
     font-family: var(--ui); transition: background 0.15s, color 0.15s; user-select: none;
   }
-  .ns-chip:hover:not(.selected):not(.disabled) { background: rgba(255,255,255,0.06); }
+  .ns-chip:hover:not(.selected):not(.disabled) { background: var(--surface-hover); }
   .ns-chip.disabled { opacity: 0.3; cursor: not-allowed; }
   .ns-chip.selected { font-weight: 600; }
   .ns-hint {
@@ -528,7 +528,7 @@
   .ns-toggle-hint { font-size: 10px; color: var(--t4); font-family: var(--ui); }
   .ns-toggle {
     width: 36px; height: 20px; border-radius: 10px; border: 1px solid var(--b1);
-    background: rgba(255,255,255,0.06); cursor: pointer; position: relative;
+    background: var(--surface-hover); cursor: pointer; position: relative;
     transition: all 0.2s; padding: 0;
   }
   .ns-toggle.on { background: var(--acc); border-color: var(--acc); }
@@ -555,7 +555,12 @@
   }
   .ns-ctx-x { cursor: pointer; font-size: 14px; line-height: 1; opacity: 0.6; transition: opacity 0.1s; }
   .ns-ctx-x:hover { opacity: 1; }
-  .ns-ctx-backdrop { position: fixed; inset: 0; z-index: 99; }
+  /* Click-outside catch for the dropdown. Stays visually invisible (no
+     scrim) because we're already inside a modal — dimming the viewport
+     a second time would imply a second modal. The transparent fill
+     still receives clicks. z-index sits above sibling modal content
+     but below the dropdown itself. */
+  .ns-ctx-backdrop { position: fixed; inset: 0; z-index: var(--z-popover); background: transparent; }
   .ns-ctx-add-wrap { position: relative; }
   .ns-ctx-add-btn {
     display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px;
@@ -565,12 +570,12 @@
   .ns-ctx-add-btn:hover { border-color: var(--acc); color: var(--acc); }
   .ns-ctx-dropdown {
     position: absolute; top: calc(100% + 4px); left: 0; width: 250px;
-    background: var(--n); border: 1px solid var(--b1); border-radius: 6px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 100; max-height: 180px;
+    background: var(--modal-bg, var(--n)); border: 1px solid var(--b1); border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: calc(var(--z-popover) + 1); max-height: 180px;
     overflow-y: auto; padding: 4px;
   }
   .ns-ctx-dd-item { padding: 6px 10px; border-radius: 4px; cursor: pointer; transition: background 0.1s; }
-  .ns-ctx-dd-item:hover { background: rgba(255,255,255,0.06); }
+  .ns-ctx-dd-item:hover { background: var(--surface-hover); }
   .ns-ctx-dd-name { font-size: 12px; font-weight: 500; color: var(--t1); display: block; }
   .ns-ctx-dd-preview { font-size: 10px; color: var(--t3); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ns-ctx-dd-empty { padding: 10px; text-align: center; font-size: 11px; color: var(--t3); }
@@ -579,7 +584,7 @@
     padding: 7px 16px; border-radius: 6px; font-size: 13px; cursor: pointer;
     border: 1px solid var(--b1); background: transparent; color: var(--t2); font-family: var(--ui);
   }
-  .ns-btn-cancel:hover { background: rgba(255,255,255,0.04); }
+  .ns-btn-cancel:hover { background: var(--surface-hover); }
   .ns-btn-create {
     padding: 7px 16px; border-radius: 6px; font-size: 13px; cursor: pointer;
     border: none; background: var(--acc); color: #fff; font-weight: 600; font-family: var(--ui);

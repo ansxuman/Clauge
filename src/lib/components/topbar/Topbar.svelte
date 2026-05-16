@@ -684,7 +684,7 @@
   }
   .tab:hover {
     color: var(--t2);
-    background: rgba(255, 255, 255, 0.035);
+    background: var(--surface-hover);
   }
   /* Active tab — accent-tinted fill + hairline border for a quiet
      "selected pill" look. No underline; the icon picks up the accent
@@ -744,7 +744,7 @@
   .tab:hover .tab-close,
   .tab.on .tab-close { opacity: 1; }
   .tab-close:hover {
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--surface-hover);
     color: var(--t1);
   }
 
@@ -769,7 +769,7 @@
     -webkit-app-region: no-drag;
   }
   .tab-add:hover {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     color: var(--t1);
   }
 
@@ -807,7 +807,7 @@
     transition: background 0.08s;
   }
   .sql-dropdown-item:hover {
-    background: rgba(255,255,255,0.06);
+    background: var(--surface-hover);
   }
   .sql-dropdown-item svg {
     width: 14px;
@@ -987,7 +987,7 @@
     transition: background 0.08s;
   }
   .ssm-list-item:hover {
-    background: rgba(255,255,255,0.06);
+    background: var(--surface-hover);
   }
   .ssm-list-item svg {
     width: 14px;

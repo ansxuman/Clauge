@@ -258,7 +258,7 @@
   .row .optional { color: var(--t4); font-weight: 400; }
   .row .hint { font-size: 11px; color: var(--t3); padding: 4px 0; }
   .inp {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     color: var(--t1);
@@ -317,7 +317,7 @@
     height: 32px;
     padding: 0 12px;
     border: 1px solid var(--b1);
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     color: var(--t2);
     border-radius: 5px;
     font-size: 12px;

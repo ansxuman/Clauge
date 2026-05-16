@@ -909,8 +909,8 @@
   .ssh-terminal-container :global(.xterm-screen) { height: 100% !important; }
   .ssh-terminal-container :global(.xterm-viewport::-webkit-scrollbar) { width: 3px; }
   .ssh-terminal-container :global(.xterm-viewport::-webkit-scrollbar-track) { background: transparent; }
-  .ssh-terminal-container :global(.xterm-viewport::-webkit-scrollbar-thumb) { background: rgba(255,255,255,0.10); border-radius: 3px; }
-  .ssh-terminal-container :global(.xterm-viewport::-webkit-scrollbar-thumb:hover) { background: rgba(255,255,255,0.20); }
+  .ssh-terminal-container :global(.xterm-viewport::-webkit-scrollbar-thumb) { background: var(--surface-hover); border-radius: 3px; }
+  .ssh-terminal-container :global(.xterm-viewport::-webkit-scrollbar-thumb:hover) { background: var(--surface-hover); }
 
   .ssh-loading {
     position: absolute;
@@ -977,7 +977,7 @@
     transition: background 0.12s, border-color 0.12s, color 0.12s;
   }
   .ssh-cancel-btn:hover {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border-color: var(--b2);
     color: var(--t1);
     cursor: pointer;
@@ -1040,7 +1040,7 @@
     flex-shrink: 0;
     transition: background 0.1s, color 0.1s;
   }
-  .ssh-find-toggle:hover { background: rgba(255,255,255,0.07); color: var(--t2); }
+  .ssh-find-toggle:hover { background: var(--surface-hover); color: var(--t2); }
   .ssh-find-toggle.active {
     background: color-mix(in srgb, var(--acc) 20%, transparent);
     color: var(--acc);
@@ -1070,7 +1070,7 @@
     padding: 0;
     flex-shrink: 0;
   }
-  .ssh-find-btn:hover { background: rgba(255,255,255,0.07); color: var(--t1); }
+  .ssh-find-btn:hover { background: var(--surface-hover); color: var(--t1); }
   .ssh-find-close {
     display: flex;
     align-items: center;
@@ -1085,7 +1085,7 @@
     padding: 0;
     flex-shrink: 0;
   }
-  .ssh-find-close:hover { background: rgba(255,255,255,0.07); color: var(--t2); }
+  .ssh-find-close:hover { background: var(--surface-hover); color: var(--t2); }
 
   .ssh-empty {
     flex: 1;

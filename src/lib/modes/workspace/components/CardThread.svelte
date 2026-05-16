@@ -294,7 +294,7 @@
     color: var(--t1);
     line-height: 1.65;
     padding: 10px 12px;
-    background: rgba(255, 255, 255, 0.025);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 6px;
     /* Long URLs / inline code in body markdown were spilling outside
@@ -312,7 +312,7 @@
   .th-body :global(code) {
     font-family: var(--mono);
     font-size: 11.5px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-hover);
     padding: 1px 4px;
     border-radius: 3px;
   }
@@ -365,7 +365,7 @@
     margin: 4px 0;
     border: 1px dashed var(--b2);
     border-radius: 5px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     color: var(--t2);
     font-family: var(--ui);
     font-size: 11px;
@@ -402,7 +402,7 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     display: inline-flex;
     align-items: center;
@@ -421,7 +421,7 @@
 
   .th-bubble {
     max-width: 78%;
-    background: rgba(255, 255, 255, 0.045);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 8px;
     padding: 7px 10px 8px;
@@ -438,7 +438,7 @@
     border-color: color-mix(in srgb, var(--acc) 28%, transparent);
   }
   .th-row-user .th-bubble {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-hover);
   }
   .th-meta {
     display: flex;
@@ -531,7 +531,7 @@
     margin: 4px 0;
     border: 1px dashed var(--b2);
     border-radius: 5px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     color: var(--t2);
     font-family: var(--ui);
     font-size: 11px;

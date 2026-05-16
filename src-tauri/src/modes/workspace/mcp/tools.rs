@@ -552,7 +552,7 @@ fn shipping_schemas() -> Vec<Value> {
         json!(
         {
             "name": "cards_push_to_repo",
-            "description": "Create a real GitHub/GitLab issue from a local card. Requires the workspace to have a repo URL set (workspace_link_to_repo) — otherwise the call errors. The card must currently be local (no externalId). On success the card's externalId/externalUrl are populated; the local→repo badge updates automatically. This call SHELLS OUT to `gh` or `glab` and so requires the user to have those CLIs installed and authenticated.",
+            "description": "Create a real GitHub/GitLab issue from a local card (this is the same action as the 'Create issue on GitHub/GitLab' button in the card drawer — despite the legacy tool name, NO git push or branch push happens here; this is purely an Issue create call). Requires the workspace to have a repo URL set (workspace_link_to_repo) — otherwise the call errors. The card must currently be local (no externalId). On success the card's externalId/externalUrl are populated; the local→repo badge updates automatically. This call SHELLS OUT to `gh` or `glab` and so requires the user to have those CLIs installed and authenticated. ONLY call when the user explicitly asks ('create issue', 'push as issue', 'file it on GitHub') — never autonomously.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -579,13 +579,26 @@ fn shipping_schemas() -> Vec<Value> {
         json!(
         {
             "name": "cards_raise_pr",
-            "description": "Push the card's branch and (if no PR exists yet) open a GitHub PR / GitLab MR for it. Idempotent — when the card already has a pr_url, this just pushes new commits to the existing PR's branch (no second PR is opened). Requires worktree + branch + workspace repo URL. ONLY call when the user explicitly asks ('raise a PR', 'ship it', 'push it') — never autonomously. Returns { prUrl, alreadyExisted, branch }.",
+            "description": "Push the card's branch and (if no PR exists yet) open a GitHub PR / GitLab MR for it. Same action as the 'Open PR' button in the card drawer — this IS the git-push step. Idempotent — when the card already has a pr_url, this just pushes new commits to the existing PR's branch (no second PR is opened) and `title`/`body` are ignored. Requires worktree + branch + workspace repo URL. ONLY call when the user explicitly asks ('raise a PR', 'open the PR', 'ship it', 'push it') — never autonomously. STRONGLY prefer passing an explicit `title` and `body` summarizing the change (a one-line title + a few bullet points covering what changed and why); the defaults are minimal placeholders that don't read well on the host. Returns { prUrl, alreadyExisted, branch }.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "cardId": { "type": "string", "description": "Card id." },
-                    "title":  { "type": "string", "description": "Optional PR title. Defaults to the card title." },
-                    "body":   { "type": "string", "description": "Optional PR body. Defaults to a one-line reference to the card thread." }
+                    "title":  { "type": "string", "description": "PR title — short imperative summary of the change, e.g. 'Add login rate-limit guard'. Defaults to the card title, which is usually too vague. Pass an explicit value when raising a NEW PR; ignored when updating an existing PR." },
+                    "body":   { "type": "string", "description": "PR body in markdown — what changed, why, any callouts. Defaults to a one-line ref to the card thread, which makes for poor PR descriptions. Pass an explicit value when raising a NEW PR; ignored when updating an existing PR." }
+                },
+                "required": ["cardId"]
+            }
+        }
+        ),
+        json!(
+        {
+            "name": "cards_check_pr_state",
+            "description": "Read the host's current state for a card's PR / MR — returns `\"open\" | \"merged\" | \"closed\" | \"unknown\"`. Pure read, never mutates the card. Same data Clauge's auto-move-on-merge loop uses. Useful when an agent wants to confirm a PR landed before posting a follow-up. Requires the card to have a pr_url already.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "cardId": { "type": "string", "description": "Card id." }
                 },
                 "required": ["cardId"]
             }

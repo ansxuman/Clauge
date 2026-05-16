@@ -77,7 +77,7 @@
     border-radius: 10px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     padding: 14px;
-    z-index: 900;
+    z-index: var(--z-popover);
     animation: slideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;

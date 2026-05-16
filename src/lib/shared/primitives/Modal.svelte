@@ -75,16 +75,10 @@
     left: 0;
     right: 0;
     bottom: 0;
-    /* Backdrop is the dim layer behind the modal card. Keep it light
-       (0.18) so the chrome / vibrancy / wallpaper underneath still
-       reads through — the heavy blur (12px) is what visually separates
-       the modal from the page, not raw darkness. Previously 0.40 +
-       8px which made glass modals feel solid-dark on top of the
-       already-dim chrome. */
-    background: rgba(0,0,0,0.18);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 1000;
+    background: var(--scrim);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: var(--z-modal);
     display: flex;
     align-items: center;
     justify-content: center;

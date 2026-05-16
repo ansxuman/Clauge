@@ -1022,7 +1022,7 @@
         font-weight: 500;
         cursor: default;
         border: 1px solid var(--b1);
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--surface-hover);
         color: var(--t1);
         transition:
             background 0.14s,
@@ -1035,7 +1035,7 @@
         transform: translateY(1px);
     }
     .acc-oauth-btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--surface-hover);
         border-color: var(--b2);
     }
     .acc-oauth-btn:disabled {
@@ -1050,7 +1050,7 @@
         margin: 4px auto 0;
         padding: 9px 14px;
         border-radius: 8px;
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--surface-hover);
         border: 1px solid var(--b1);
         color: var(--t2);
         font-size: 12px;
@@ -1098,7 +1098,7 @@
         padding: 16px 18px;
         border: 1px solid var(--b1);
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.02);
+        background: var(--surface-hover);
     }
     .acc-card-head {
         display: flex;
@@ -1160,7 +1160,7 @@
         font-family: var(--ui);
         border-radius: 6px;
         border: 1px solid var(--b1);
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--surface-hover);
         color: var(--t1);
         cursor: default;
         transition:
@@ -1169,7 +1169,7 @@
             opacity 0.14s;
     }
     .acc-sync-btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.07);
+        background: var(--surface-hover);
         border-color: var(--b2);
     }
     .acc-sync-btn:disabled {
@@ -1198,7 +1198,7 @@
         height: 28px;
         border-radius: 6px;
         border: 1px solid var(--b1);
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--surface-hover);
         color: var(--t3);
         cursor: default;
         transition:
@@ -1208,7 +1208,7 @@
     }
     .acc-kebab-btn:hover {
         color: var(--t1);
-        background: rgba(255, 255, 255, 0.07);
+        background: var(--surface-hover);
         border-color: var(--b2);
     }
 
@@ -1269,7 +1269,7 @@
         font-size: 10px;
         padding: 3px 9px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--surface-hover);
         color: var(--t2);
         font-weight: 600;
         text-transform: uppercase;
@@ -1358,7 +1358,7 @@
         white-space: nowrap;
     }
     .acc-btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--surface-hover);
         border-color: var(--b2);
     }
     .acc-btn:disabled {
@@ -1379,7 +1379,7 @@
     }
     .acc-btn-ghost:hover:not(:disabled) {
         color: var(--t1);
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--surface-hover);
     }
 
     .acc-fine {
@@ -1402,7 +1402,7 @@
         border: 1px solid var(--b1);
         margin-bottom: 8px;
         font-size: 12.5px;
-        background: rgba(255, 255, 255, 0.015);
+        background: var(--surface-hover);
     }
     .acc-prov-row:last-child {
         margin-bottom: 0;
@@ -1469,13 +1469,13 @@
         font-size: 11.5px;
         border-radius: 6px;
         border: 1px solid var(--b1);
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--surface-hover);
         color: var(--t2);
         cursor: default;
         font-family: var(--ui);
     }
     .acc-mini-btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.08);
+        background: var(--surface-hover);
         color: var(--t1);
         border-color: var(--b2);
     }
@@ -1511,7 +1511,7 @@
         letter-spacing: 0.12em;
         padding: 3px 8px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.06);
+        background: var(--surface-hover);
         color: var(--t3);
         font-weight: 600;
     }
@@ -1623,7 +1623,7 @@
         border-width: 1.8px;
     }
     .acc-spinner-light {
-        color: rgba(255, 255, 255, 0.85);
+        color: var(--t1);
     }
     @keyframes acc-spin {
         to {

@@ -67,6 +67,33 @@
   --t2: #d0d0e4;
   --t3: #b0b0c8;
   --t4: #7878a0;
+  /* Elevated surface for cards / kanban items / list rows. On solid
+     themes these resolve to a near-invisible white-wash (matches the
+     original `rgba(255,255,255,0.025-0.05)` look the codebase had).
+     On `dark-glass` they resolve to opaque colours so cards still
+     contain text when vibrancy is behind them. Theme switching is
+     what carries the per-theme value; the default below is the solid
+     wash. */
+  --surface-card: rgba(255,255,255,0.025);
+  --surface-hover: rgba(255,255,255,0.05);
+  /* Overlay scrim — backdrop behind any floating panel (modal, drawer,
+     popover, context menu). `--scrim` is the standard dim; `--scrim-strong`
+     is for drawers/full-screen sheets where content behind must be
+     completely de-emphasized. Both are OPAQUE-ish: alpha is enough to
+     read as a real curtain on every theme, vibrancy included. */
+  --scrim: rgba(0, 0, 0, 0.45);
+  --scrim-strong: rgba(0, 0, 0, 0.65);
+  /* Z-index scale — single source of truth for stacking. Never write
+     a literal z-index in component CSS; pick a token. If your overlay
+     doesn't fit a token, the design is wrong, not the scale. */
+  --z-base: 0;
+  --z-sticky: 50;
+  --z-dropdown: 100;
+  --z-popover: 200;
+  --z-modal: 1000;
+  --z-drawer: 1100;
+  --z-toast: 1200;
+  --z-topmost: 9000;
   /* Mode colors — kept as variables so existing consumers compile, but
      they all alias the user's system-wide accent so the app honours one
      theme colour everywhere. Don't reintroduce per-mode hues. */
@@ -163,10 +190,13 @@ body.glass-mode .modal-card {
   -webkit-backdrop-filter: blur(30px) saturate(180%);
 }
 
-/* ── Scrollbar ── */
+/* ── Scrollbar ──
+   Uses theme tokens (--b1 / --b2) so the thumb stays visible across all
+   themes. The previous rgba(255,255,255,0.15) was invisible on dark-glass
+   because the surface itself is already translucent. */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+::-webkit-scrollbar-thumb { background: var(--b1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--b2); }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* ── Syntax Highlighting ──
@@ -284,7 +314,7 @@ body.fx-crt::after {
   font-size: 10px;
   font-family: var(--mono);
   color: var(--t3);
-  background: rgba(255,255,255,0.04);
+  background: var(--surface-hover);
 }
 
 /* ── Select Styling ── */

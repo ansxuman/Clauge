@@ -827,7 +827,7 @@
     gap: 5px;
     transition: border-color 0.12s, background 0.12s;
   }
-  .db-pill:hover { border-color: var(--b2); background: rgba(255,255,255,0.03); }
+  .db-pill:hover { border-color: var(--b2); background: var(--surface-hover); }
   .db-pill.state-connecting { border-color: color-mix(in srgb, var(--acc) 50%, transparent); }
   .db-pill.state-error { border-color: color-mix(in srgb, var(--err) 60%, transparent); }
   .db-pill-icon { width: 12px; height: 12px; stroke: var(--acc); fill: none; stroke-width: 1.5; stroke-linecap: round; flex-shrink: 0; opacity: 0.7; }
@@ -983,7 +983,7 @@
   .result-tab-icon.err { stroke: var(--err); }
   .result-tab-label { overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
   .result-tab-count {
-    font-size: 9px; background: rgba(255,255,255,0.08);
+    font-size: 9px; background: var(--surface-hover);
     padding: 1px 4px; border-radius: 3px; color: var(--t3); flex-shrink: 0;
   }
   .result-tab.active .result-tab-count {
@@ -995,7 +995,7 @@
     flex-shrink: 0; color: var(--t4); transition: all 0.1s;
   }
   .result-tab:hover .result-tab-close { display: flex; }
-  .result-tab-close:hover { background: rgba(255,255,255,0.1); color: var(--t1); }
+  .result-tab-close:hover { background: var(--surface-hover); color: var(--t1); }
 
   .sql-empty-state {
     flex: 1; display: flex; flex-direction: column;

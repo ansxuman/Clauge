@@ -86,7 +86,7 @@
 
   /* When window is not focused, dim the buttons */
   :global(.window-blurred) .wc-btn {
-    background: rgba(255,255,255,0.1);
+    background: var(--surface-hover);
   }
   :global(.window-blurred) .wc-btn svg {
     display: none;

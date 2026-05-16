@@ -130,7 +130,7 @@
   .row { display: flex; flex-direction: column; gap: 4px; font-family: var(--ui); font-size: 12px; color: var(--t2); }
   .row.checkbox { flex-direction: row; align-items: center; gap: 8px; cursor: default; }
   .inp {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     color: var(--t1);
@@ -169,7 +169,7 @@
   .note {
     font-size: 11px;
     color: var(--t3);
-    background: rgba(255,255,255,0.03);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     padding: 8px 10px;

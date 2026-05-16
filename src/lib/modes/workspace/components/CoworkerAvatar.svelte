@@ -74,7 +74,7 @@
         overflow: hidden;
         flex-shrink: 0;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--surface-hover);
         contain: layout paint;
     }
     .ca-ring {

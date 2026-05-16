@@ -88,21 +88,35 @@ function splitEqualsFlag(tok: string): [string, string] | null {
 
 /**
  * Parse a cURL command string into its components.
+ *
+ * Accepts three flavours of pasted command:
+ *   - Unix / Git Bash:  `curl -X POST ...`             (\ continuation, single quotes)
+ *   - Windows cmd:      `curl.exe -X POST ...`         (^ continuation, "..." with \")
+ *   - PowerShell:       `curl.exe -X POST ...`         (` continuation, "..." with `" or "")
+ * The flag set is identical across all three — curl.exe is the same
+ * binary as curl. What differs is shell quoting / continuation, which
+ * the normalizer + tokenizer handle below.
  */
 export function parseCurl(text: string): ParsedCurl | null {
-  // Normalize: remove backslash-newline and ^-newline (Windows) continuations
+  // Normalize line continuations across all three shell flavours, then
+  // collapse the stray standalone `^` that cmd uses outside of
+  // continuations as an escape (e.g. `^&`, `^"` outside a string).
   const normalized = text
-    .replace(/\\\s*\n/g, ' ')
-    .replace(/\^\s*\n/g, ' ')
-    .replace(/\^(\s)/g, '$1') // Remove standalone ^ used as Windows continuation
+    .replace(/\\\s*\n/g, ' ')   // Unix / Git Bash backslash continuation
+    .replace(/\^\s*\n/g, ' ')   // cmd.exe caret continuation
+    .replace(/`\s*\n/g, ' ')    // PowerShell backtick continuation
+    .replace(/\^(\s)/g, '$1')   // Standalone ^ used as Windows continuation
     .trim();
 
-  if (!normalized.startsWith('curl ') && !normalized.startsWith('curl\t')) {
+  // Accept `curl`, `curl.exe`, `CURL.EXE`, etc. PowerShell users invoke
+  // `curl.exe` explicitly because the bare `curl` is an
+  // Invoke-WebRequest alias in that shell.
+  if (!/^curl(?:\.exe)?[\s\t]/i.test(normalized)) {
     return null;
   }
 
   const tokens = tokenize(normalized);
-  tokens.shift(); // Remove 'curl'
+  tokens.shift(); // Remove 'curl' / 'curl.exe' (already validated above)
 
   let method = '';
   let url = '';
@@ -404,9 +418,24 @@ function tokenize(input: string): string[] {
         }
         if (i < len) i++; // skip closing quote
       } else if (ch === '"') {
-        // Double-quoted string: everything until next double quote, with backslash escaping
+        // Double-quoted string. Three escape conventions are honored
+        // so commands pasted from any of {bash, cmd.exe, PowerShell}
+        // tokenize correctly:
+        //   \"   — backslash escape (bash, cmd via Chrome "Copy as cURL")
+        //   ""   — doubled quote (PowerShell idiom)
+        //   ^"   — caret escape (cmd.exe alternative)
         i++;
-        while (i < len && input[i] !== '"') {
+        while (i < len) {
+          if (input[i] === '"') {
+            // Lookahead for "" (PowerShell-style escaped quote). A
+            // single " ends the string.
+            if (i + 1 < len && input[i + 1] === '"') {
+              token += '"';
+              i += 2;
+              continue;
+            }
+            break;
+          }
           if (input[i] === '\\' && i + 1 < len) {
             const next = input[i + 1];
             if (next === '"' || next === '\\') {
@@ -414,6 +443,12 @@ function tokenize(input: string): string[] {
               i += 2;
               continue;
             }
+          }
+          if (input[i] === '^' && i + 1 < len && input[i + 1] === '"') {
+            // cmd.exe caret escape — `^"` → literal "
+            token += '"';
+            i += 2;
+            continue;
           }
           token += input[i];
           i++;

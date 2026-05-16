@@ -241,7 +241,7 @@
     margin-bottom: 12px;
     border: 1px solid var(--b1);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.025);
+    background: var(--surface-hover);
     font-size: 12.5px;
   }
   .cr-affected-label {
@@ -281,7 +281,7 @@
   }
   .cr-btn:disabled { opacity: 0.5; }
   .cr-btn-secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
     border-color: var(--b2);
   }
   .cr-btn-primary {

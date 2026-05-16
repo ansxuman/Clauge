@@ -162,7 +162,7 @@
   .cn-copy:hover {
     color: var(--t1);
     border-color: var(--b2);
-    background: rgba(255,255,255,0.05);
+    background: var(--surface-hover);
   }
 
   .cn-after {

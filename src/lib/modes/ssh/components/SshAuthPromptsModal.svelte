@@ -119,7 +119,7 @@
     font-family: var(--ui);
     margin: 0;
     padding: 8px 10px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     border-radius: 6px;
     border-left: 2px solid var(--ssh, var(--acc));
   }
@@ -162,7 +162,7 @@
     color: var(--t2);
     font-family: var(--ui);
   }
-  .ap-btn-cancel:hover { background: rgba(255, 255, 255, 0.04); }
+  .ap-btn-cancel:hover { background: var(--surface-hover); }
   .ap-btn-submit {
     padding: 7px 16px;
     border-radius: 6px;

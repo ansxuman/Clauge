@@ -40,11 +40,11 @@
   --crepe-color-error: var(--err, #f85149) !important;
 
   /* Hover and selected — match how the rest of the app's menus feel. */
-  --crepe-color-hover: rgba(255, 255, 255, 0.05) !important;
+  --crepe-color-hover: var(--surface-hover) !important;
   --crepe-color-selected: color-mix(in srgb, var(--acc) 18%, transparent) !important;
 
   /* Inline-edit area background (e.g. when editing a link inline). */
-  --crepe-color-inline-area: rgba(255, 255, 255, 0.04) !important;
+  --crepe-color-inline-area: var(--surface-hover) !important;
 
   /* Fonts — pull Clauge's own faces in so the editor reads as part of
      the same app, not a third-party widget. */
@@ -142,7 +142,7 @@
 
 /* Inline code chip — keep readable on Clauge's surfaces. */
 .milkdown code {
-  background: rgba(255, 255, 255, 0.05) !important;
+  background: var(--surface-hover) !important;
   padding: 1px 6px !important;
   border-radius: 4px !important;
   font-size: 12.5px !important;

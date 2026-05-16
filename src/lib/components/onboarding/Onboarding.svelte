@@ -295,7 +295,7 @@
     .ob-overlay {
         position: fixed;
         inset: 0;
-        z-index: 9999;
+        z-index: var(--z-topmost);
         background: rgba(4, 4, 12, 0.96);
         backdrop-filter: blur(24px);
         -webkit-backdrop-filter: blur(24px);
@@ -561,7 +561,7 @@
         width: 100%;
     }
     .ob-btn-skip:hover {
-        background: rgba(255, 255, 255, 0.04);
+        background: var(--surface-hover);
         border-color: var(--b2);
         color: var(--t1);
     }

@@ -167,7 +167,7 @@
     margin: 12px 16px 0;
     border: 1px solid var(--b1);
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     font-family: var(--ui);
     font-size: 12px;
     color: var(--t2);
@@ -177,7 +177,7 @@
     background: color-mix(in srgb, var(--state-saved) 8%, transparent);
   }
   .sb-warn {
-    background: rgba(255, 255, 255, 0.025);
+    background: var(--surface-hover);
   }
   .sb-action {
     border-color: color-mix(in srgb, var(--acc) 35%, var(--b1));
@@ -209,7 +209,7 @@
     font-family: var(--mono);
     font-size: 11.5px;
     color: var(--t2);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--surface-hover);
     padding: 1px 5px;
     border-radius: 3px;
   }
@@ -254,7 +254,7 @@
     align-items: center;
     gap: 5px;
     border: 1px solid var(--b1);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
     color: var(--t1);
     padding: 2px 7px;
     border-radius: 4px;
@@ -276,7 +276,7 @@
     cursor: default;
     flex-shrink: 0;
   }
-  .sb-x:hover { background: rgba(255, 255, 255, 0.06); color: var(--t1); }
+  .sb-x:hover { background: var(--surface-hover); color: var(--t1); }
   .sb-stamp {
     flex-shrink: 0;
     font-family: var(--mono);
@@ -284,6 +284,6 @@
     color: var(--t4);
     padding: 2px 7px;
     border-radius: 8px;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
   }
 </style>

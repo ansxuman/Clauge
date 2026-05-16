@@ -1,10 +1,4 @@
 <script lang="ts">
-  // "Install Codex CLI" prompt — mirror of ClaudeNotInstalledModal but
-  // with OpenAI Codex's per-OS install commands sourced from the
-  // upstream README (github.com/openai/codex#installing-and-running-codex-cli).
-  // Codex ships as `@openai/codex` on npm and a `codex` Homebrew cask;
-  // Linux + Windows install via npm.
-
   import Modal from '$lib/shared/primitives/Modal.svelte';
   import { isMac, isWindows } from '$lib/utils/platform';
 
@@ -26,36 +20,37 @@
   async function openDocs() {
     try {
       const { openUrl } = await import('@tauri-apps/plugin-opener');
-      await openUrl('https://github.com/openai/codex');
+      await openUrl('https://cli.github.com/');
     } catch (_) {}
   }
 </script>
 
-<Modal bind:show title="Codex CLI Not Found" width="440px">
+<Modal bind:show title="GitHub CLI Not Found" width="460px">
   <div class="cn-body">
     <p class="cn-desc">
-      Codex CLI wasn't found on your <code class="cn-code">PATH</code>.
-      Install it to start Codex sessions.
+      The <code class="cn-code">gh</code> CLI wasn't found on your <code class="cn-code">PATH</code>.
+      Clauge uses it to create issues, push branches, and open PRs from cards.
     </p>
 
-    {#if platform === 'mac'}
-      {@render cmdBlock('Homebrew', 'brew install --cask codex')}
-      {@render cmdBlock('npm', 'npm install -g @openai/codex')}
-    {:else if platform === 'windows'}
-      {@render cmdBlock('npm', 'npm install -g @openai/codex')}
+    {#if platform === 'windows'}
+      {@render cmdBlock('WinGet', 'winget install --id GitHub.cli')}
+      {@render cmdBlock('Scoop', 'scoop install gh')}
+    {:else if platform === 'mac'}
+      {@render cmdBlock('Homebrew', 'brew install gh')}
+      {@render cmdBlock('MacPorts', 'sudo port install gh')}
     {:else}
-      {@render cmdBlock('npm', 'npm install -g @openai/codex')}
-      <p class="cn-note">
-        Or grab the binary for your architecture from the
-        <span class="cn-link">latest GitHub release</span>.
-      </p>
+      {@render cmdBlock('Debian / Ubuntu', 'sudo apt install gh')}
+      {@render cmdBlock('Fedora / RHEL', 'sudo dnf install gh')}
+      {@render cmdBlock('Arch', 'sudo pacman -S github-cli')}
     {/if}
+
+    {@render cmdBlock('Then sign in', 'gh auth login')}
 
     <div class="cn-after">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
       </svg>
-      After installing, run <code class="cn-code">codex login</code> once and then restart Clauge so it picks up your updated <code class="cn-code">PATH</code>.
+      After installing + signing in, restart Clauge so it picks up your updated <code class="cn-code">PATH</code>.
     </div>
 
     <div class="cn-footer">
@@ -64,7 +59,7 @@
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
           <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
         </svg>
-        Codex docs
+        cli.github.com
       </button>
       <button class="cn-btn-close" onclick={() => (show = false)}>Close</button>
     </div>
@@ -76,11 +71,20 @@
     <span class="cn-label">{label}</span>
     <div class="cn-cmd-block">
       <code>{cmd}</code>
-      <button class="cn-copy" onclick={() => copy(cmd)} title="Copy" aria-label="Copy command">
+      <button
+        class="cn-copy"
+        onclick={() => copy(cmd)}
+        title="Copy"
+        aria-label="Copy command"
+      >
         {#if copiedCmd === cmd}
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
         {:else}
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
         {/if}
       </button>
     </div>
@@ -90,8 +94,6 @@
 <style>
   .cn-body { display: flex; flex-direction: column; gap: 12px; }
   .cn-desc { margin: 0; font-size: 13px; color: var(--t2); line-height: 1.55; }
-  .cn-note { margin: 0; font-size: 12px; color: var(--t3); line-height: 1.55; }
-  .cn-link { color: var(--acc); }
   .cn-code {
     font-family: var(--mono, monospace); font-size: 11.5px;
     background: var(--c); border: 1px solid var(--b1); border-radius: 4px;
@@ -104,8 +106,8 @@
   }
   .cn-cmd-block {
     display: flex; align-items: center; gap: 8px;
-    background: var(--c); border: 1px solid var(--b1); border-radius: 8px;
-    padding: 10px 14px;
+    background: var(--c); border: 1px solid var(--b1);
+    border-radius: 8px; padding: 10px 14px;
   }
   .cn-cmd-block code {
     flex: 1; font-family: var(--mono, monospace); font-size: 13px;

@@ -70,7 +70,7 @@
     flex: 1;
     min-height: 26px;
     max-height: 200px;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     padding: 5px 8px;
@@ -162,7 +162,7 @@
   .dv-option-input {
     flex: 1;
     height: 26px;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     padding: 0 8px;
@@ -220,7 +220,7 @@
   .dv-search-input {
     flex: 1;
     height: 24px;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 4px;
     padding: 0 8px;
@@ -490,7 +490,7 @@
     max-height: 300px;
     overflow-y: auto;
     border-radius: 5px;
-    background: rgba(255,255,255,0.02);
+    background: var(--surface-hover);
     border: 1px solid color-mix(in srgb, var(--acc) 30%, transparent);
   }
   .dv-edit-editor::-webkit-scrollbar { width: 4px; }
@@ -501,7 +501,7 @@
     flex-direction: column;
     padding: 8px 0;
     flex-shrink: 0;
-    background: rgba(255,255,255,0.02);
+    background: var(--surface-hover);
     border-right: 1px solid var(--b1);
     user-select: none;
   }
@@ -644,7 +644,7 @@
   }
   .dv-limit-sel {
     height: 26px;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     padding: 0 6px;

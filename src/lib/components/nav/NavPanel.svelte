@@ -398,7 +398,7 @@
   .nav-search-input {
     width: 100%;
     height: 32px;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: var(--radius-md, 6px);
     padding: 0 10px 0 30px;
@@ -431,7 +431,7 @@
     color: var(--t3);
   }
   .nav-action svg { width: 14px; height: 14px; }
-  .nav-action:hover { color: var(--t1); border-color: var(--b2); background: rgba(255,255,255,0.04); }
+  .nav-action:hover { color: var(--t1); border-color: var(--b2); background: var(--surface-hover); }
   .nav-add {
     color: var(--acc);
     border-color: color-mix(in srgb, var(--acc) 35%, var(--b1));

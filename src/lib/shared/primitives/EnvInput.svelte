@@ -375,7 +375,7 @@
     background: var(--n);
     border: 1px solid var(--b1);
     border-radius: 5px;
-    z-index: 9999;
+    z-index: var(--z-drawer);
     max-height: 180px;
     overflow-y: auto;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);

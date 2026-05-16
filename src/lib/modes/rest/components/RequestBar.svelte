@@ -467,7 +467,12 @@
     if (!text) return;
 
     const trimmed = text.trim();
-    if (trimmed.startsWith('curl ') || trimmed.startsWith('curl\t')) {
+    // Accept `curl` (Unix / Git Bash) and `curl.exe` (Windows cmd /
+    // PowerShell). PowerShell's bare `curl` is actually an
+    // Invoke-WebRequest alias, so Windows users explicitly type
+    // `curl.exe` to invoke the real binary — pastes from that path
+    // were getting silently ignored before.
+    if (/^curl(?:\.exe)?[\s\t]/i.test(trimmed)) {
       e.preventDefault();
       const parsed = parseCurl(trimmed);
       if (!parsed) return;
@@ -657,7 +662,7 @@
   .url-editor {
     min-height: 32px;
     max-height: 32px;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: var(--radius-md);
     padding: 8px 14px;
@@ -686,7 +691,7 @@
     overflow-y: auto;
     border-color: var(--acc);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 15%, transparent);
-    background: rgba(255,255,255,0.06);
+    background: var(--surface-hover);
   }
 
   /* URL syntax colors */

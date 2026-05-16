@@ -117,6 +117,6 @@
     border-radius: 4px;
     transition: background 0.12s;
   }
-  .ti-input:focus { background: rgba(255, 255, 255, 0.04); }
+  .ti-input:focus { background: var(--surface-hover); }
   .ti-input::placeholder { color: var(--t4); }
 </style>

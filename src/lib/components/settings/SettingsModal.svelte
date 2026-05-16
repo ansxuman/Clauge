@@ -272,6 +272,14 @@
     let mcpToken = $derived(($settings["workspace_mcp_token"] ?? "") as string);
     let showMcpToken = $state(false);
 
+    // Auto-move-on-PR-merge toggle. Default ON — the feature is
+    // self-disabling for boards whose final column doesn't match the
+    // regex, so leaving it on is safe; this toggle is for users who
+    // want manual control even on boards that DO match.
+    let autoMoveMergedPrs = $derived(
+        ($settings["workspace_automove_merged_prs"] ?? "true") === "true",
+    );
+
     async function refreshMcpStatus() {
         try {
             mcpStatus = await workspaceMcpStatus();
@@ -1410,6 +1418,33 @@
                                     <button class="stg-card-mini-btn" onclick={handleCopyMcpToken} title="Copy">Copy</button>
                                     <button class="stg-card-mini-btn" onclick={handleRotateMcpToken} disabled={mcpStatus.running} title="Generate new token">Rotate</button>
                                 </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="stg-card">
+                        <header class="stg-card-hd">
+                            <span class="stg-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h12M3 17h18"/></svg>
+                            </span>
+                            <div class="stg-card-titles">
+                                <h3 class="stg-card-title">Board automation</h3>
+                                <p class="stg-card-sub">
+                                    When a card's PR merges on GitHub or GitLab, automatically move it to your board's final column (any column whose name matches done / merged / shipped / complete / closed). Checked on app focus, debounced to 5 minutes. The card thread gets a system comment so the move is auditable.
+                                </p>
+                            </div>
+                        </header>
+                        <div class="stg-card-body">
+                            <div class="stg-card-row">
+                                <label class="stg-card-row-label">Auto-move cards on PR merge</label>
+                                <label class="stg-toggle">
+                                    <input
+                                        type="checkbox"
+                                        checked={autoMoveMergedPrs}
+                                        onchange={(e) => handleSettingChange("workspace_automove_merged_prs", String(e.currentTarget.checked))}
+                                    />
+                                    <span class="stg-toggle-slider"></span>
+                                </label>
                             </div>
                         </div>
                     </section>
@@ -2697,6 +2732,14 @@
                         </section>
                     </div>
                 {:else if agentSubTab === "plugins"}
+                    <!-- Plugins pane lays itself out as a flex column that
+                         fills the right pane. The provider tab strip and
+                         the Installed/Marketplace toggle stay pinned at
+                         the top; only the list itself scrolls. Without
+                         this wrapper the whole settings pane scrolls when
+                         the list grows, which hides the toggle as you
+                         scan plugins. -->
+                    <div class="agent-plugins-pane">
                     <!-- CLI provider tab strip — each provider has its own
                          marketplace + installed list. OpenCode isn't here
                          because its plugins are npm packages with no
@@ -2869,6 +2912,7 @@
                             </div>
                         {/if}
                     {/if}
+                    </div><!-- /.agent-plugins-pane -->
                 {:else if agentSubTab === "contexts"}
                     {#if isNewContext || editingContext}
                         <!-- Context editor -->
@@ -3889,7 +3933,7 @@
         justify-content: center;
         border-radius: 8px;
         border: 1px solid var(--b1);
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--surface-hover);
         color: var(--t2);
     }
 
@@ -4054,7 +4098,7 @@
     .stg-card-mono {
         font-family: var(--mono);
         font-size: 11px;
-        background: rgba(255, 255, 255, 0.05);
+        background: var(--surface-hover);
         padding: 1px 5px;
         border-radius: 3px;
         color: var(--t2);
@@ -4068,7 +4112,7 @@
         padding: 4px 10px;
         border-radius: 12px;
         border: 1px solid var(--b1);
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--surface-hover);
         font-family: var(--mono);
         font-size: 10.5px;
         color: var(--t3);

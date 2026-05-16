@@ -970,6 +970,14 @@ pub(super) async fn dispatch_tool(
             Ok(ok_text(serde_json::to_value(result).unwrap_or(Value::Null)))
         }
 
+        "cards_check_pr_state" => {
+            let id = req_str("cardId")?;
+            let state = crate::modes::workspace::pr::check_pr_state(pool, &id)
+                .await
+                .map_err(|e| (-32603, e.message()))?;
+            Ok(ok_text(serde_json::json!({ "cardId": id, "state": state })))
+        }
+
         "cards_link_pr" => {
             let id = req_str("cardId")?;
             let pr_url = req_str("prUrl")?;

@@ -300,7 +300,7 @@
     background: transparent; color: var(--t2); font-size: 12px; cursor: pointer;
     font-family: var(--ui); transition: background 0.15s, color 0.15s; user-select: none;
   }
-  .ns-chip:hover:not(.selected) { background: rgba(255,255,255,0.06); }
+  .ns-chip:hover:not(.selected) { background: var(--surface-hover); }
   .ns-chip.selected {
     font-weight: 600;
     color: var(--ssh, var(--acc));
@@ -312,7 +312,7 @@
     padding: 7px 16px; border-radius: 6px; font-size: 13px; cursor: pointer;
     border: 1px solid var(--b1); background: transparent; color: var(--t2); font-family: var(--ui);
   }
-  .ns-btn-cancel:hover { background: rgba(255,255,255,0.04); }
+  .ns-btn-cancel:hover { background: var(--surface-hover); }
   .ns-btn-create {
     padding: 7px 16px; border-radius: 6px; font-size: 13px; cursor: pointer;
     border: none; background: var(--ssh, var(--acc)); color: #fff; font-weight: 600; font-family: var(--ui);
@@ -324,6 +324,6 @@
   }
   .ns-optional code {
     font-family: var(--mono); font-size: 11px; padding: 1px 4px;
-    background: rgba(255,255,255,0.06); border-radius: 3px;
+    background: var(--surface-hover); border-radius: 3px;
   }
 </style>

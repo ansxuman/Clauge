@@ -41,8 +41,12 @@
     agentRemoveWorktree,
     agentDeleteSession,
     agentCheckClaudeInstalled,
+    agentCheckCliInstalled,
   } from '../commands';
   import ClaudeNotInstalledModal from './ClaudeNotInstalledModal.svelte';
+  import CodexNotInstalledModal from './CodexNotInstalledModal.svelte';
+  import GeminiNotInstalledModal from './GeminiNotInstalledModal.svelte';
+  import OpenCodeNotInstalledModal from './OpenCodeNotInstalledModal.svelte';
   import { showToast } from '$lib/shared/primitives/toast';
   import { refreshAgentGitStatus, refreshAgentContextUsage, loadAgentSessions, agentGitBranchName, agentGitFiles, agentGitAhead, agentGitBehind } from '../stores';
   import { getTerminalTheme } from '$lib/utils/theme';
@@ -255,6 +259,9 @@
   let _suppressExit = false;
 
   let showClaudeNotInstalled = $state(false);
+  let showCodexNotInstalled = $state(false);
+  let showGeminiNotInstalled = $state(false);
+  let showOpenCodeNotInstalled = $state(false);
 
   // --- Notification system for action-required prompts ---
   let notifyOutputBuffer = '';
@@ -758,17 +765,28 @@
       return;
     }
 
-    // Gate on claude being installed before creating any terminal state
+    // Gate on the session's CLI being installed before creating any
+    // terminal state. The provider lives on the session row; default
+    // to 'claude' for legacy sessions written before the column existed.
+    // Each provider has its own install guide modal — using the Claude
+    // one for a Codex/Gemini/OpenCode session would tell the user to
+    // install the wrong tool.
+    const provider = (session.provider ?? 'claude') as 'claude' | 'codex' | 'gemini' | 'opencode';
     try {
-      const claudeInstalled = await agentCheckClaudeInstalled();
-      if (!claudeInstalled) {
-        showClaudeNotInstalled = true;
+      const installed = provider === 'claude'
+        ? await agentCheckClaudeInstalled()
+        : await agentCheckCliInstalled(provider);
+      if (!installed) {
+        if (provider === 'claude') showClaudeNotInstalled = true;
+        else if (provider === 'codex') showCodexNotInstalled = true;
+        else if (provider === 'gemini') showGeminiNotInstalled = true;
+        else if (provider === 'opencode') showOpenCodeNotInstalled = true;
         spawning = false;
         return;
       }
     } catch (_) {
-      // If the check itself fails (e.g. IPC not ready), let the spawn proceed
-      // and surface any real error from the terminal itself.
+      // If the check itself fails (e.g. IPC not ready), let the spawn
+      // proceed and surface any real error from the terminal itself.
     }
 
     const currentGen = (_spawnGenerations.get(session.id) || 0) + 1;
@@ -1553,6 +1571,9 @@
 </script>
 
 <ClaudeNotInstalledModal bind:show={showClaudeNotInstalled} />
+<CodexNotInstalledModal bind:show={showCodexNotInstalled} />
+<GeminiNotInstalledModal bind:show={showGeminiNotInstalled} />
+<OpenCodeNotInstalledModal bind:show={showOpenCodeNotInstalled} />
 
 {#if $activeAgentSession}
   {@const _activeId = $activeAgentSession.id}
@@ -1756,12 +1777,12 @@
   /* Thin scrollbar for xterm */
   .agent-terminal-container :global(.xterm-viewport::-webkit-scrollbar) { width: 3px; }
   .agent-terminal-container :global(.xterm-viewport::-webkit-scrollbar-track) { background: transparent; }
-  .agent-terminal-container :global(.xterm-viewport::-webkit-scrollbar-thumb) { background: rgba(255,255,255,0.10); border-radius: 3px; }
-  .agent-terminal-container :global(.xterm-viewport::-webkit-scrollbar-thumb:hover) { background: rgba(255,255,255,0.20); }
+  .agent-terminal-container :global(.xterm-viewport::-webkit-scrollbar-thumb) { background: var(--surface-hover); border-radius: 3px; }
+  .agent-terminal-container :global(.xterm-viewport::-webkit-scrollbar-thumb:hover) { background: var(--surface-hover); }
   .agent-shell-container :global(.xterm-viewport::-webkit-scrollbar) { width: 3px; }
   .agent-shell-container :global(.xterm-viewport::-webkit-scrollbar-track) { background: transparent; }
-  .agent-shell-container :global(.xterm-viewport::-webkit-scrollbar-thumb) { background: rgba(255,255,255,0.10); border-radius: 3px; }
-  .agent-shell-container :global(.xterm-viewport::-webkit-scrollbar-thumb:hover) { background: rgba(255,255,255,0.20); }
+  .agent-shell-container :global(.xterm-viewport::-webkit-scrollbar-thumb) { background: var(--surface-hover); border-radius: 3px; }
+  .agent-shell-container :global(.xterm-viewport::-webkit-scrollbar-thumb:hover) { background: var(--surface-hover); }
 
   .agent-loading {
     position: absolute;
@@ -1822,7 +1843,7 @@
     padding: 6px 10px 6px 12px;
     border-radius: 999px;
     background: var(--b1);
-    border: 1px solid var(--bord, rgba(255, 255, 255, 0.08));
+    border: 1px solid var(--b1);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
     font-family: var(--ui);
     font-size: 12px;
@@ -1958,7 +1979,7 @@
     flex-shrink: 0;
     transition: background 0.1s, color 0.1s;
   }
-  .agent-find-toggle:hover { background: rgba(255,255,255,0.07); color: var(--t2); }
+  .agent-find-toggle:hover { background: var(--surface-hover); color: var(--t2); }
   .agent-find-toggle.active {
     background: color-mix(in srgb, var(--acc) 20%, transparent);
     color: var(--acc);
@@ -1988,7 +2009,7 @@
     padding: 0;
     flex-shrink: 0;
   }
-  .agent-find-btn:hover { background: rgba(255,255,255,0.07); color: var(--t1); }
+  .agent-find-btn:hover { background: var(--surface-hover); color: var(--t1); }
   .agent-find-close {
     display: flex;
     align-items: center;
@@ -2003,7 +2024,7 @@
     padding: 0;
     flex-shrink: 0;
   }
-  .agent-find-close:hover { background: rgba(255,255,255,0.07); color: var(--t2); }
+  .agent-find-close:hover { background: var(--surface-hover); color: var(--t2); }
 
   .agent-empty {
     flex: 1;

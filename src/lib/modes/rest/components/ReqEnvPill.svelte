@@ -147,7 +147,7 @@
     border: 1px solid var(--b1);
     border-radius: 6px;
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
-    z-index: 9999;
+    z-index: var(--z-drawer);
     min-width: 180px;
     padding: 3px;
   }

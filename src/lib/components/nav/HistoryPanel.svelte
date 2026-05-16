@@ -180,10 +180,10 @@
     border-bottom: 1px solid var(--b1);
   }
   .hist-item:hover {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
   }
   .hist-item.active {
-    background: rgba(255,255,255,0.06);
+    background: var(--surface-hover);
     border-left: 2px solid var(--acc);
     padding-left: 10px;
   }

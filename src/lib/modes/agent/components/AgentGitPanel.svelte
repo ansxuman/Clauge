@@ -346,12 +346,14 @@
 {/if}
 
 <style>
-  /* Overlay positioned above status bar — blocks clicks and scroll to terminal behind */
+  /* Overlay positioned above status bar — blocks clicks and scroll to terminal behind.
+     z-index sits at popover level so modals (--z-modal = 1000) still
+     win when one is open on top of this panel. */
   .gp-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9000;
-    background: rgba(0,0,0,0.25);
+    z-index: var(--z-popover);
+    background: var(--scrim);
     overscroll-behavior: contain;
     cursor: default;
   }
@@ -361,7 +363,7 @@
     left: 12px;
     width: 440px;
     max-height: 420px;
-    background: var(--n, var(--s, #0d1117));
+    background: var(--modal-bg, #0d1117);
     border: 1px solid var(--b1, #30363d);
     border-radius: 10px;
     box-shadow: 0 12px 40px rgba(0,0,0,0.5);
@@ -421,7 +423,7 @@
     transition: all 0.1s;
     position: relative;
   }
-  .gp-action:hover:not(:disabled) { background: rgba(255,255,255,0.06); color: var(--t1, #e6edf3); }
+  .gp-action:hover:not(:disabled) { background: var(--surface-hover); color: var(--t1, #e6edf3); }
   .gp-action:disabled { opacity: 0.4; cursor: wait; }
   .gp-tooltip {
     display: none;
@@ -436,7 +438,7 @@
     font-size: 10px;
     color: var(--t1, #e6edf3);
     white-space: nowrap;
-    z-index: 600;
+    z-index: var(--z-dropdown);
     pointer-events: none;
   }
   .gp-action.has-tooltip:hover .gp-tooltip { display: block; }
@@ -459,7 +461,7 @@
     gap: 6px;
     padding: 6px 10px;
     border-bottom: 1px solid var(--b1, #30363d);
-    background: rgba(255,255,255,0.02);
+    background: var(--n2);
     flex-shrink: 0;
   }
   .gp-diff-back {
@@ -471,7 +473,7 @@
     border-radius: 3px;
     display: flex;
   }
-  .gp-diff-back:hover { background: rgba(255,255,255,0.06); color: var(--t1, #e6edf3); }
+  .gp-diff-back:hover { background: var(--surface-hover); color: var(--t1, #e6edf3); }
   .gp-diff-filename { font-size: 11px; font-family: var(--mono, monospace); color: var(--t1, #e6edf3); }
   .gp-diff-view {
     max-height: 300px;
@@ -492,7 +494,7 @@
     display: flex;
     gap: 6px;
     padding: 6px 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--b-subtle);
     flex-shrink: 0;
   }
   .gp-stage-btn {
@@ -506,7 +508,7 @@
     cursor: pointer;
     transition: all 0.1s;
   }
-  .gp-stage-btn:hover { background: rgba(255,255,255,0.06); color: var(--t1, #e6edf3); }
+  .gp-stage-btn:hover { background: var(--surface-hover); color: var(--t1, #e6edf3); }
 
   /* File list */
   .gp-file-list { max-height: 220px; overflow-y: auto; padding: 4px 0; overscroll-behavior: contain; }
@@ -519,7 +521,7 @@
     cursor: pointer;
     transition: background 0.08s;
   }
-  .gp-file-item:hover { background: rgba(255,255,255,0.03); }
+  .gp-file-item:hover { background: var(--surface-hover); }
   .gp-file-stage {
     cursor: pointer;
     display: flex;
@@ -528,7 +530,7 @@
     padding: 1px;
     border-radius: 3px;
   }
-  .gp-file-stage:hover { background: rgba(255,255,255,0.08); }
+  .gp-file-stage:hover { background: var(--surface-card); }
   .gp-file-status {
     width: 16px;
     font-size: 10px;
@@ -600,9 +602,9 @@
     gap: 8px;
     padding: 6px 12px;
     font-size: 11px;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
+    border-bottom: 1px solid var(--b-subtle);
   }
-  .gp-commit-item:hover { background: rgba(255,255,255,0.03); }
+  .gp-commit-item:hover { background: var(--surface-hover); }
   .gp-commit-hash {
     font-family: var(--mono, monospace);
     color: var(--acc, #7c5cf8);
@@ -635,17 +637,19 @@
     cursor: pointer;
     transition: background 0.1s;
   }
-  .gp-branch-item:hover { background: rgba(255,255,255,0.04); }
+  .gp-branch-item:hover { background: var(--surface-hover); }
   .gp-branch-item.current { color: var(--acc, #7c5cf8); cursor: default; }
   .gp-branch-item:not(.current) { color: var(--t3, #8b949e); }
   .gp-branch-name { font-family: var(--mono, monospace); font-size: 11px; }
 
-  /* Confirmation dialog */
+  /* Confirmation dialog — sits above its parent panel and any other
+     popover layer. Modal level is correct since this is a hard confirm
+     (destructive git op). */
   .gp-confirm-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 500;
+    background: var(--scrim-strong);
+    z-index: var(--z-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -653,7 +657,7 @@
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   .gp-confirm {
-    background: var(--n, var(--modal-bg, #0d1117));
+    background: var(--modal-bg, #0d1117);
     border: 1px solid var(--b1, #30363d);
     border-radius: 10px;
     padding: 16px 20px;
@@ -682,7 +686,7 @@
     color: var(--t3, #8b949e);
     border: 1px solid var(--b1, #30363d);
   }
-  .gp-confirm-cancel:hover { background: rgba(255,255,255,0.04); }
+  .gp-confirm-cancel:hover { background: var(--surface-hover); }
   .gp-confirm-ok { background: var(--acc, #7c5cf8); color: #fff; }
   .gp-confirm-ok:hover { filter: brightness(1.1); }
 </style>

@@ -261,7 +261,7 @@
     transition: background 0.1s;
   }
   .git-clickable:hover {
-    background: rgba(255,255,255,0.06);
+    background: var(--surface-hover);
   }
   .update-hint {
     cursor: default;
@@ -289,7 +289,7 @@
     transition: background 0.15s;
   }
   .usage-chips-clickable:hover {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
   }
   .usage-chip-item {
     display: flex;
@@ -351,6 +351,6 @@
     transition: background 0.1s;
   }
   .shell-toggle:hover {
-    background: rgba(255,255,255,0.06);
+    background: var(--surface-hover);
   }
 </style>

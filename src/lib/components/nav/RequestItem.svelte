@@ -177,7 +177,7 @@
     min-height: 36px;
   }
   .nreq:hover {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     color: var(--t1);
   }
   .drag-handle {
@@ -244,7 +244,7 @@
     display: flex;
   }
   .nreq-menu:hover {
-    background: rgba(255,255,255,0.08);
+    background: var(--surface-hover);
     color: var(--t1);
   }
 </style>

@@ -29,6 +29,14 @@
   let saving = $state(false);
   let dirty = $state(false);
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Baseline = markdown that's currently persisted (or, on first emit,
+  // the Crepe-normalized version of what we loaded). Crepe fires
+  // `markdownUpdated` on initial parse and on certain cursor-placement
+  // ops even when the user didn't edit anything — without this guard
+  // those phantom updates trip the autosave and stamp the current user
+  // as the note's updater, which is what you saw when "just scrolling"
+  // re-attributed the note.
+  let baseline = $state<string | null>(null);
 
   const linkedSession = $derived.by(() => {
     if (!note?.linkedSessionId) return null;
@@ -42,6 +50,7 @@
    *  cross-wiring an unrelated session that just happens to be active. */
   async function bootstrap(id: string) {
     note = null;
+    baseline = null; // reset so the next editor mount can adopt its own first emit
     try {
       const fetched = await workspaceNoteGet(id);
       note = fetched;
@@ -56,23 +65,11 @@
           !!active &&
           (!ws?.projectPath || active.projectPath === ws.projectPath);
         if (active && projectMatches) {
-          // Persist the link silently; no toast — auto-links should feel
-          // ambient, not announce themselves on every open.
+          // Auto-link is in-memory only — if we persist it here we'd
+          // stamp the current user as the note's updater on every open,
+          // even when they only viewed it. The link rides along on the
+          // next genuine edit's save instead.
           note = { ...fetched, linkedSessionId: active.id };
-          try {
-            await workspaceNoteUpdate({
-              id: fetched.id,
-              title: fetched.title,
-              content: fetched.content,
-              tags: (() => { try { return JSON.parse(fetched.tags); } catch { return []; } })(),
-              linkedSessionId: active.id,
-              actor: currentUserActor(),
-            });
-          } catch (e) {
-            console.warn('Auto-link failed:', e);
-            // Roll back the optimistic local change so the UI doesn't lie.
-            note = fetched;
-          }
         }
       }
     } catch (e) {
@@ -81,6 +78,19 @@
   }
 
   function onContentChange(markdown: string) {
+    if (baseline === null) {
+      // First emit after mount — Crepe's normalized parse of the loaded
+      // content. Adopt it as the persisted baseline; not a real edit.
+      baseline = markdown;
+      currentContent = markdown;
+      return;
+    }
+    if (markdown === baseline) {
+      // Spurious re-emit (cursor placement, plugin DOM ops). The
+      // markdown didn't actually change — don't autosave, don't bump
+      // attribution.
+      return;
+    }
     currentContent = markdown;
     dirty = true;
     scheduleSave();
@@ -104,6 +114,7 @@
         actor: currentUserActor(),
       });
       dirty = false;
+      baseline = currentContent; // persisted content is now the new baseline
       // Local refresh — keep editor mounted, just refresh metadata.
       const refreshed = await workspaceNoteGet(note.id);
       note = { ...refreshed, content: currentContent };
@@ -418,7 +429,7 @@ ${body}
     transition: background 0.12s, color 0.12s, border-color 0.12s;
   }
   .nv-export-btn:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--surface-hover);
     color: var(--t1);
     border-color: var(--b2);
   }
@@ -456,7 +467,7 @@ ${body}
     text-align: left;
   }
   .nv-export-item:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-hover);
   }
   .nv-export-item-ext {
     font-family: var(--mono);
@@ -516,7 +527,7 @@ ${body}
     padding: 3px 9px;
     border-radius: 12px;
     border: 1px solid var(--b1);
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     font-family: var(--mono);
     font-size: 10.5px;
     color: var(--t1);
@@ -578,7 +589,7 @@ ${body}
   }
   /* Anonymous (not signed in) — neutral chip, no accent fill. */
   .nv-attr-badge.nv-attr-anon {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--surface-hover);
     color: var(--t3);
   }
 

@@ -145,14 +145,22 @@ function persistCardLastSeen(map: Record<string, string>) {
 
 /** Mark a card as seen at the given updated_at timestamp. Use the
  *  card's own updatedAt rather than `now` so we measure against the
- *  exact mutation the user just consumed. */
+ *  exact mutation the user just consumed. Also kicks the inbox badge
+ *  to recompute — without this, reading a card via the board updates
+ *  the seen map but the inbox count stays stale until the inbox is
+ *  opened (or the app restarts). */
 export function markCardSeen(cardId: string, updatedAt: string) {
+  let changed = false;
   cardLastSeenAt.update((m) => {
     if (m[cardId] === updatedAt) return m;
+    changed = true;
     const next = { ...m, [cardId]: updatedAt };
     persistCardLastSeen(next);
     return next;
   });
+  if (changed) {
+    refreshInboxUnread().catch(() => { /* badge will catch up on next load */ });
+  }
 }
 
 /** True if the card was last mutated by an agent AND that mutation is

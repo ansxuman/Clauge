@@ -612,8 +612,14 @@
 
     function applyAppearanceOnStartup() {
         const config = get(appearance);
+        // OS-aware default. On Linux, native vibrancy/blur isn't available
+        // (and on older Windows the acrylic fallback is shaky), so when
+        // the user hasn't picked a theme yet, start with an opaque one.
+        // macOS gets the glass theme as designed. The user can switch
+        // freely from Settings — this only affects first boot.
+        const defaultTheme = isLinux() ? "dark-solid" : "dark-glass";
         applyTheme(
-            config.theme || "dark-glass",
+            config.theme || defaultTheme,
             config.accentColor || DEFAULT_ACCENT_COLOR,
         );
     }
@@ -870,6 +876,26 @@
             );
         });
 
+        // ── Auto-move workspace cards when their PR merges ──────────────
+        // Same focus-debounce pattern. Walks loaded boards, checks each
+        // card-with-pr_url's host state via gh/glab, moves the merged
+        // ones to the board's first "Done"-like column. Quiet on errors
+        // (missing CLI / no network / no access). 5-min debounce
+        // matches the cloud pull so we don't double-spam network.
+        let lastPrPoll = 0;
+        window.addEventListener("focus", async () => {
+            if (Date.now() - lastPrPoll < 5 * 60_000) return;
+            lastPrPoll = Date.now();
+            try {
+                const { autoMoveMergedPrs } = await import(
+                    "$lib/modes/workspace/autoMove"
+                );
+                await autoMoveMergedPrs();
+            } catch (e) {
+                console.warn("[Workspace] auto-move poll:", e);
+            }
+        });
+
         // Check for updates silently on startup and show What's New if version changed.
         // Then re-check every 6 hours so long-running sessions don't miss releases.
         try {
@@ -1052,9 +1078,6 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        /* Containing block for absolutely-positioned overlays inside the
-     * workspace (e.g. CardEditorDrawer). Without `relative`, those
-     * overlays anchor to the viewport and cover Topbar/StatusBar. */
         position: relative;
     }
 

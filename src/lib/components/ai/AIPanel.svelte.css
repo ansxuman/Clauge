@@ -194,7 +194,7 @@
     transition: background 0.12s, border-color 0.12s, color 0.12s;
   }
   .auto-run-btn:hover {
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     border-color: var(--b2);
     color: var(--t1);
   }
@@ -504,7 +504,7 @@
     padding: 0;
     border: 1px solid var(--b1);
     border-radius: 5px;
-    background: rgba(255,255,255,0.04);
+    background: var(--surface-hover);
     color: var(--t3);
     cursor: pointer;
     opacity: 0;
@@ -515,7 +515,7 @@
     opacity: 1;
   }
   .ai-text :global(.ai-copy-btn:hover) {
-    background: rgba(255,255,255,0.08);
+    background: var(--surface-hover);
     color: var(--t1);
     border-color: var(--b2);
   }
@@ -870,7 +870,7 @@
     gap: 8px;
     padding: 5px 10px;
     border-bottom: 1px solid var(--b1);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--surface-hover);
   }
   .doc-idx {
     font-size: 10px;
@@ -939,7 +939,7 @@
     white-space: nowrap;
   }
   .query-table tr:last-child td { border-bottom: none; }
-  .query-table tr:hover td { background: rgba(255, 255, 255, 0.03); }
+  .query-table tr:hover td { background: var(--surface-hover); }
   .null-cell {
     color: var(--t4) !important;
     font-style: italic;

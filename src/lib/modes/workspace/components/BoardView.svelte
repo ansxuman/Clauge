@@ -22,6 +22,7 @@
     workspaceCardDelete,
     workspaceScanProjectIssues,
     workspaceScanProjectIssuesByUrl,
+    workspaceCardPushToRepo,
   } from '../commands';
   import type { ProjectScanResult } from '../types';
   import BoardSyncBanner from './BoardSyncBanner.svelte';
@@ -38,6 +39,19 @@
   import { showContextMenu } from '$lib/shared/primitives/contextmenu';
   import ConfirmDialog from '$lib/shared/primitives/ConfirmDialog.svelte';
   import CardEditorDrawer from './CardEditorDrawer.svelte';
+  import GhNotInstalledModal from './GhNotInstalledModal.svelte';
+  import GlabNotInstalledModal from './GlabNotInstalledModal.svelte';
+
+  // ── PR / branch + repo-aware actions ──────────────────────────
+  // BoardView mirrors the install-modal pattern from CardEditorDrawer
+  // so the right-click and bulk actions can prompt the user to install
+  // `gh` / `glab` instead of showing a raw stderr toast.
+  function detectMissingCli(errMsg: string): 'gh' | 'glab' | null {
+    const m = errMsg.match(/^(gh|glab) is not installed/);
+    return m ? (m[1] as 'gh' | 'glab') : null;
+  }
+  let showGhNotInstalled = $state(false);
+  let showGlabNotInstalled = $state(false);
 
   interface Props {
     boardId: string;
@@ -89,13 +103,27 @@
     e.preventDefault();
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    showContextMenu(rect.left, rect.bottom + 4, [
+    const items: any[] = [
       {
         label: hasProject ? 'Change project' : 'Set project',
         icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><path d="M9 13l2 2 4-4"/></svg>',
         action: () => { showConfigDialog = true; },
       },
-    ]);
+    ];
+    // Bulk "push every local card as an issue" — only when a) the
+    // workspace has a repo URL and b) there's at least one unlinked
+    // card. Otherwise this entry would be dead clickable noise.
+    if (repoUrl && localCards.length > 0) {
+      items.push({ label: '', action: () => {}, separator: true });
+      items.push({
+        label: bulkPushing
+          ? `Pushing ${localCards.length} card${localCards.length === 1 ? '' : 's'}…`
+          : `Create ${repoLabel} issues for ${localCards.length} local card${localCards.length === 1 ? '' : 's'}`,
+        icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="12 5 12 19"/><polyline points="5 12 12 19 19 12"/></svg>',
+        action: () => bulkPushLocalCards(),
+      });
+    }
+    showContextMenu(rect.left, rect.bottom + 4, items);
   }
 
   async function onProjectChanged() {
@@ -116,6 +144,101 @@
 
   const columns = $derived($columnsByBoard.get(boardId) ?? []);
   const cards = $derived($cardsByBoard.get(boardId) ?? []);
+
+  // Workspace + repo context for the new push / PR actions surfaced
+  // via the header menu and the per-card right-click menu.
+  const workspace = $derived.by(() => {
+    const b = board;
+    if (!b) return null;
+    return $workspacesStore.find(w => w.id === b.workspaceId) ?? null;
+  });
+  const repoUrl = $derived(workspace?.repoUrl ?? null);
+  const repoLabel = $derived.by(() => {
+    const u = (repoUrl ?? '').toLowerCase();
+    if (u.includes('github.com')) return 'GitHub';
+    if (u.includes('gitlab')) return 'GitLab';
+    return 'repo';
+  });
+  /** Cards that haven't been pushed to a remote issue tracker yet. */
+  const localCards = $derived(
+    cards.filter(c => !c.externalId || !c.externalId.trim()),
+  );
+
+  /** Bulk: turn every local card on this board into a real issue.
+   *  Run sequentially so we don't hammer gh/glab rate limits and so
+   *  errors per card surface cleanly. Stops on the first
+   *  "not installed" error since every subsequent card would fail the
+   *  same way. */
+  let bulkPushing = $state(false);
+  async function bulkPushLocalCards() {
+    if (bulkPushing) return;
+    if (!repoUrl) {
+      showToast(`Set the workspace repo URL first`, 'error');
+      return;
+    }
+    const targets = localCards.slice();
+    if (targets.length === 0) {
+      showToast('No local cards to push', 'info');
+      return;
+    }
+    bulkPushing = true;
+    let ok = 0;
+    let failed = 0;
+    for (const c of targets) {
+      try {
+        await workspaceCardPushToRepo(c.id, currentUserActor());
+        ok += 1;
+      } catch (e) {
+        const msg = `${e}`;
+        const missing = detectMissingCli(msg);
+        if (missing === 'gh') { showGhNotInstalled = true; break; }
+        if (missing === 'glab') { showGlabNotInstalled = true; break; }
+        failed += 1;
+      }
+    }
+    await loadBoardContents(boardId);
+    bulkPushing = false;
+    if (ok > 0 && failed === 0) showToast(`Created ${ok} issue${ok === 1 ? '' : 's'} on ${repoLabel}`, 'success');
+    else if (ok > 0 && failed > 0) showToast(`Created ${ok}, failed ${failed}`, 'info');
+    else if (failed > 0) showToast(`Failed to push ${failed} card${failed === 1 ? '' : 's'}`, 'error');
+  }
+
+  /** Single-card create-issue from the right-click menu. */
+  async function pushOneCardAsIssue(c: WorkspaceBoardCard) {
+    if (!repoUrl) {
+      showToast(`Set the workspace repo URL first`, 'error');
+      return;
+    }
+    try {
+      const r = await workspaceCardPushToRepo(c.id, currentUserActor());
+      showToast(`Created issue ${r.externalId}`, 'success');
+      await loadBoardContents(boardId);
+    } catch (e) {
+      const msg = `${e}`;
+      const missing = detectMissingCli(msg);
+      if (missing === 'gh') showGhNotInstalled = true;
+      else if (missing === 'glab') showGlabNotInstalled = true;
+      else showToast(`Issue creation failed: ${msg}`, 'error');
+    }
+  }
+
+  async function openExternalUrl(url: string) {
+    try {
+      const { openUrl } = await import('@tauri-apps/plugin-opener');
+      await openUrl(url);
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  async function copyToClipboard(text: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(`Copied ${label}`, 'success');
+    } catch {
+      showToast('Copy failed', 'error');
+    }
+  }
 
   /** Group cards by column for rendering. Stable order (column.position
    *  then card.position) is preserved by `cardsByBoard`'s SQL ORDER BY. */
@@ -271,6 +394,7 @@
   function showCardMenu(e: MouseEvent, card: WorkspaceBoardCard) {
     e.preventDefault();
     e.stopPropagation();
+    const isLocal = !card.externalId || !card.externalId.trim();
     const items: any[] = [
       {
         label: 'Edit',
@@ -278,6 +402,48 @@
         action: () => editingCard = card,
       },
     ];
+
+    // ── Issue + PR shortcuts ────────────────────────────────────
+    // Keep these together as a related group so users learn the
+    // lifecycle (issue first, then PR) by reading the menu.
+    items.push({ label: '', action: () => {}, separator: true });
+
+    if (isLocal && repoUrl) {
+      items.push({
+        label: `Create issue on ${repoLabel}`,
+        icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+        action: () => pushOneCardAsIssue(card),
+      });
+    }
+    if (card.externalUrl) {
+      items.push({
+        label: 'View issue on host',
+        sub: card.externalId ?? undefined,
+        icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
+        action: () => openExternalUrl(card.externalUrl!),
+      });
+    }
+    if (card.prUrl) {
+      items.push({
+        label: 'View PR on host',
+        icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M6 8v8M11 6h4a3 3 0 0 1 3 3v7"/></svg>',
+        action: () => openExternalUrl(card.prUrl!),
+      });
+    }
+
+    // Copy actions — most useful link is the host URL when present,
+    // falling back to a clauge:// card link so other panes can
+    // navigate back here.
+    items.push({
+      label: card.prUrl ? 'Copy PR URL' : card.externalUrl ? 'Copy issue URL' : 'Copy card title',
+      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+      action: () =>
+        copyToClipboard(
+          card.prUrl ?? card.externalUrl ?? card.title,
+          card.prUrl ? 'PR URL' : card.externalUrl ? 'issue URL' : 'title',
+        ),
+    });
+
     if (card.reviewPending === 1) {
       items.push({ label: '', action: () => {}, separator: true });
       items.push({
@@ -398,7 +564,7 @@
         <input
           class="bv-title-input"
           bind:value={nameDraft}
-          size={Math.max(nameDraft.length, 8)}
+          size={Math.min(Math.max(nameDraft.length, 8), 38)}
           onblur={commitNameChange}
           onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
           placeholder="Board name"
@@ -536,6 +702,22 @@
                       <span>thinking…</span>
                     </span>
                   {/if}
+                  {#if card.prUrl}
+                    <a
+                      class="bv-card-pr"
+                      href={card.prUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      title="Open PR · {card.prUrl}"
+                      onclick={(e) => e.stopPropagation()}
+                    >
+                      <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>
+                        <path d="M6 8v8M11 6h4a3 3 0 0 1 3 3v7"/>
+                      </svg>
+                      <span>PR</span>
+                    </a>
+                  {/if}
                   {#if src.kind === 'github' || src.kind === 'gitlab' || src.kind === 'external'}
                     <a
                       class="bv-card-source bv-card-source-{src.kind}"
@@ -607,6 +789,9 @@
   onconfirm={handleConfirmDelete}
 />
 
+<GhNotInstalledModal bind:show={showGhNotInstalled} />
+<GlabNotInstalledModal bind:show={showGlabNotInstalled} />
+
 <style>
   .bv-loading {
     flex: 1;
@@ -644,7 +829,7 @@
      it's discoverable as editable without looking like a form field
      when idle. */
   .bv-title-input {
-    flex: none;
+    flex: 0 1 auto;
     border: none;
     background: transparent;
     color: var(--t1);
@@ -653,13 +838,15 @@
     font-weight: 600;
     outline: none;
     padding: 2px 6px;
-    border-radius: 4px;
+    border-radius: 5px;
     min-width: 0;
+    max-width: 100%;
     width: auto;
+    text-overflow: ellipsis;
     transition: background 0.12s;
   }
-  .bv-title-input:hover { background: rgba(255, 255, 255, 0.04); }
-  .bv-title-input:focus { background: rgba(255, 255, 255, 0.06); }
+  .bv-title-input:hover { background: var(--surface-hover); }
+  .bv-title-input:focus { background: var(--surface-hover); }
   .bv-title-input::placeholder { color: var(--t4); }
   .bv-count {
     margin-left: auto;
@@ -681,13 +868,13 @@
     transition: background 0.1s, color 0.1s;
     flex-shrink: 0;
   }
-  .bv-menu:hover { background: var(--c, rgba(255, 255, 255, 0.06)); color: var(--t1); }
+  .bv-menu:hover { background: var(--surface-hover); color: var(--t1); }
 
   .bv-board {
     flex: 1;
     display: flex;
-    gap: 12px;
-    padding: 16px 16px 0;
+    gap: 14px;
+    padding: 18px 18px 4px;
     overflow-x: auto;
     overflow-y: hidden;
     min-height: 0;
@@ -696,22 +883,24 @@
   .bv-board::-webkit-scrollbar-thumb { background: var(--b1); border-radius: 3px; }
 
   .bv-col {
-    flex: 0 0 280px;
+    flex: 0 0 300px;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: rgba(255, 255, 255, 0.025);
+    min-width: 0;
+    background: var(--n);
     border: 1px solid var(--b1);
-    border-radius: 10px;
+    border-radius: 12px;
     overflow: hidden;
   }
   .bv-col-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
+    gap: 9px;
+    padding: 11px 14px;
     border-bottom: 1px solid var(--b1);
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--n2);
+    min-width: 0;
   }
   .bv-col-dot {
     width: 8px;
@@ -726,19 +915,24 @@
     color: var(--t1);
     letter-spacing: 0.02em;
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .bv-col-count {
     font-family: var(--mono);
     font-size: 10.5px;
     color: var(--t4);
+    flex-shrink: 0;
   }
 
   .bv-col-body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 8px;
+    gap: 8px;
+    padding: 10px;
     overflow-y: auto;
     min-height: 80px;
   }
@@ -746,19 +940,21 @@
   .bv-col-body::-webkit-scrollbar-thumb { background: var(--b1); border-radius: 2px; }
 
   .bv-card {
-    background: rgba(255, 255, 255, 0.025);
+    background: var(--surface-card);
     border: 1px solid var(--b1);
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 10px;
+    padding: 12px 14px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 9px;
     cursor: default;
-    transition: border-color 0.12s, background 0.12s, transform 0.08s;
+    min-width: 0;
+    transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.08s ease;
   }
   .bv-card:hover {
     border-color: color-mix(in srgb, var(--acc) 50%, var(--b1));
-    background: rgba(255, 255, 255, 0.045);
+    background: var(--surface-hover);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
   }
   .bv-card:active { transform: translateY(1px); }
   .bv-card-review {
@@ -768,17 +964,19 @@
   .bv-card-top {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: 7px;
+    min-width: 0;
   }
   .bv-priority {
     flex-shrink: 0;
     font-family: var(--mono);
     font-size: 9px;
     font-weight: 700;
-    padding: 2px 5px;
-    border-radius: 3px;
+    padding: 2px 6px;
+    border-radius: 4px;
     letter-spacing: 0.04em;
     color: #fff;
+    line-height: 1.45;
   }
   .bv-priority-p0 { background: #f85149; }
   .bv-priority-p1 { background: #d29922; }
@@ -787,10 +985,14 @@
 
   .bv-card-title {
     flex: 1;
+    min-width: 0;
     font-family: var(--ui);
-    font-size: 12.5px;
+    font-size: 12.75px;
+    font-weight: 500;
     color: var(--t1);
     line-height: 1.4;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .bv-review-badge {
     flex-shrink: 0;
@@ -827,11 +1029,14 @@
   .bv-card-foot {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     font-family: var(--ui);
     font-size: 10px;
     color: var(--t4);
+    min-width: 0;
+    flex-wrap: wrap;
   }
+  .bv-card-foot > * { min-width: 0; }
   .bv-card-actor-agent {
     display: inline-flex;
     align-items: center;
@@ -914,12 +1119,42 @@
     white-space: nowrap;
   }
   .bv-card-source:hover { color: var(--t1); border-color: var(--b2); }
+  /* PR chip — sits at the right end of the card foot, ahead of the
+     issue-source chip if both exist. Accent-tinted so it reads as
+     "code in flight" at a glance, distinct from the GitHub/GitLab
+     issue chips which are quieter. */
+  .bv-card-pr {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: var(--ui);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 2px 6px;
+    border-radius: 9px;
+    border: 1px solid color-mix(in srgb, var(--acc) 45%, transparent);
+    text-decoration: none;
+    color: var(--acc);
+    background: color-mix(in srgb, var(--acc) 16%, transparent);
+    line-height: 1.4;
+    white-space: nowrap;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .bv-card-pr:hover {
+    background: color-mix(in srgb, var(--acc) 28%, transparent);
+    border-color: var(--acc);
+  }
+  /* When both PR + issue source chips render, PR takes the auto-margin
+     and the source follows with a small gap. */
+  .bv-card-pr + .bv-card-source { margin-left: 4px; }
   .bv-card-source-github {
     color: #d8dee9;
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.12);
+    background: var(--surface-hover);
+    border-color: var(--b1);
   }
-  .bv-card-source-github:hover { background: rgba(255, 255, 255, 0.09); }
+  .bv-card-source-github:hover { background: var(--surface-card); }
   .bv-card-source-gitlab {
     color: #ffb27a;
     background: rgba(252, 109, 38, 0.10);
@@ -1005,7 +1240,7 @@
   .bv-add-input:focus {
     border-color: var(--acc);
     border-style: solid;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     color: var(--t1);
   }
   .bv-add-input::placeholder { color: var(--t4); }

@@ -24,6 +24,20 @@
 
   import { onMount, onDestroy } from 'svelte';
   import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+
+  // Teleport the drawer subtree to <body> so it renders relative to the
+  // viewport, not a parent stacking context (.app-workspace). Without
+  // this the overlay is trapped inside the workspace container and the
+  // kanban behind it stays visible/clickable through the scrim.
+  function teleportToBody(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        if (node.parentElement === document.body) node.remove();
+      },
+    };
+  }
+
   import {
     workspaceCardUpdate,
     workspaceCardCommentList,
@@ -44,6 +58,18 @@
   import type { Workspace, WorkspaceBoardCard, WorkspaceCardComment, WorkspaceCoworker } from '../types';
   import { showToast } from '$lib/shared/primitives/toast';
   import ConfirmDialog from '$lib/shared/primitives/ConfirmDialog.svelte';
+  import Modal from '$lib/shared/primitives/Modal.svelte';
+  import GhNotInstalledModal from './GhNotInstalledModal.svelte';
+  import GlabNotInstalledModal from './GlabNotInstalledModal.svelte';
+
+  // Detect the "<tool> is not installed or not on PATH" message that
+  // workspace::cli_errors::CliError::NotInstalled formats. If we recognise
+  // it we swap the toast for an install-guide modal — same pattern the
+  // agent mode uses for missing claude/codex/gemini/opencode binaries.
+  function detectMissingCli(errMsg: string): 'gh' | 'glab' | null {
+    const m = errMsg.match(/^(gh|glab) is not installed/);
+    return m ? (m[1] as 'gh' | 'glab') : null;
+  }
   import TagInput from './TagInput.svelte';
   import CardThread from './CardThread.svelte';
   import CoworkerAvatar from './CoworkerAvatar.svelte';
@@ -201,6 +227,41 @@
 
   const editor = $derived(describeActor(card.updatedBy));
   const source = $derived(cardSourceBadge(card));
+
+  // ── Lifecycle ribbon ────────────────────────────────────────────
+  // Compact one-line summary that orients the user: when the card
+  // was created, whether it's been promoted to an Issue, whether
+  // there's a worktree branch, whether a PR is open. Each segment is
+  // a link when it points to a host URL so it doubles as a jump.
+  function formatLifecycleDate(iso: string | null | undefined): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    const sameYear = d.getFullYear() === new Date().getFullYear();
+    return d.toLocaleDateString(undefined, sameYear
+      ? { month: 'short', day: 'numeric' }
+      : { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function extractPrNumber(url: string): string {
+    const m = url.match(/(?:pull|merge_requests)\/(\d+)/);
+    return m ? `#${m[1]}` : '';
+  }
+  type LifecycleSeg = { label: string; href?: string; title?: string };
+  const lifecycleSegments = $derived.by<LifecycleSeg[]>(() => {
+    const out: LifecycleSeg[] = [];
+    const created = formatLifecycleDate(card.createdAt);
+    if (created) out.push({ label: `Created ${created}`, title: `Created ${card.createdAt}` });
+    if (card.externalId && card.externalUrl) {
+      out.push({ label: `Issue ${card.externalId}`, href: card.externalUrl, title: 'Open issue on host' });
+    }
+    const branch = claim.session?.worktreeBranch;
+    if (branch) out.push({ label: `Branch ${branch}`, title: `Worktree branch · ${branch}` });
+    if (card.prUrl) {
+      const num = extractPrNumber(card.prUrl);
+      out.push({ label: num ? `PR ${num}` : 'PR open', href: card.prUrl, title: 'Open PR on host' });
+    }
+    return out;
+  });
 
   // ── Derived: source / push state ────────────────────────────────
   const repoUrl = $derived(workspace?.repoUrl ?? null);
@@ -531,14 +592,23 @@
     } catch (e) { showToast(`Release failed: ${e}`, 'error'); }
   }
 
+  let showGhNotInstalled = $state(false);
+  let showGlabNotInstalled = $state(false);
+
   async function doPush() {
     if (pushing) return;
     pushing = true;
     try {
       const r = await workspaceCardPushToRepo(card.id, currentUserActor());
-      showToast(`Pushed as ${r.externalId}`, 'success');
+      showToast(`Created issue ${r.externalId}`, 'success');
       onsave?.();
-    } catch (e) { showToast(`Push failed: ${e}`, 'error'); }
+    } catch (e) {
+      const msg = `${e}`;
+      const missing = detectMissingCli(msg);
+      if (missing === 'gh') showGhNotInstalled = true;
+      else if (missing === 'glab') showGlabNotInstalled = true;
+      else showToast(`Issue creation failed: ${msg}`, 'error');
+    }
     finally { pushing = false; }
   }
 
@@ -557,24 +627,61 @@
   );
   const hasPrAlready = $derived(!!card.prUrl);
 
-  async function doRaisePr() {
+  async function doRaisePr(titleOverride?: string, bodyOverride?: string) {
     if (raisingPr || !canRaisePr) return;
     raisingPr = true;
     try {
-      const r = await workspaceCardRaisePr(card.id, currentUserActor());
+      const r = await workspaceCardRaisePr(
+        card.id,
+        currentUserActor(),
+        titleOverride?.trim() || undefined,
+        bodyOverride?.trim() || undefined,
+      );
       showToast(
         r.alreadyExisted
           ? `Pushed update to PR on ${r.branch}`
-          : `PR raised on ${r.branch}`,
+          : `PR opened on ${r.branch}`,
         'success',
       );
       onsave?.();
     } catch (e) {
-      // Backend returns CliError.message() — already a clean toast string.
-      showToast(`${e}`, 'error');
+      const msg = `${e}`;
+      const missing = detectMissingCli(msg);
+      if (missing === 'gh') showGhNotInstalled = true;
+      else if (missing === 'glab') showGlabNotInstalled = true;
+      else showToast(msg, 'error');
     } finally {
       raisingPr = false;
     }
+  }
+
+  // ── PR preview dialog ──────────────────────────────────────────
+  // Opens a small modal letting the user review/edit the PR title +
+  // body before the actual `gh pr create` shells out. Only shown for
+  // FRESH PRs — for an existing PR (`hasPrAlready`) `raise_or_update_pr`
+  // ignores title/body anyway (it just pushes new commits), so the
+  // preview would be pointless friction.
+  let showPrPreview = $state(false);
+  let prTitleDraft = $state('');
+  let prBodyDraft = $state('');
+
+  function openPrPreviewOrPush() {
+    if (!canRaisePr) return;
+    if (hasPrAlready) {
+      doRaisePr();
+      return;
+    }
+    const branch = claim.session?.worktreeBranch ?? '';
+    prTitleDraft = card.title;
+    prBodyDraft = `Card branch \`${branch}\` — see card thread for context.`;
+    showPrPreview = true;
+  }
+
+  function confirmPrFromPreview() {
+    const t = prTitleDraft;
+    const b = prBodyDraft;
+    showPrPreview = false;
+    doRaisePr(t, b);
   }
 
   function handleKey(e: KeyboardEvent) {
@@ -593,7 +700,7 @@
 <svelte:window onkeydown={handleKey} />
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-<div class="cd-overlay" onclick={onclose}>
+<div class="cd-overlay" use:teleportToBody onclick={onclose}>
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="cd-drawer" class:cd-drawer-resizing={resizing} style="width: {drawerWidth}px;" onclick={(e) => e.stopPropagation()}>
@@ -632,6 +739,26 @@
         <TagInput bind:value={tags} onchange={onTagsChange} />
       </div>
     </div>
+
+    <!-- ─────────── Lifecycle ribbon ─────────── -->
+    {#if lifecycleSegments.length > 0}
+      <div class="cd-lifecycle" role="status" aria-label="Card lifecycle">
+        {#each lifecycleSegments as seg, i (seg.label)}
+          {#if i > 0}<span class="cd-lifecycle-sep" aria-hidden="true">·</span>{/if}
+          {#if seg.href}
+            <a
+              class="cd-lifecycle-seg cd-lifecycle-link"
+              href={seg.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              title={seg.title}
+            >{seg.label}</a>
+          {:else}
+            <span class="cd-lifecycle-seg" title={seg.title}>{seg.label}</span>
+          {/if}
+        {/each}
+      </div>
+    {/if}
 
     <!-- ─────────── Body (Thread / Edit) ─────────── -->
     <div class="cd-tabs">
@@ -767,7 +894,7 @@
           disabled={!canPush || pushing}
           title={canPush ? `Create a real ${repoLabel} issue from this card` : 'Set the workspace repo URL first'}
         >
-          {pushing ? 'Pushing…' : `Push to ${repoLabel}`}
+          {pushing ? 'Creating…' : `Create issue on ${repoLabel}`}
         </button>
       {:else if source.url}
         <a class="cd-foot-link" href={source.url} target="_blank" rel="noreferrer noopener">
@@ -789,18 +916,18 @@
         {#if canRaisePr}
           <button
             class="cd-foot-btn"
-            onclick={doRaisePr}
+            onclick={openPrPreviewOrPush}
             disabled={raisingPr}
             title={hasPrAlready
               ? 'Push new commits to the existing PR (no new PR is opened)'
-              : 'Push the branch and open a PR on the host'}
+              : 'Review and open a PR — pushes the branch and opens it on the host'}
           >
             {#if raisingPr}
-              {hasPrAlready ? 'Pushing…' : 'Raising…'}
+              {hasPrAlready ? 'Pushing…' : 'Opening…'}
             {:else if hasPrAlready}
               Push update to PR
             {:else}
-              Raise PR
+              Open PR…
             {/if}
           </button>
         {/if}
@@ -815,9 +942,9 @@
 
 <ConfirmDialog
   bind:show={showPushConfirm}
-  title="Push to {repoLabel}?"
-  message={`This creates a new issue on ${repoLabel} with the card's title and description. The issue will be public if the repo is public.`}
-  confirmText={`Push to ${repoLabel}`}
+  title="Create issue on {repoLabel}?"
+  message={`Creates a new issue on ${repoLabel} with this card's title and description. The issue will be public if the repo is public.`}
+  confirmText={`Create on ${repoLabel}`}
   confirmColor="var(--acc)"
   onconfirm={doPush}
 />
@@ -847,12 +974,55 @@
   ondiscard={drawerHasWorktree ? () => { releaseDeleteWorktree = !releaseDeleteWorktree; showReleaseConfirm = true; } : undefined}
 />
 
+<GhNotInstalledModal bind:show={showGhNotInstalled} />
+<GlabNotInstalledModal bind:show={showGlabNotInstalled} />
+
+<Modal bind:show={showPrPreview} title="Open PR" width="520px">
+  <div class="cd-pr-preview">
+    <div class="cd-pr-field">
+      <span class="cd-pr-label">Branch</span>
+      <code class="cd-pr-branch">{claim.session?.worktreeBranch ?? ''}</code>
+    </div>
+    <div class="cd-pr-field">
+      <span class="cd-pr-label">Title</span>
+      <input
+        class="cd-pr-input"
+        type="text"
+        bind:value={prTitleDraft}
+        placeholder="PR title"
+        spellcheck="false"
+      />
+    </div>
+    <div class="cd-pr-field">
+      <span class="cd-pr-label">Body</span>
+      <textarea
+        class="cd-pr-textarea"
+        bind:value={prBodyDraft}
+        rows="6"
+        placeholder="PR description (markdown supported)"
+        spellcheck="false"
+      ></textarea>
+    </div>
+    <div class="cd-pr-actions">
+      <button class="cd-pr-btn" type="button" onclick={() => (showPrPreview = false)}>Cancel</button>
+      <button
+        class="cd-pr-btn primary"
+        type="button"
+        onclick={confirmPrFromPreview}
+        disabled={!prTitleDraft.trim() || raisingPr}
+      >
+        {raisingPr ? 'Opening…' : 'Open PR'}
+      </button>
+    </div>
+  </div>
+</Modal>
+
 <style>
   .cd-overlay {
-    position: absolute;     /* anchored to .app-workspace, not the viewport */
+    position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 200;
+    background: var(--scrim);
+    z-index: var(--z-drawer);
     display: flex;
     justify-content: flex-end;
     animation: fadeIn 0.15s ease;
@@ -863,7 +1033,11 @@
     /* width is set inline (resizable) — see drawerWidth state */
     max-width: 100%;
     height: 100%;
-    background: var(--n, var(--modal-bg, #0d1117));
+    /* Use --modal-bg (always opaque enough to contain text). On the
+       glass theme the parent overlay already provides the scrim; the
+       drawer itself sits as a real card on top, not a translucent
+       pane. */
+    background: var(--modal-bg, #0d1117);
     border-left: 1px solid var(--b1);
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
     display: flex;
@@ -871,6 +1045,10 @@
     animation: slideIn 0.18s ease;
     min-width: 0;
     position: relative; /* for the absolute resize handle */
+  }
+  :global(body.glass-mode) .cd-drawer {
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
   }
   .cd-drawer-resizing {
     /* Disable the slide-in animation + child transitions while
@@ -919,15 +1097,15 @@
     outline: none;
     transition: background 0.12s;
   }
-  .cd-title:hover { background: rgba(255, 255, 255, 0.03); }
-  .cd-title:focus { background: rgba(255, 255, 255, 0.05); }
+  .cd-title:hover { background: var(--surface-hover); }
+  .cd-title:focus { background: var(--surface-hover); }
   .cd-close {
     width: 26px; height: 26px;
     border: none; background: transparent;
     color: var(--t3); font-size: 18px; line-height: 1;
     cursor: default; border-radius: 5px;
   }
-  .cd-close:hover { background: rgba(255, 255, 255, 0.06); color: var(--t1); }
+  .cd-close:hover { background: var(--surface-hover); color: var(--t1); }
 
   /* ── Meta row ───────────────────────────── */
   .cd-meta {
@@ -948,7 +1126,7 @@
     text-transform: uppercase;
   }
   .cd-input {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 5px;
     padding: 5px 8px;
@@ -989,7 +1167,7 @@
   .cd-tab-count {
     font-family: var(--mono);
     font-size: 10px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--surface-card);
     color: var(--t2);
     padding: 1px 6px;
     border-radius: 8px;
@@ -1010,7 +1188,7 @@
     min-height: 0;
   }
   .cd-desc {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 6px;
     padding: 10px 12px;
@@ -1096,7 +1274,7 @@
   .cd-claim-slim-text strong { color: var(--acc); font-weight: 600; }
   .cd-claim-slim-text code {
     font-family: var(--mono);
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--surface-hover);
     padding: 1px 5px;
     border-radius: 3px;
     font-size: 10px;
@@ -1137,7 +1315,7 @@
   }
   .cd-claim-title code {
     font-family: var(--mono);
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--surface-card);
     padding: 1px 5px;
     border-radius: 3px;
     font-size: 11px;
@@ -1234,14 +1412,14 @@
 
   .cd-chat-hint kbd {
     font-family: var(--mono);
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--surface-card);
     padding: 0 4px;
     border-radius: 3px;
     font-size: 9.5px;
   }
   .cd-chat-input {
     width: 100%;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--surface-hover);
     border: 1px solid var(--b1);
     border-radius: 6px;
     padding: 8px 10px;
@@ -1318,4 +1496,127 @@
   .cd-foot-link:hover { color: var(--t1); border-color: var(--b2); }
   .cd-foot-spacer { flex: 1; }
   .cd-foot-meta { color: var(--t4); }
+
+  /* ── PR preview dialog ───────────────────────────────────────── */
+  .cd-pr-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .cd-pr-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .cd-pr-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--t2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cd-pr-branch {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--t1);
+    background: var(--surface-hover);
+    border: 1px solid var(--b1);
+    border-radius: 5px;
+    padding: 6px 10px;
+    width: fit-content;
+    word-break: break-all;
+  }
+  .cd-pr-input,
+  .cd-pr-textarea {
+    background: var(--surface-hover);
+    border: 1px solid var(--b1);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: var(--ui);
+    font-size: 13px;
+    color: var(--t1);
+    outline: none;
+    transition: border-color 0.12s;
+  }
+  .cd-pr-textarea {
+    resize: vertical;
+    min-height: 110px;
+    line-height: 1.5;
+  }
+  .cd-pr-input:focus,
+  .cd-pr-textarea:focus {
+    border-color: var(--acc);
+  }
+  .cd-pr-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 2px;
+  }
+  .cd-pr-btn {
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--b1);
+    background: transparent;
+    color: var(--t2);
+    font-family: var(--ui);
+    font-size: 12.5px;
+    cursor: default;
+    transition: background 0.12s, border-color 0.12s, color 0.12s, filter 0.12s;
+  }
+  .cd-pr-btn:hover:not(:disabled) {
+    background: var(--surface-hover);
+    color: var(--t1);
+    border-color: var(--b2);
+  }
+  .cd-pr-btn.primary {
+    background: var(--acc);
+    border-color: var(--acc);
+    color: #fff;
+  }
+  .cd-pr-btn.primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+  .cd-pr-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ── Lifecycle ribbon ────────────────────────────────────────── */
+  .cd-lifecycle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px 8px;
+    border-bottom: 1px solid var(--b-subtle);
+    font-family: var(--ui);
+    font-size: 11px;
+    color: var(--t3);
+    min-width: 0;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+  .cd-lifecycle-seg {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cd-lifecycle-link {
+    color: var(--t2);
+    text-decoration: none;
+    border-bottom: 1px dotted transparent;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .cd-lifecycle-link:hover {
+    color: var(--acc);
+    border-bottom-color: currentColor;
+  }
+  .cd-lifecycle-sep {
+    color: var(--t4);
+    user-select: none;
+  }
 </style>
