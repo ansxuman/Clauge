@@ -84,7 +84,7 @@ describe("handleBillingWebhook router", () => {
         current_period_start: new Date().toISOString(),
         current_period_end: new Date(Date.now() + 30 * 86400_000).toISOString(),
         customer: { external_id: String(userId) },
-        product: { prices: [{ id: env.POLAR_PRICE_MONTHLY }] },
+        product: { prices: [{ id: env.POLAR_PRODUCT_MONTHLY }] },
         cancel_at_period_end: false,
       },
     });
@@ -114,7 +114,7 @@ describe("subscription.created handler", () => {
         current_period_end: "2026-06-16T00:00:00Z",
         cancel_at_period_end: false,
         customer: { external_id: String(userId) },
-        product: { prices: [{ id: env.POLAR_PRICE_MONTHLY }] },
+        product: { prices: [{ id: env.POLAR_PRODUCT_MONTHLY }] },
       },
     });
     const sig = await signedSig(body);
@@ -349,7 +349,7 @@ describe("initial purchase flow (sub.created + order.paid)", () => {
         current_period_start: "2026-05-16T00:00:00Z",
         current_period_end: "2026-06-16T00:00:00Z",
         customer: { external_id: String(userId) },
-        product: { prices: [{ id: env.POLAR_PRICE_MONTHLY }] },
+        product: { prices: [{ id: env.POLAR_PRODUCT_MONTHLY }] },
       },
     });
     await postWebhook(subBody, await signedSig(subBody));
@@ -550,8 +550,8 @@ describe("POST /api/billing/checkout", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
       expect(String(url)).toContain("polar.sh");
       const body = JSON.parse(init.body);
-      expect(body.product_price_id).toBe(env.POLAR_PRICE_MONTHLY);
-      expect(body.customer_external_id).toBe(String(userId));
+      expect(body.products).toEqual([env.POLAR_PRODUCT_MONTHLY]);
+      expect(body.external_customer_id).toBe(String(userId));
       return new Response(JSON.stringify({ url: "https://sandbox.polar.sh/checkout/abc" }), {
         status: 201,
         headers: { "content-type": "application/json" },

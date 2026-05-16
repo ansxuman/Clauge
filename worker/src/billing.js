@@ -246,9 +246,9 @@ async function handleOrderRefunded(event, userId, env) {
   await revokeUser(userId, "canceled", env);
 }
 
-function planToPriceId(plan, env) {
-  if (plan === "monthly") return env.POLAR_PRICE_MONTHLY;
-  if (plan === "yearly") return env.POLAR_PRICE_YEARLY;
+function planToProductId(plan, env) {
+  if (plan === "monthly") return env.POLAR_PRODUCT_MONTHLY;
+  if (plan === "yearly") return env.POLAR_PRODUCT_YEARLY;
   return null;
 }
 
@@ -327,8 +327,8 @@ export async function handleCreateCheckout(request, env, userId) {
   } catch {
     return new Response("bad json", { status: 400 });
   }
-  const priceId = planToPriceId(body.plan, env);
-  if (!priceId) return new Response("invalid plan", { status: 400 });
+  const productId = planToProductId(body.plan, env);
+  if (!productId) return new Response("invalid plan", { status: 400 });
 
   const userRow = await env.CLAUGE_DB.prepare(
     "SELECT primary_email, polar_customer_id FROM users WHERE user_id = ?"
@@ -337,8 +337,8 @@ export async function handleCreateCheckout(request, env, userId) {
     .first();
 
   const req = {
-    product_price_id: priceId,
-    customer_external_id: String(userId),
+    products: [productId],
+    external_customer_id: String(userId),
     customer_email: userRow?.primary_email ?? undefined,
     success_url: "https://clauge.in/upgrade-success?ref=" + encodeURIComponent(String(userId)),
   };
