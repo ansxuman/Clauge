@@ -69,6 +69,14 @@ pub fn run() {
                 let _ = shared::logger::init(&log_dir);
             }
 
+            // Apply advanced/diagnostic settings from `settings.json`
+            // (lives next to the SQLite DB in app_config_dir). This is
+            // the hidden knob for log verbosity + future feature flags.
+            // The visible Settings UI deliberately doesn't expose it —
+            // power users edit the file directly; see app_config.rs.
+            let cfg = shared::app_config::load(app.handle());
+            shared::app_config::apply(&cfg);
+
             // Per-OS window chrome (rounded corners on macOS/Win11, dock icon
             // on macOS, no-op on Linux).
             appearance::window_chrome::apply(app);
@@ -299,12 +307,16 @@ pub fn run() {
             modes::rest::history::clear_history,
             modes::rest::history::delete_history_entry,
             modes::rest::history::count_history,
+            modes::rest::history::rest_history_size_bytes,
             modes::rest::history::purge_history,
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::settings::get_all_settings,
             commands::logs::get_log_dir,
             commands::logs::open_log_folder,
+            commands::logs::app_log,
+            commands::logs::set_log_level,
+            commands::logs::get_app_config_path,
             appearance::vibrancy::set_vibrancy,
             appearance::vibrancy::get_appearance,
             appearance::vibrancy::set_appearance,

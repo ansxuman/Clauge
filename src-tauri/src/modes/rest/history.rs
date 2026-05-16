@@ -38,6 +38,33 @@ pub async fn count_history(pool: State<'_, SqlitePool>) -> Result<i64, String> {
         .map_err(|e| e.to_string())
 }
 
+/// Total byte size of the REST history table — sums LENGTH(...) over
+/// the columns that actually carry data per row. Used by Settings →
+/// General → Chat History → "Storage" stat so the displayed number
+/// reflects on-disk REST history footprint alongside the AI chat
+/// localStorage size. Bodies are intentionally NOT persisted anymore
+/// (see http_executor.rs comments), so this number stays small even
+/// with thousands of history rows.
+#[tauri::command]
+pub async fn rest_history_size_bytes(pool: State<'_, SqlitePool>) -> Result<i64, String> {
+    let row: (Option<i64>,) = sqlx::query_as(
+        "SELECT COALESCE(SUM(
+            LENGTH(id) + LENGTH(method) + LENGTH(url) + LENGTH(resolved_url) +
+            LENGTH(COALESCE(request_body, '')) +
+            LENGTH(COALESCE(request_headers, '')) +
+            LENGTH(COALESCE(response_body, '')) +
+            LENGTH(COALESCE(response_headers, '')) +
+            LENGTH(COALESCE(environment_id, '')) +
+            LENGTH(created_at) +
+            24
+        ), 0) FROM history",
+    )
+    .fetch_one(pool.inner())
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(row.0.unwrap_or(0))
+}
+
 #[tauri::command]
 pub async fn purge_history(
     pool: State<'_, SqlitePool>,

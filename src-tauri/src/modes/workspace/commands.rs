@@ -1636,10 +1636,10 @@ pub async fn maybe_autostart_mcp(app: tauri::AppHandle, pool: SqlitePool) {
             // Make sure the persisted "enabled" key reflects the
             // running state — first-boot users default to true.
             let _ = settings_repo::upsert(&pool, "workspace_mcp_enabled", "true").await;
-            eprintln!("[clauge] workspace MCP server auto-started on 127.0.0.1:{bound}");
+            log::info!(target: "workspace::mcp", "auto-started on 127.0.0.1:{bound}");
         }
         Err(e) => {
-            eprintln!("[clauge] workspace MCP auto-start failed: {e}");
+            log::warn!(target: "workspace::mcp", "auto-start failed: {e}");
         }
     }
 }

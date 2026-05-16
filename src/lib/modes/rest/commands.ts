@@ -147,6 +147,13 @@ export async function countHistory(): Promise<number> {
   return invoke('count_history');
 }
 
+/** Total byte size of the REST history table. Used by Settings →
+ *  General → Chat History → "Storage" stat alongside the AI chat
+ *  localStorage size for an honest total. */
+export async function restHistorySizeBytes(): Promise<number> {
+  return invoke('rest_history_size_bytes');
+}
+
 export async function purgeHistory(seconds: number): Promise<number> {
   return invoke('purge_history', { seconds });
 }

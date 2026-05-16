@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod app_config;
 pub mod cli;
 pub mod http;
 pub mod logger;

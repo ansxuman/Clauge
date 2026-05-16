@@ -14,7 +14,7 @@
         retentionSeconds,
         DEFAULT_CHAT_RETENTION,
     } from "$lib/modes/rest/stores";
-    import { countHistory, purgeHistory } from "$lib/modes/rest/commands";
+    import { countHistory, purgeHistory, restHistorySizeBytes } from "$lib/modes/rest/commands";
     import {
         workspaceMcpStatus,
         workspaceMcpStart,
@@ -207,13 +207,24 @@
     let restHistoryCount = $state<number>(0);
     let aiChatCount = $state<number>(0);
     let aiChatBytes = $state<number>(0);
+    let restHistoryBytes = $state<number>(0);
     let showClearChatHistoryConfirm = $state(false);
+    /** Combined storage = AI chat localStorage + REST history DB bytes.
+     *  Before this was just AI chat, which made the "Storage" stat
+     *  understate the real footprint by ignoring the (now-metadata-only)
+     *  REST history table. */
+    let totalStorageBytes = $derived(aiChatBytes + restHistoryBytes);
 
     async function refreshHistorySizes() {
         try {
             restHistoryCount = await countHistory();
         } catch {
             restHistoryCount = 0;
+        }
+        try {
+            restHistoryBytes = await restHistorySizeBytes();
+        } catch {
+            restHistoryBytes = 0;
         }
         aiChatCount = countAllChatMessages();
         aiChatBytes = chatHistorySizeBytes();
@@ -279,6 +290,7 @@
     let autoMoveMergedPrs = $derived(
         ($settings["workspace_automove_merged_prs"] ?? "true") === "true",
     );
+
 
     async function refreshMcpStatus() {
         try {
@@ -1300,7 +1312,7 @@
                             ></div>
                             <div class="stg-card-stat">
                                 <span class="stg-card-stat-num"
-                                    >{formatBytes(aiChatBytes)}</span
+                                    >{formatBytes(totalStorageBytes)}</span
                                 >
                                 <span class="stg-card-stat-lbl">Storage</span>
                             </div>

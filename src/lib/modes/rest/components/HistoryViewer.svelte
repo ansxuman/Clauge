@@ -31,6 +31,33 @@
     }
   }
 
+  /** Friendly label for the body placeholder when content is no longer
+   *  retained. Read the Content-Type header (still stored on the row)
+   *  and map to a recognisable short name — so a dropped JSON response
+   *  reads as `<json · 2.3 MB>` instead of the wrong "binary". Falls
+   *  back to the raw MIME type when we don't have a nicer name for it,
+   *  or just "body" when no content-type was sent. */
+  function bodyTypeLabel(headersJson: string | null): string {
+    const ct = parseHeaders(headersJson).find(
+      (h) => h.key.toLowerCase() === 'content-type',
+    )?.value ?? '';
+    const mime = ct.split(';')[0].trim().toLowerCase();
+    if (!mime) return 'body';
+    if (mime.includes('json')) return 'json';
+    if (mime.startsWith('text/html')) return 'html';
+    if (mime.startsWith('text/xml') || mime.includes('xml')) return 'xml';
+    if (mime.startsWith('text/css')) return 'css';
+    if (mime.startsWith('text/javascript') || mime.includes('javascript')) return 'js';
+    if (mime.startsWith('text/')) return 'text';
+    if (mime.startsWith('image/')) return mime.slice(6); // image/png → "png"
+    if (mime === 'application/pdf') return 'pdf';
+    if (mime.startsWith('audio/')) return 'audio';
+    if (mime.startsWith('video/')) return 'video';
+    if (mime.includes('zip') || mime.includes('tar') || mime.includes('gzip')) return 'archive';
+    if (mime.includes('octet-stream')) return 'binary';
+    return mime; // unrecognised — show the raw MIME for transparency
+  }
+
   function parseHeaders(str: string | null): { key: string; value: string }[] {
     if (!str) return [];
     try {
@@ -95,6 +122,14 @@
       {#if activeTab === 'response'}
         {#if entry.responseBody}
           <pre class="hv-pre">{formatJson(entry.responseBody)}</pre>
+        {:else if entry.responseSizeBytes && entry.responseSizeBytes > 0}
+          <!-- Body intentionally not retained — see history INSERT in
+               http_executor.rs. Placeholder is type-aware (read from
+               the still-stored Content-Type header) so a dropped JSON
+               response reads as `<json · 2.3 MB>` instead of an
+               inaccurate "binary file". Re-run the request to inspect
+               the actual content. -->
+          <div class="hv-empty-tab">&lt;{bodyTypeLabel(entry.responseHeaders)} · {formatSize(entry.responseSizeBytes)}&gt;</div>
         {:else}
           <div class="hv-empty-tab">No response body</div>
         {/if}
@@ -113,6 +148,13 @@
       {:else if activeTab === 'request-body'}
         {#if entry.requestBody}
           <pre class="hv-pre">{formatJson(entry.requestBody)}</pre>
+        {:else if ['POST', 'PUT', 'PATCH'].includes(entry.method.toUpperCase())}
+          <!-- Body intentionally not retained. For methods that typically
+               carry a body, show a type-aware placeholder using the
+               request's Content-Type (still stored). For GET/DELETE/HEAD
+               we fall through to "No request body" since one likely
+               wasn't sent in the first place. -->
+          <div class="hv-empty-tab">&lt;{bodyTypeLabel(entry.requestHeaders)}&gt;</div>
         {:else}
           <div class="hv-empty-tab">No request body</div>
         {/if}

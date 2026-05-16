@@ -1,5 +1,11 @@
 <script lang="ts">
     import "../app.css";
+    // Install the console.* → Rust log forwarder BEFORE any other
+    // import runs, so startup-time `console.log` / errors / unhandled
+    // rejections from imported modules land in the rolling log file
+    // alongside Rust events. Idempotent.
+    import { installLogForwarder } from "$lib/utils/log";
+    installLogForwarder();
     import Sidebar from "$lib/components/sidebar/Sidebar.svelte";
     import NavPanel from "$lib/components/nav/NavPanel.svelte";
     import Topbar from "$lib/components/topbar/Topbar.svelte";

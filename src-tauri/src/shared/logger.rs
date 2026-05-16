@@ -85,6 +85,10 @@ impl Log for RollingLogger {
 
 /// Initialise the global rolling file logger.
 /// Cleans up log directories older than 30 days before starting.
+/// Also installs a panic hook so Rust panics (main thread + every
+/// `tokio::spawn` / `thread::spawn` worker) land in the same log file
+/// instead of disappearing into stderr (which is swallowed in
+/// packaged release builds).
 pub fn init(log_dir: &Path) -> Result<(), SetLoggerError> {
     let _ = fs::create_dir_all(log_dir);
     cleanup_old_logs(log_dir);
@@ -96,7 +100,49 @@ pub fn init(log_dir: &Path) -> Result<(), SetLoggerError> {
     } else {
         LevelFilter::Info
     });
+    install_panic_hook();
     Ok(())
+}
+
+/// Replace the default `std::panic` hook so panic messages route
+/// through `log::error!` (→ the rolling file) instead of stderr. The
+/// previous default hook printed the panic to stderr only, which a
+/// packaged Tauri app's WebView2 / wry host doesn't surface anywhere
+/// the user can see. Backtrace is included when `RUST_BACKTRACE` is
+/// set; we force-enable it at process start (below) so alpha bug
+/// reports include the stack out of the box.
+fn install_panic_hook() {
+    // Capture backtraces by default. If the user (or CI) explicitly set
+    // RUST_BACKTRACE=0, respect that.
+    if std::env::var("RUST_BACKTRACE").is_err() {
+        // SAFETY: set_var is safe single-threaded at init time before
+        // any tokio worker has spawned.
+        std::env::set_var("RUST_BACKTRACE", "1");
+    }
+    std::panic::set_hook(Box::new(|info| {
+        let thread = std::thread::current()
+            .name()
+            .unwrap_or("<unnamed>")
+            .to_string();
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "<unknown>".to_string());
+        // The panic payload is usually &str or String. Normalise to
+        // both so logs are always informative.
+        let payload: &str = if let Some(s) = info.payload().downcast_ref::<&'static str>() {
+            s
+        } else if let Some(s) = info.payload().downcast_ref::<String>() {
+            s.as_str()
+        } else {
+            "<non-string panic payload>"
+        };
+        let backtrace = std::backtrace::Backtrace::force_capture();
+        log::error!(
+            target: "panic",
+            "thread '{thread}' panicked at {location}: {payload}\n{backtrace}"
+        );
+    }));
 }
 
 fn cleanup_old_logs(log_dir: &Path) {

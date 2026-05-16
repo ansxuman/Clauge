@@ -9,6 +9,80 @@ use uuid::Uuid;
 use crate::db::models::{Request, RequestHeader, RequestParam};
 use crate::shared::http::{build_rest_http_client, is_ssl_failure, max_response_bytes};
 
+/// Cap on body size we persist into the history row. Bodies larger
+/// than this are dropped and the viewer shows a `<type · size>`
+/// placeholder. 5 MB is generous enough for any realistic JSON/HTML
+/// payload while preventing one giant text response from dominating
+/// the history table.
+const MAX_PERSIST_BYTES: usize = 5 * 1024 * 1024;
+
+/// True when the headers' `Content-Type` is something the history
+/// viewer can usefully render — JSON, XML, HTML, plain text, CSS,
+/// JavaScript, form-encoded. Binary types (image/audio/video/pdf/
+/// octet-stream/zip) return false: storing them as `from_utf8_lossy`
+/// strings would corrupt them, the viewer can't render them anyway,
+/// and they bloat the DB.
+///
+/// Parses BOTH header serialisation shapes Clauge has used:
+///   • Tuple array:  `[["Content-Type","application/pdf"], ...]`
+///     — the response-headers path uses `Vec<(String, String)>`.
+///   • Object array: `[{"key":"Content-Type","value":"..."}, ...]`
+///     — the request-headers path stores KVInput rows this way.
+/// Returning the wrong shape silently in v1 of this fn was why
+/// binary responses kept landing in history with their bytes
+/// corrupted by `from_utf8_lossy`: the tuple-shape parse missed
+/// content-type entirely → empty fallback → treated as text → kept.
+fn is_text_like_content_type(headers_json: &str) -> bool {
+    let parsed: serde_json::Value = match serde_json::from_str(headers_json) {
+        Ok(v) => v,
+        Err(_) => return true, // unparseable → conservative keep
+    };
+    let arr = match parsed.as_array() {
+        Some(a) => a,
+        None => return true,
+    };
+    let ct = arr
+        .iter()
+        .find_map(|h| {
+            // Object shape first: {"key": "...", "value": "..."}
+            if let Some(obj) = h.as_object() {
+                let key = obj.get("key").and_then(|v| v.as_str())?;
+                if key.eq_ignore_ascii_case("content-type") {
+                    return obj.get("value").and_then(|v| v.as_str()).map(String::from);
+                }
+                return None;
+            }
+            // Tuple shape: ["Content-Type", "application/pdf"]
+            if let Some(tup) = h.as_array() {
+                let k = tup.get(0).and_then(|v| v.as_str())?;
+                if k.eq_ignore_ascii_case("content-type") {
+                    return tup.get(1).and_then(|v| v.as_str()).map(String::from);
+                }
+            }
+            None
+        })
+        .unwrap_or_default();
+    if ct.is_empty() {
+        // No content-type header. Conservatively assume text — beats
+        // silently dropping a JSON response that the server forgot
+        // to label.
+        return true;
+    }
+    let mime = ct.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+    if mime.is_empty() {
+        return true;
+    }
+    mime.starts_with("text/")
+        || mime.contains("json")
+        || mime.contains("xml")
+        || mime.contains("javascript")
+        || mime.contains("ecmascript")
+        || mime == "application/x-www-form-urlencoded"
+        || mime == "application/graphql"
+        || mime == "application/x-yaml"
+        || mime == "application/yaml"
+}
+
 /// Walk the full error chain to get the root cause
 fn full_error_chain(err: &reqwest::Error) -> String {
     let mut msg = err.to_string();
@@ -292,6 +366,30 @@ pub async fn execute_request(
         Some(&environment_id)
     };
 
+    // History persistence rule:
+    //   • Text-like bodies (json/xml/html/css/js/text/form-urlencoded)
+    //     are kept — that's the bread-and-butter of debugging an API
+    //     and what the user actually wants to see in history.
+    //   • Binary bodies (image/audio/video/pdf/zip/octet-stream) are
+    //     dropped — they bloat the DB, `String::from_utf8_lossy` would
+    //     corrupt them anyway, and the history viewer can't render them.
+    //   • Anything bigger than `MAX_PERSIST_BYTES` is also dropped
+    //     regardless of type — keeps a single huge text response from
+    //     hijacking the storage.
+    // History viewer renders `<{type} · {size}>` for dropped slots
+    // using the still-stored Content-Type + response_size_bytes.
+    let req_body_to_store =
+        if is_text_like_content_type(&request_headers_json) && resolved_body.len() <= MAX_PERSIST_BYTES {
+            resolved_body.as_str()
+        } else {
+            ""
+        };
+    let resp_body_to_store: Option<&str> =
+        if is_text_like_content_type(&response_headers_json) && body.len() <= MAX_PERSIST_BYTES {
+            Some(body.as_str())
+        } else {
+            None
+        };
     sqlx::query(
         "INSERT INTO history (id, request_id, method, url, resolved_url, request_body, request_headers, response_status, response_body, response_headers, response_size_bytes, duration_ms, environment_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
@@ -300,10 +398,10 @@ pub async fn execute_request(
     .bind(&request.method)
     .bind(&request.url)
     .bind(&url_with_params)
-    .bind(&resolved_body)
+    .bind(req_body_to_store)
     .bind(&request_headers_json)
     .bind(status as i32)
-    .bind(&body)
+    .bind(resp_body_to_store)
     .bind(&response_headers_json)
     .bind(size_bytes as i64)
     .bind(duration_ms as i64)
@@ -470,6 +568,21 @@ pub async fn quick_execute(
     } else {
         Some(&environment_id)
     };
+    // Same persistence rule as the saved-request path — see the long
+    // comment on that INSERT. Text-like body kept, binary/oversize
+    // dropped (placeholder shown in history viewer instead).
+    let req_body_to_store =
+        if is_text_like_content_type(&request_headers_json) && resolved_body.len() <= MAX_PERSIST_BYTES {
+            resolved_body.as_str()
+        } else {
+            ""
+        };
+    let resp_body_to_store: Option<&str> =
+        if is_text_like_content_type(&response_headers_json) && body_str.len() <= MAX_PERSIST_BYTES {
+            Some(body_str.as_str())
+        } else {
+            None
+        };
     sqlx::query(
         "INSERT INTO history (id, method, url, resolved_url, request_body, request_headers, response_status, response_body, response_headers, response_size_bytes, duration_ms, environment_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
@@ -477,10 +590,10 @@ pub async fn quick_execute(
     .bind(&method.to_uppercase())
     .bind(&url)
     .bind(&resolved_url)
-    .bind(&resolved_body)
+    .bind(req_body_to_store)
     .bind(&request_headers_json)
     .bind(status as i32)
-    .bind(&body_str)
+    .bind(resp_body_to_store)
     .bind(&response_headers_json)
     .bind(size_bytes as i64)
     .bind(duration_ms as i64)
