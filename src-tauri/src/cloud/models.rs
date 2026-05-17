@@ -34,7 +34,6 @@ pub struct CloudEntitlements {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CloudCredits {
     pub remaining: i64,
     pub allowance: i64,
@@ -42,7 +41,6 @@ pub struct CloudCredits {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CloudSubscription {
     pub status: String,
     pub cancel_at_period_end: bool,
@@ -115,14 +113,12 @@ pub struct CloudStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CloudPricing {
     pub schema_version: i64,
     pub plans: Vec<CloudPricingPlan>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CloudPricingPlan {
     pub id: String,
     pub price_usd: i64,
@@ -130,7 +126,6 @@ pub struct CloudPricingPlan {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CloudPricingDiscount {
     pub percent: i64,
     pub code: Option<String>,
@@ -155,7 +150,6 @@ pub struct CloudPortalResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CloudAiBalance {
     pub remaining: i64,
     pub allowance: i64,
@@ -163,14 +157,12 @@ pub struct CloudAiBalance {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CloudAiUsage {
     pub entries: Vec<CloudAiUsageEntry>,
     pub next_before: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct CloudAiUsageEntry {
     pub occurred_at: String,
     pub operation: String,
