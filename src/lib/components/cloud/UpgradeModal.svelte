@@ -87,87 +87,117 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-      <button class="close-btn" onclick={close} aria-label="Close">×</button>
+      <button class="close-btn" onclick={close} aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
 
       <div class="head">
+        <span class="plan-pill">
+          <span class="pill-dot"></span>
+          Pro plan
+        </span>
         <h2>Upgrade to Clauge Pro</h2>
-        <p class="sub">Everything you get on Pro:</p>
-        <ul class="feature-list">
-          <li><span class="feat-icon">✦</span> <span><strong>Clauge AI</strong> — managed AI assistance, no API key setup</span></li>
-          <li><span class="feat-icon">✦</span> <span><strong>1,000 credits / month</strong> on monthly · <strong>12,000 / year</strong> on yearly</span></li>
-          <li><span class="feat-icon">✦</span> <span><strong>Unlimited coworkers</strong> in workspaces (free is capped at 3)</span></li>
-          <li><span class="feat-icon">✦</span> <span><strong>Premium themes</strong> — Aurora Drift, Carbon Grain, CRT Phosphor</span></li>
-          <li><span class="feat-icon">✦</span> <span>Cancel anytime. Credits are non-refundable once used.</span></li>
-        </ul>
+        <p class="sub">Everything you need for serious development work.</p>
       </div>
 
+      <ul class="feature-list">
+        <li>
+          <span class="feat-icon" aria-hidden="true"></span>
+          <span class="feat-text">
+            <strong>Managed AI assistance</strong> <span class="feat-mute">— no API key setup</span>
+          </span>
+        </li>
+        <li>
+          <span class="feat-icon" aria-hidden="true"></span>
+          <span class="feat-text">
+            <strong>1,000 credits / month</strong> <span class="feat-mute">· 12,000 / year on yearly plan</span>
+          </span>
+        </li>
+        <li>
+          <span class="feat-icon" aria-hidden="true"></span>
+          <span class="feat-text">
+            <strong>Unlimited coworkers</strong> <span class="feat-mute">in workspaces (free is capped at 3)</span>
+          </span>
+        </li>
+        <li>
+          <span class="feat-icon" aria-hidden="true"></span>
+          <span class="feat-text">
+            <strong>Premium themes</strong> <span class="feat-mute">— exclusive visual styles</span>
+          </span>
+        </li>
+      </ul>
+
       {#if loading}
-        <p class="muted">Loading pricing…</p>
+        <p class="status-line muted">Loading pricing…</p>
       {:else if error}
-        <p class="err-msg">{error}</p>
+        <p class="status-line err-msg">{error}</p>
       {:else if pricing}
         {@const monthly = pricing.plans.find((p) => p.id === 'monthly')}
         {@const yearly = pricing.plans.find((p) => p.id === 'yearly')}
+        {@const pct = yearly ? savingsVsMonthly(yearly, monthly) : null}
         <div class="plans">
           {#if monthly}
             <div class="plan-card">
-              <h3>Monthly</h3>
-              <div class="price">
+              <div class="plan-label">MONTHLY</div>
+              <div class="price-row">
                 {#if monthly.discount}
                   <span class="strike">${monthly.price_usd}</span>
-                  <span class="amount">${effectivePrice(monthly).toFixed(2)}</span>
-                {:else}
-                  <span class="amount">${monthly.price_usd}</span>
                 {/if}
+                <span class="amount">${monthly.discount ? effectivePrice(monthly).toFixed(2) : monthly.price_usd}</span>
                 <span class="period">/month</span>
               </div>
               {#if monthly.discount}
                 <p class="discount-line">
-                  {monthly.discount.percent}% off{#if monthly.discount.code} — use code <strong>{monthly.discount.code}</strong> at checkout{/if}
+                  {monthly.discount.percent}% off{#if monthly.discount.code} · code <strong>{monthly.discount.code}</strong>{/if}
                 </p>
               {/if}
               <button
-                class="btn btn-primary"
+                class="choose-btn outlined"
                 onclick={() => startCheckout('monthly')}
                 disabled={busyPlan !== null}
               >
-                {busyPlan === 'monthly' ? 'Opening…' : 'Upgrade Monthly'}
+                {busyPlan === 'monthly' ? 'Opening…' : 'Choose monthly'}
               </button>
             </div>
           {/if}
 
           {#if yearly}
-            {@const pct = savingsVsMonthly(yearly, monthly)}
             <div class="plan-card highlight">
-              <h3>Yearly{pct ? ` · Save ${pct}%` : ''}</h3>
-              <div class="price">
+              {#if pct}
+                <span class="save-badge">Save {pct}%</span>
+              {/if}
+              <div class="plan-label">YEARLY</div>
+              <div class="price-row">
                 {#if yearly.discount}
                   <span class="strike">${yearly.price_usd}</span>
-                  <span class="amount">${effectivePrice(yearly).toFixed(2)}</span>
-                {:else}
-                  <span class="amount">${yearly.price_usd}</span>
                 {/if}
+                <span class="amount">${yearly.discount ? effectivePrice(yearly).toFixed(2) : yearly.price_usd}</span>
                 <span class="period">/year</span>
               </div>
-              <p class="muted">${perMonth(yearly).toFixed(2)}/month equivalent</p>
+              <p class="per-month">${perMonth(yearly).toFixed(2)} / month</p>
               {#if yearly.discount}
                 <p class="discount-line">
-                  {yearly.discount.percent}% off{#if yearly.discount.code} — use code <strong>{yearly.discount.code}</strong> at checkout{/if}
+                  {yearly.discount.percent}% off{#if yearly.discount.code} · code <strong>{yearly.discount.code}</strong>{/if}
                 </p>
               {/if}
               <button
-                class="btn btn-primary"
+                class="choose-btn filled"
                 onclick={() => startCheckout('yearly')}
                 disabled={busyPlan !== null}
               >
-                {busyPlan === 'yearly' ? 'Opening…' : 'Upgrade Yearly'}
+                {busyPlan === 'yearly' ? 'Opening…' : 'Choose yearly'}
               </button>
             </div>
           {/if}
         </div>
 
-        <p class="footer-note muted">
-          Checkout opens securely in your browser.
+        <p class="footer-note">
+          <span class="foot-icon" aria-hidden="true"></span>
+          Checkout opens securely in your browser
+          <span class="dot">·</span> Cancel anytime
+          <span class="dot">·</span> Credits non-refundable once used
         </p>
       {/if}
     </div>
@@ -183,145 +213,250 @@
     align-items: center;
     justify-content: center;
     z-index: var(--z-drawer, 1000);
+    backdrop-filter: blur(2px);
   }
+
   .modal {
-    background: var(--surface-hover, #1a1a1a);
-    border-radius: var(--radius-lg, 10px);
-    padding: 2rem;
-    min-width: 560px;
-    max-width: 90vw;
+    background: var(--n2, #0e0e0e);
+    border-radius: var(--radius-lg, 14px);
+    padding: 2rem 2rem 1.5rem;
+    width: 560px;
+    max-width: 92vw;
     color: var(--t1, #ddd);
     font-family: var(--ui);
     position: relative;
+    border: 1px solid var(--b1, #2a2a2a);
   }
+
   .close-btn {
     position: absolute;
-    top: 0.75rem;
+    top: 1rem;
     right: 1rem;
-    background: transparent;
-    border: 0;
+    width: 28px;
+    height: 28px;
+    background: var(--surface-hover, #1a1a1a);
+    border: 1px solid var(--b1, #2a2a2a);
+    border-radius: 6px;
     color: var(--t3, #888);
-    font-size: 1.5rem;
     cursor: pointer;
-    line-height: 1;
-  }
-  .close-btn:hover {
-    color: var(--t1, #fff);
-  }
-  .head {
-    margin-bottom: 1.5rem;
-  }
-  .feature-list {
-    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 0;
-    margin: 0.75rem 0 0;
-    display: flex;
-    flex-direction: column;
+  }
+  .close-btn:hover { color: var(--t1); border-color: var(--b2, #3a3a3a); }
+
+  /* Header */
+  .head { margin-bottom: 1.25rem; }
+  .plan-pill {
+    display: inline-flex;
+    align-items: center;
     gap: 0.4rem;
-  }
-  .feature-list li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--t2, #aaa);
-    line-height: 1.4;
-  }
-  .feature-list strong {
-    color: var(--t1, #ddd);
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--acc, #c2185b) 50%, transparent);
+    background: color-mix(in srgb, var(--acc, #c2185b) 12%, transparent);
+    color: var(--acc, #c2185b);
+    font-size: 0.7rem;
     font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.85rem;
   }
-  .feat-icon {
-    color: var(--acc, #4a90e2);
-    flex: 0 0 auto;
-    font-size: 0.85rem;
-    line-height: 1.4;
+  .pill-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    border: 1.5px solid currentColor;
+    display: inline-block;
   }
   .head h2 {
-    margin: 0 0 0.25rem;
-    font-size: 1.5rem;
+    margin: 0 0 0.4rem;
+    font-size: 1.6rem;
+    font-weight: 600;
     font-family: var(--ui);
+    letter-spacing: -0.01em;
   }
   .sub {
     margin: 0;
-    color: var(--t3);
-    font-size: 0.9rem;
+    color: var(--t3, #888);
+    font-size: 0.92rem;
   }
+
+  /* Feature list */
+  .feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 1.25rem 0 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .feature-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    font-size: 0.92rem;
+    line-height: 1.3;
+  }
+  .feat-icon {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--acc, #c2185b) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--acc, #c2185b) 35%, transparent);
+    position: relative;
+  }
+  .feat-icon::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    border: 1.5px solid var(--acc, #c2185b);
+    transform: translate(-50%, -50%);
+  }
+  .feat-text strong {
+    color: var(--t1, #ddd);
+    font-weight: 600;
+  }
+  .feat-mute {
+    color: var(--t3, #888);
+    font-weight: 400;
+  }
+
+  /* Plan cards */
   .plans {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 0.85rem;
     margin-bottom: 1rem;
   }
   .plan-card {
-    padding: 1.25rem;
-    border-radius: var(--radius-md, 8px);
+    position: relative;
+    padding: 1.1rem 1.1rem 1.1rem;
+    border-radius: var(--radius-md, 10px);
     border: 1px solid var(--b1, #2a2a2a);
-    background: var(--n2, #0e0e0e);
+    background: var(--surface-hover, #161616);
   }
   .plan-card.highlight {
-    border-color: var(--acc, #4a90e2);
+    border-color: var(--acc, #c2185b);
+    background: color-mix(in srgb, var(--acc, #c2185b) 6%, var(--n2, #0e0e0e));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--acc, #c2185b) 30%, transparent);
   }
-  .plan-card h3 {
-    margin: 0 0 0.75rem;
-    font-size: 1rem;
-    font-family: var(--ui);
+  .save-badge {
+    position: absolute;
+    top: -10px;
+    right: 12px;
+    padding: 0.18rem 0.6rem;
+    border-radius: 999px;
+    background: var(--acc, #c2185b);
+    color: white;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   }
-  .price {
-    font-size: 0.9rem;
+  .plan-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--t3, #888);
     margin-bottom: 0.5rem;
+  }
+  .price-row {
     display: flex;
     align-items: baseline;
     gap: 0.25rem;
-    flex-wrap: wrap;
+    margin-bottom: 0.4rem;
   }
-  .price .amount {
-    font-size: 2rem;
-    font-weight: 600;
-    color: var(--t1);
-  }
-  .price .strike {
+  .strike {
     text-decoration: line-through;
-    color: var(--t3);
+    color: var(--t3, #888);
+    font-size: 0.95rem;
     margin-right: 0.25rem;
   }
-  .price .period {
-    color: var(--t3);
+  .amount {
+    font-size: 2.3rem;
+    font-weight: 600;
+    color: var(--t1);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .period {
+    color: var(--t3, #888);
+    font-size: 0.85rem;
+  }
+  .per-month {
+    margin: 0 0 0.9rem;
+    font-size: 0.8rem;
+    color: var(--t3, #888);
   }
   .discount-line {
-    font-size: 0.8rem;
-    color: var(--acc, #4a90e2);
-    margin: 0.5rem 0 0;
+    margin: 0.25rem 0 0.6rem;
+    font-size: 0.75rem;
+    color: var(--acc, #c2185b);
   }
-  .btn {
+  .discount-line strong {
+    font-weight: 600;
+  }
+
+  .choose-btn {
     width: 100%;
-    margin-top: 0.75rem;
-    padding: 0.625rem 1rem;
-    border-radius: var(--radius-md, 6px);
-    border: 0;
+    margin-top: 0.5rem;
+    padding: 0.55rem 1rem;
+    border-radius: var(--radius-md, 8px);
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 500;
     font-family: var(--ui);
+    transition: opacity 0.12s;
   }
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .choose-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .choose-btn.outlined {
+    background: transparent;
+    color: var(--acc, #c2185b);
+    border: 1px solid color-mix(in srgb, var(--acc, #c2185b) 60%, transparent);
   }
-  .btn-primary {
-    background: var(--acc, #4a90e2);
-    color: #fff;
+  .choose-btn.outlined:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--acc, #c2185b) 10%, transparent);
   }
-  .muted {
-    color: var(--t3, #888);
-    font-size: 0.875rem;
-    margin: 0.25rem 0;
+  .choose-btn.filled {
+    background: var(--acc, #c2185b);
+    color: white;
+    border: 1px solid var(--acc, #c2185b);
   }
-  .err-msg {
-    color: var(--err, #ff6b6b);
-    font-size: 0.875rem;
+  .choose-btn.filled:hover:not(:disabled) {
+    filter: brightness(1.08);
   }
+
+  /* Footer */
   .footer-note {
     text-align: center;
-    margin-top: 1rem;
+    margin: 0.75rem 0 0;
+    font-size: 0.75rem;
+    color: var(--t3, #888);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
   }
+  .foot-icon {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    margin-right: 0.25rem;
+    opacity: 0.6;
+  }
+  .dot { opacity: 0.4; margin: 0 0.15rem; }
+
+  .status-line { text-align: center; margin: 1rem 0; }
+  .muted { color: var(--t3, #888); }
+  .err-msg { color: var(--err, #ff6b6b); }
 </style>
