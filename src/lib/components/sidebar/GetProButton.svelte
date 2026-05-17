@@ -23,15 +23,13 @@
 
 <style>
   .get-pro-badge {
-    /* Floats above-and-right of the avatar.
-       Bottom-left corner of the badge touches the upper-right corner of the
-       avatar with a small inward overlap so it reads as "attached" without
-       covering the face. */
+    /* Sits above the avatar, anchored to its right side with a tiny outward
+       overhang so the lower-right corner of the badge clips just past the
+       avatar's right edge while staying within the 72px sidebar. */
     position: absolute;
     bottom: 100%;
-    left: 100%;
-    margin-bottom: -5px;
-    margin-left: -10px;
+    right: -6px;
+    margin-bottom: -4px;
     padding: 2px 6px;
     border-radius: 5px;
     border: 1px solid var(--n2, #0e0e0e);
