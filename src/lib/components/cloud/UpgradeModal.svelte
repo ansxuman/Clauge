@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { upgradeModalOpen } from '$lib/stores/cloud';
+  import { cloudConnected, upgradeModalOpen } from '$lib/stores/cloud';
 
   type Discount = { percent: number; code: string | null };
   type Plan = { id: string; price_usd: number; discount: Discount | null };
@@ -23,7 +23,9 @@
   }
 
   $effect(() => {
-    if ($upgradeModalOpen && pricing === null && !loading) {
+    // Only fetch pricing when signed in — otherwise the modal shows a
+    // sign-in prompt and we never need pricing.
+    if ($upgradeModalOpen && $cloudConnected && pricing === null && !loading) {
       loadPricing();
     }
   });
@@ -109,7 +111,7 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="modal-wrap" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-      {#if pricing}
+      {#if $cloudConnected && pricing}
         {@const firstDiscount = pricing.plans.find((p) => p.discount)?.discount ?? null}
         {#if firstDiscount}
           <div class="discount-banner">
@@ -146,6 +148,28 @@
         </svg>
       </button>
 
+      {#if !$cloudConnected}
+        <div class="head">
+          <span class="plan-pill">
+            <svg class="pill-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/>
+            </svg>
+            Sign in required
+          </span>
+          <h2>Sign in to upgrade</h2>
+          <p class="sub">
+            Connect Clauge Cloud first — your subscription is tied to your account so it follows you across devices.
+          </p>
+        </div>
+        <div class="signin-actions">
+          <button class="choose-btn filled" onclick={close}>
+            Close
+          </button>
+          <p class="signin-hint muted">
+            Open <strong>Settings → Account</strong> to connect with GitHub or Google.
+          </p>
+        </div>
+      {:else}
       <div class="head">
         <span class="plan-pill">
           <svg class="pill-icon" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -212,7 +236,14 @@
       {#if loading}
         <p class="status-line muted">Loading pricing…</p>
       {:else if error}
-        <p class="status-line err-msg">{error}</p>
+        <div class="error-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>{error}</span>
+        </div>
       {:else if pricing}
         {@const monthly = pricing.plans.find((p) => p.id === 'monthly')}
         {@const yearly = pricing.plans.find((p) => p.id === 'yearly')}
@@ -275,6 +306,7 @@
           <span class="dot">·</span> Cancel anytime
           <span class="dot">·</span> Credits non-refundable once used
         </p>
+      {/if}
       {/if}
       </div>
     </div>
@@ -574,5 +606,39 @@
 
   .status-line { text-align: center; margin: 1rem 0; }
   .muted { color: var(--t3, #888); }
-  .err-msg { color: var(--err, #ff6b6b); }
+  .error-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+    background: color-mix(in srgb, var(--err, #ff6b6b) 10%, var(--n2, #0e0e0e));
+    border: 1px solid color-mix(in srgb, var(--err, #ff6b6b) 35%, transparent);
+    border-radius: var(--radius-md, 8px);
+    color: var(--t2, #aaa);
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  .error-box svg { color: var(--err, #ff6b6b); flex: 0 0 auto; margin-top: 1px; }
+
+  .signin-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+  .signin-actions .choose-btn {
+    width: 100%;
+    margin-top: 0;
+  }
+  .signin-hint {
+    text-align: center;
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--t3, #888);
+  }
+  .signin-hint strong {
+    color: var(--t2, #aaa);
+    font-weight: 600;
+  }
 </style>
