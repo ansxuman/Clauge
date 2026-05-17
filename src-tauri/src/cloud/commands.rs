@@ -12,8 +12,6 @@ use crate::cloud::models::{CloudAiBalance, CloudAiUsage, CloudPricing, CloudStat
 use crate::cloud::scheduler::Scheduler;
 use crate::cloud::sync;
 use crate::cloud::{ai as ai_client, billing as billing_client};
-use crate::shared::repos::ai_configurations as ai_repo;
-use crate::shared::repos::ai_configurations::{AiConfiguration, AiConfigurationInput};
 use crate::shared::repos::settings;
 
 // ─── Status / OAuth URL builders ────────────────────────────────────────────
@@ -86,6 +84,7 @@ pub async fn cloud_get_status(
                 providers: me.providers,
                 plan: new_plan,
                 last_synced,
+                entitlements: Some(me.entitlements),
             })
         }
         Err(CloudError::NotAuthenticated) => {
@@ -103,10 +102,12 @@ pub async fn cloud_get_status(
                 last_name: None,
                 avatar_url: None,
                 slug: String::new(),
+                created_at: None,
             }),
             providers: Vec::new(),
             plan: "free".into(),
             last_synced: Default::default(),
+            entitlements: None,
         }),
     }
 }
@@ -183,6 +184,7 @@ pub async fn cloud_link_provider(
         providers: me.providers,
         plan: me.plan,
         last_synced: Default::default(),
+        entitlements: Some(me.entitlements),
     })
 }
 
@@ -205,6 +207,7 @@ pub async fn cloud_update_profile(
         providers: me.providers,
         plan: me.plan,
         last_synced: Default::default(),
+        entitlements: Some(me.entitlements),
     })
 }
 
@@ -225,6 +228,7 @@ pub async fn cloud_unlink_provider(
         providers: me.providers,
         plan: me.plan,
         last_synced: Default::default(),
+        entitlements: Some(me.entitlements),
     })
 }
 
@@ -393,49 +397,8 @@ async fn build_status(
         providers: resp.providers.clone(),
         plan: resp.plan.clone(),
         last_synced,
+        entitlements: Some(resp.entitlements.clone()),
     }
-}
-
-// ─── ai_configurations CRUD (local DB) ─────────────────────────────────────
-
-#[tauri::command]
-pub async fn ai_config_list(
-    pool: State<'_, SqlitePool>,
-) -> Result<Vec<AiConfiguration>, String> {
-    ai_repo::list_all(pool.inner()).await.map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn ai_config_create(
-    pool: State<'_, SqlitePool>,
-    input: AiConfigurationInput,
-) -> Result<i64, String> {
-    ai_repo::create(pool.inner(), &input).await.map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn ai_config_update(
-    pool: State<'_, SqlitePool>,
-    id: i64,
-    input: AiConfigurationInput,
-) -> Result<(), String> {
-    ai_repo::update(pool.inner(), id, &input).await.map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn ai_config_delete(
-    pool: State<'_, SqlitePool>,
-    id: i64,
-) -> Result<(), String> {
-    ai_repo::delete(pool.inner(), id).await.map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub async fn ai_config_set_default(
-    pool: State<'_, SqlitePool>,
-    id: i64,
-) -> Result<(), String> {
-    ai_repo::set_default(pool.inner(), id).await.map_err(|e| e.to_string())
 }
 
 // ─── cloud billing + AI proxy wrappers ──────────────────────────────────────
@@ -504,34 +467,13 @@ pub async fn cloud_ai_usage(
         .map_err(|e| e.to_string())
 }
 
+/// Returns the active cloud bearer token + provider slug for the JS layer
+/// to use when invoking ai_chat with provider = "clauge". Returns None if
+/// the user isn't signed in.
 #[tauri::command]
-pub async fn cloud_ai_chat(
-    app: AppHandle,
-    pool: State<'_, SqlitePool>,
+pub fn cloud_get_active_token(
     state: State<'_, AuthState>,
-    messages: Vec<serde_json::Value>,
-    session_id: String,
-) -> Result<(), String> {
-    let (token, _provider) = state
-        .active_token_and_provider()
-        .ok_or_else(|| "not signed in".to_string())?;
-    let client = crate::shared::http::build_app_http_client(pool.inner())
-        .await
-        .map_err(|e| e.to_string())?;
-    crate::shared::ai::clients::clauge_ai::stream_clauge_ai(
-        &client,
-        &app,
-        pool.inner(),
-        &token,
-        messages,
-        &crate::shared::ai::types::ChatContext {
-            mode: "cloud".to_string(),
-            current_request: None,
-            current_response: None,
-            env_vars: vec![],
-        },
-        &session_id,
-    )
-    .await
+) -> Option<(String, String)> {
+    state.active_token_and_provider()
 }
 

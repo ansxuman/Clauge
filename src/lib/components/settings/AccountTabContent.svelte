@@ -7,6 +7,7 @@
         cloudProviders,
         cloudPlan,
         cloudCredits,
+        cloudSub,
         upgradeModalOpen,
         syncing,
         setSyncing,
@@ -140,11 +141,39 @@
             if (s.user) {
                 setConnected(s.user, s.providers, s.activeProvider, s.plan);
                 setLastSyncedForKinds(s.lastSynced);
+                applyEntitlements(s.entitlements);
             }
         } catch (e) {
             showToast(friendlyError(e), "error");
         } finally {
             refreshing = false;
+        }
+    }
+
+    // /api/auth/me always includes entitlements. Mirror credits + sub into
+    // the global stores so the subscription card + AI panel chip always
+    // reflect the latest server state.
+    function applyEntitlements(ent: import("$lib/commands/cloud").CloudEntitlements | undefined) {
+        if (!ent) return;
+        if (ent.credits) {
+            cloudCredits.set({
+                remaining: ent.credits.remaining,
+                allowance: ent.credits.allowance,
+                resetsAt: ent.credits.resets_at,
+            });
+        }
+        if (ent.subscription) {
+            cloudSub.set({
+                status: ent.subscription.status,
+                cancelAtPeriodEnd: ent.subscription.cancel_at_period_end,
+                isLifetime: ent.subscription.is_lifetime === true,
+                currentPeriodEnd: ent.subscription.current_period_end ?? null,
+                currentPeriodStart: ent.subscription.current_period_start ?? null,
+                interval: ent.subscription.interval ?? null,
+                priceUsd: ent.subscription.price_usd ?? null,
+            });
+        } else {
+            cloudSub.set(null);
         }
     }
 
@@ -401,6 +430,46 @@
         if (days === 0) return "Resets today";
         if (days === 1) return "Resets tomorrow";
         return `Resets in ${days} days`;
+    }
+
+    // Absolute date for the subscription card (e.g. "Jun 17, 2026").
+    function fmtAbsDate(iso: string | null | undefined): string {
+        if (!iso) return "";
+        try {
+            return new Date(iso).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+            });
+        } catch {
+            return "";
+        }
+    }
+    function daysUntil(iso: string | null | undefined): number | null {
+        if (!iso) return null;
+        const t = new Date(iso).getTime();
+        if (Number.isNaN(t)) return null;
+        return Math.max(0, Math.ceil((t - Date.now()) / 86400000));
+    }
+    function fmtDaysCount(n: number): string {
+        if (n === 0) return "today";
+        if (n === 1) return "tomorrow";
+        return `in ${n} days`;
+    }
+    // Coarse-grained "how long ago" for Member Since. ISO → "8 months" / "2 years".
+    function fmtRelativeSince(iso: string | null | undefined): string {
+        if (!iso) return "";
+        const then = new Date(iso).getTime();
+        if (Number.isNaN(then)) return "";
+        const days = Math.max(0, Math.floor((Date.now() - then) / 86400000));
+        if (days < 30) return days <= 1 ? "today" : `${days} days`;
+        const months = Math.floor(days / 30);
+        if (months < 12) return months === 1 ? "1 month" : `${months} months`;
+        const years = Math.floor(days / 365);
+        return years === 1 ? "1 year" : `${years} years`;
+    }
+    function capitalize(s: string): string {
+        return s ? s[0].toUpperCase() + s.slice(1) : s;
     }
 
     function openMenu(e: MouseEvent) {
@@ -724,102 +793,235 @@
                     </div>
                 </div>
 
-                <!-- Plan strip: lives at the bottom of the Profile card.
-                     Both states lead with a plan affirmation, then a single
-                     contextual CTA on the right (upgrade for free, manage
-                     for pro). -->
-                <div class="acc-plan-strip">
+                <!-- Subscription card: three horizontal sections.
+                     Row 1: title + status + "Billed X · renews Y" subtitle, manage button on right.
+                     Row 2: Clauge AI credits balance with a progress bar.
+                     Row 3: 3-column meta grid (Plan / Next Renewal / Member Since).
+                     Free users get a compact upsell variant of just row 1. -->
+                <section class="acc-sub-card">
                     {#if $cloudPlan === "pro"}
-                        <div class="acc-plan-strip-left">
-                            <div class="acc-plan-strip-head">
-                                <strong class="acc-plan-strip-title"
-                                    >Clauge Pro</strong
-                                >
-                                <span class="acc-plan-strip-status">Active</span
-                                >
+                        {@const periodEnd =
+                            $cloudSub?.currentPeriodEnd ??
+                            $cloudCredits?.resetsAt ??
+                            null}
+                        {@const used = $cloudCredits
+                            ? Math.max(
+                                  0,
+                                  $cloudCredits.allowance -
+                                      $cloudCredits.remaining,
+                              )
+                            : 0}
+                        {@const renewalDays = daysUntil(periodEnd)}
+                        {@const pctRemaining = $cloudCredits
+                            ? Math.min(
+                                  100,
+                                  Math.round(
+                                      ($cloudCredits.remaining /
+                                          Math.max(
+                                              1,
+                                              $cloudCredits.allowance,
+                                          )) *
+                                          100,
+                                  ),
+                              )
+                            : 0}
+                        {@const interval = $cloudSub?.interval ?? null}
+                        {@const cancelling = $cloudSub?.cancelAtPeriodEnd === true}
+                        {@const isLifetime = $cloudSub?.isLifetime === true || interval === "lifetime"}
+
+                        <!-- Row 1: header -->
+                        <header class="acc-sub-head">
+                            <div class="acc-sub-head-left">
+                                <div class="acc-sub-title-row">
+                                    <strong class="acc-sub-title"
+                                        >Clauge Pro</strong
+                                    >
+                                    <span
+                                        class="acc-sub-status"
+                                        class:is-warn={cancelling ||
+                                            $cloudSub?.status === "past_due"}
+                                        class:is-lifetime={isLifetime &&
+                                            !cancelling &&
+                                            $cloudSub?.status !== "past_due"}
+                                    >
+                                        {#if isLifetime && !cancelling && $cloudSub?.status !== "past_due"}
+                                            Lifetime
+                                        {:else if cancelling}
+                                            Cancelling
+                                        {:else}
+                                            {capitalize(
+                                                $cloudSub?.status ?? "active",
+                                            )}
+                                        {/if}
+                                    </span>
+                                </div>
+                                {#if periodEnd}
+                                    <p class="acc-sub-sub">
+                                        {#if isLifetime}
+                                            One-time purchase
+                                            <span class="acc-sub-dot">·</span>
+                                            refills {fmtAbsDate(periodEnd)}
+                                        {:else}
+                                            {#if interval}Billed {interval}
+                                                <span class="acc-sub-dot">·</span>
+                                            {/if}
+                                            {cancelling ? "ends" : "renews"}
+                                            {fmtAbsDate(periodEnd)}
+                                        {/if}
+                                    </p>
+                                {/if}
                             </div>
-                            {#if $cloudCredits}
-                                <p class="acc-plan-strip-sub">
-                                    <span class="acc-credits-inline"
-                                        ><strong
+                            <button
+                                class="acc-btn acc-btn-manage"
+                                onclick={openManageSubscription}
+                                disabled={openingPortal}
+                            >
+                                {openingPortal
+                                    ? "Opening…"
+                                    : "Manage subscription"}
+                            </button>
+                        </header>
+
+                        <div class="acc-sub-divider"></div>
+
+                        <!-- Row 2: credits -->
+                        <div class="acc-sub-credits">
+                            <div class="acc-sub-credits-row">
+                                <span class="acc-sub-credits-label">
+                                    <svg
+                                        class="acc-sub-credits-icon"
+                                        viewBox="0 0 24 24"
+                                        width="14"
+                                        height="14"
+                                        fill="currentColor"
+                                        aria-hidden="true"
+                                    >
+                                        <path
+                                            d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"
+                                        />
+                                    </svg>
+                                    Clauge AI credits
+                                </span>
+                                <span class="acc-sub-credits-val">
+                                    {#if $cloudCredits}
+                                        <strong
                                             >{$cloudCredits.remaining.toLocaleString()}</strong
                                         >
-                                        of {$cloudCredits.allowance.toLocaleString()}
-                                        credits remaining</span
-                                    >
-                                    {#if $cloudCredits.resetsAt}
-                                        <span class="acc-credits-sep-dot"
-                                            >·</span
-                                        >
-                                        <span>
-                                            {formatResetCountdown(
-                                                $cloudCredits.resetsAt,
-                                            )}
-                                        </span>
+                                        / {$cloudCredits.allowance.toLocaleString()}
+                                        remaining
+                                    {:else}
+                                        Loading…
                                     {/if}
-                                </p>
-                                <div class="acc-credits-bar-wrap">
-                                    <div
-                                        class="acc-credits-bar"
-                                        style="width: {Math.min(
-                                            100,
-                                            Math.round(
-                                                ($cloudCredits.remaining /
-                                                    Math.max(
-                                                        1,
-                                                        $cloudCredits.allowance,
-                                                    )) *
-                                                    100,
-                                            ),
-                                        )}%"
-                                    ></div>
-                                </div>
-                            {:else}
-                                <p class="acc-plan-strip-sub">
-                                    Managed AI assistance and premium features
-                                    are unlocked on this account.
+                                </span>
+                            </div>
+                            <div class="acc-sub-bar-wrap">
+                                <div
+                                    class="acc-sub-bar"
+                                    style="width: {pctRemaining}%"
+                                ></div>
+                            </div>
+                            {#if $cloudCredits}
+                                <p class="acc-sub-credits-meta">
+                                    {used.toLocaleString()} credits used{#if periodEnd}
+                                        <span class="acc-sub-dot">·</span> resets {fmtAbsDate(
+                                            periodEnd,
+                                        )}
+                                    {/if}
                                 </p>
                             {/if}
                         </div>
-                        <button
-                            class="acc-btn acc-btn-manage"
-                            onclick={openManageSubscription}
-                            disabled={openingPortal}
-                        >
-                            {openingPortal
-                                ? "Opening…"
-                                : "Manage subscription"}
-                        </button>
-                    {:else}
-                        <div class="acc-plan-strip-left">
-                            <strong class="acc-plan-strip-title"
-                                >You're on the Free plan</strong
-                            >
-                            <p class="acc-plan-strip-sub">
-                                Upgrade for managed AI assistance and premium
-                                features.
-                            </p>
+
+                        <div class="acc-sub-divider"></div>
+
+                        <!-- Row 3: meta grid -->
+                        <div class="acc-sub-meta">
+                            <div class="acc-sub-meta-col">
+                                <span class="acc-sub-meta-label">PLAN</span>
+                                <strong class="acc-sub-meta-val">
+                                    {interval
+                                        ? capitalize(interval)
+                                        : "Pro"}
+                                </strong>
+                                {#if $cloudSub?.priceUsd && interval}
+                                    <span class="acc-sub-meta-sub">
+                                        ${$cloudSub.priceUsd}{#if interval === "lifetime"} once{:else if interval === "yearly"} / year{:else} / month{/if}
+                                    </span>
+                                {:else}
+                                    <span class="acc-sub-meta-sub"
+                                        >Managed AI</span
+                                    >
+                                {/if}
+                            </div>
+                            {#if periodEnd && renewalDays !== null}
+                                <div class="acc-sub-meta-col">
+                                    <span class="acc-sub-meta-label">
+                                        {#if isLifetime}
+                                            NEXT REFILL
+                                        {:else if cancelling}
+                                            ENDS
+                                        {:else}
+                                            NEXT RENEWAL
+                                        {/if}
+                                    </span>
+                                    <strong class="acc-sub-meta-val"
+                                        >{fmtAbsDate(periodEnd)}</strong
+                                    >
+                                    <span class="acc-sub-meta-sub"
+                                        >{fmtDaysCount(renewalDays)}</span
+                                    >
+                                </div>
+                            {/if}
+                            {#if $cloudUser?.createdAt}
+                                <div class="acc-sub-meta-col">
+                                    <span class="acc-sub-meta-label"
+                                        >MEMBER SINCE</span
+                                    >
+                                    <strong class="acc-sub-meta-val"
+                                        >{fmtAbsDate(
+                                            $cloudUser.createdAt,
+                                        )}</strong
+                                    >
+                                    <span class="acc-sub-meta-sub"
+                                        >{fmtRelativeSince(
+                                            $cloudUser.createdAt,
+                                        )}</span
+                                    >
+                                </div>
+                            {/if}
                         </div>
-                        <button
-                            class="acc-btn acc-btn-primary"
-                            onclick={openUpgrade}
-                        >
-                            <svg
-                                viewBox="0 0 24 24"
-                                width="13"
-                                height="13"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2.2"
-                                stroke-linejoin="round"
-                                ><path
-                                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                                /></svg
+                    {:else}
+                        <!-- Free state — single row, upsell + Upgrade CTA -->
+                        <header class="acc-sub-head">
+                            <div class="acc-sub-head-left">
+                                <strong class="acc-sub-title"
+                                    >Free plan</strong
+                                >
+                                <p class="acc-sub-sub">
+                                    Upgrade for managed AI assistance and
+                                    premium features.
+                                </p>
+                            </div>
+                            <button
+                                class="acc-btn acc-btn-primary"
+                                onclick={openUpgrade}
                             >
-                            <span>Upgrade to Pro</span>
-                        </button>
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    width="13"
+                                    height="13"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.2"
+                                    stroke-linejoin="round"
+                                    ><path
+                                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                                    /></svg
+                                >
+                                <span>Upgrade to Pro</span>
+                            </button>
+                        </header>
                     {/if}
-                </div>
+                </section>
             </section>
 
             <!-- Linked accounts -->
@@ -1591,76 +1793,72 @@
         color: var(--t1);
     }
 
-    /* Plan strip — bottom band of the Profile card */
-    .acc-plan-strip {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
+    /* Subscription card — three horizontal sections separated by hairlines.
+       Sits below the existing Profile form. No card background of its own;
+       the surrounding profile card already provides the chrome. */
+    .acc-sub-card {
         margin-top: 18px;
         padding-top: 16px;
         border-top: 1px solid var(--b1);
+        display: flex;
+        flex-direction: column;
     }
-    .acc-plan-strip-left {
+
+    /* Row 1 — title + status pill on left, manage button on right. */
+    .acc-sub-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .acc-sub-head-left {
         flex: 1;
         min-width: 0;
     }
-    .acc-plan-strip-head {
+    .acc-sub-title-row {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         margin-bottom: 4px;
     }
-    .acc-plan-strip-title {
-        font-size: 13px;
+    .acc-sub-title {
+        font-size: 16px;
+        font-weight: 700;
         color: var(--t1);
-        font-weight: 600;
-        display: block;
+        letter-spacing: -0.01em;
     }
-    .acc-plan-strip-status {
-        font-size: 9.5px;
+    .acc-sub-status {
+        font-size: 10px;
         font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        padding: 2px 7px;
+        text-transform: capitalize;
+        padding: 2px 9px;
         border-radius: 999px;
-        background: color-mix(in srgb, var(--acc) 14%, transparent);
-        color: var(--acc);
-        border: 1px solid color-mix(in srgb, var(--acc) 35%, transparent);
+        background: color-mix(in srgb, #22c55e 14%, transparent);
+        color: #22c55e;
+        border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);
+        line-height: 1.5;
     }
-    .acc-plan-strip-sub {
-        font-size: 11.5px;
+    .acc-sub-status.is-warn {
+        background: color-mix(in srgb, #f59e0b 14%, transparent);
+        color: #f59e0b;
+        border-color: color-mix(in srgb, #f59e0b 35%, transparent);
+    }
+    /* Lifetime gets a gold/amber accent — visually distinct from "Active"
+       green so users see at a glance they're on the one-time tier. */
+    .acc-sub-status.is-lifetime {
+        background: color-mix(in srgb, #d4a017 14%, transparent);
+        color: #f0b429;
+        border-color: color-mix(in srgb, #d4a017 35%, transparent);
+    }
+    .acc-sub-sub {
+        font-size: 12px;
         color: var(--t3);
         margin: 0;
         line-height: 1.5;
     }
-    .acc-credits-inline strong {
-        color: var(--t1);
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-    }
-    .acc-credits-sep-dot {
-        opacity: 0.5;
-        margin: 0 4px;
-    }
-    .acc-credits-bar-wrap {
-        height: 4px;
-        background: var(--b1);
-        border-radius: 100px;
-        overflow: hidden;
-        margin-top: 6px;
-        max-width: 320px;
-    }
-    .acc-credits-bar {
-        height: 100%;
-        background: var(--acc);
-        border-radius: 100px;
-        transition: width 0.3s ease;
-    }
 
-    /* Manage-subscription button — pinned width so the text swap
-       ("Manage subscription" → "Opening…") doesn't collapse the button
-       and jolt the surrounding strip. Softer disabled treatment too. */
+    /* Manage-subscription button — pinned width so the "Opening…" swap
+       doesn't collapse the button and jolt the surrounding card. */
     .acc-btn-manage {
         min-width: 175px;
         justify-content: center;
@@ -1668,6 +1866,108 @@
     }
     .acc-btn-manage:disabled {
         opacity: 0.75;
+    }
+
+    .acc-sub-divider {
+        height: 1px;
+        background: var(--b1);
+        margin: 18px 0;
+    }
+
+    /* Row 2 — Clauge AI credits */
+    .acc-sub-credits {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .acc-sub-credits-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .acc-sub-credits-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: var(--t2);
+        font-weight: 500;
+    }
+    .acc-sub-credits-icon {
+        color: var(--acc);
+        flex-shrink: 0;
+    }
+    .acc-sub-credits-val {
+        font-size: 12.5px;
+        color: var(--t3);
+        font-variant-numeric: tabular-nums;
+    }
+    .acc-sub-credits-val strong {
+        color: var(--t1);
+        font-weight: 700;
+        font-size: 14px;
+        margin-right: 1px;
+    }
+    .acc-sub-bar-wrap {
+        height: 6px;
+        background: var(--b1);
+        border-radius: 100px;
+        overflow: hidden;
+    }
+    .acc-sub-bar {
+        height: 100%;
+        background: var(--acc);
+        border-radius: 100px;
+        transition: width 0.3s ease;
+    }
+    .acc-sub-credits-meta {
+        font-size: 11.5px;
+        color: var(--t3);
+        margin: 0;
+        line-height: 1.5;
+    }
+    .acc-sub-dot {
+        opacity: 0.5;
+        margin: 0 4px;
+    }
+
+    /* Row 3 — meta grid (Plan / Next renewal / Account) */
+    .acc-sub-meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+    }
+    .acc-sub-meta-col {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+    .acc-sub-meta-label {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        color: var(--t3);
+        text-transform: uppercase;
+    }
+    .acc-sub-meta-val {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--t1);
+        letter-spacing: -0.01em;
+        line-height: 1.25;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .acc-sub-meta-sub {
+        font-size: 11.5px;
+        color: var(--t3);
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     /* Danger zone */

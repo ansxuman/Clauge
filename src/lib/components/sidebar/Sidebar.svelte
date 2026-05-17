@@ -229,7 +229,6 @@
       case 'check-updates': handleCheckForUpdates(); break;
       case 'whats-new': openExternal('https://clauge.in/changelog.html'); break;
       case 'report': openExternal('https://github.com/ansxuman/Clauge/issues/new'); break;
-      case 'coffee': openExternal('https://buymeacoffee.com/ansxuman'); break;
       case 'about': openSettingsTab('about'); break;
     }
   }
@@ -349,11 +348,6 @@
           <button class="pm-item" onclick={() => handleProfileAction('report')}>
             <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
             Report an Issue
-            <svg class="pm-external" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </button>
-          <button class="pm-item pm-coffee" onclick={() => handleProfileAction('coffee')}>
-            <svg viewBox="0 0 24 24"><path d="M17 8h1a4 4 0 110 8h-1"/><path d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>
-            Buy Me a Coffee
             <svg class="pm-external" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </button>
           {#if $cloudConnected}
@@ -646,9 +640,6 @@
   @keyframes pmSpin {
     to { transform: rotate(360deg); }
   }
-  .pm-coffee { color: #f5a623 !important; }
-  .pm-coffee svg { stroke: #f5a623 !important; }
-  .pm-coffee:hover { background: rgba(245,166,35,0.08) !important; }
   /* "Action Required" replaces the Sync Now row when there are unresolved
      conflicts — accent tint signals the user has a decision to make. */
   .pm-action-required {

@@ -11,7 +11,19 @@ export interface CloudUser {
   lastName: string | null;
   avatarUrl: string | null;
   slug: string;
+  /** ISO timestamp when the user row was created — drives "Member since". */
+  createdAt: string | null;
 }
+
+export type CloudSubscriptionSnapshot = {
+  status: string;
+  cancelAtPeriodEnd: boolean;
+  isLifetime: boolean;
+  currentPeriodEnd: string | null;
+  currentPeriodStart: string | null;
+  interval: 'monthly' | 'yearly' | 'lifetime' | null;
+  priceUsd: number | null;
+} | null;
 
 export interface CloudProviderLink {
   provider: Provider;
@@ -122,6 +134,11 @@ export type CloudCreditsSnapshot = {
 } | null;
 
 export const cloudCredits = writable<CloudCreditsSnapshot>(null);
+
+/** Active subscription details — populated from /api/auth/me entitlements
+ *  and refreshed alongside cloudCredits. Null when not signed in or on
+ *  the free plan. */
+export const cloudSub = writable<CloudSubscriptionSnapshot>(null);
 
 export const upgradeModalOpen = writable<boolean>(false);
 

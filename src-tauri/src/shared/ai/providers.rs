@@ -31,6 +31,12 @@ pub enum ProviderId {
     OpenAI,
     #[serde(rename = "gemini")]
     Gemini,
+    /// Managed AI proxied through our Cloudflare Worker. The "api key" used
+    /// when invoking ai_chat is actually the user's cloud Bearer token; the
+    /// X-Provider header (github / google) is passed via the extra_headers
+    /// path so the worker can validate against the right JWKS.
+    #[serde(rename = "clauge")]
+    Clauge,
 }
 
 impl ProviderId {
@@ -46,6 +52,7 @@ impl ProviderId {
             ProviderId::OpenRouter => "openrouter",
             ProviderId::OpenAI => "openai_direct",
             ProviderId::Gemini => "gemini",
+            ProviderId::Clauge => "clauge",
         }
     }
 
@@ -60,6 +67,7 @@ impl ProviderId {
             "openrouter" => Some(ProviderId::OpenRouter),
             "openai_direct" => Some(ProviderId::OpenAI),
             "gemini" => Some(ProviderId::Gemini),
+            "clauge" => Some(ProviderId::Clauge),
             _ => None,
         }
     }
@@ -237,6 +245,28 @@ const REGISTRY: &[ProviderConfig] = &[
         supports_thinking: false,
         daily_token_budget: None,
         key_setting_name: "ai_api_key_gemini",
+        anthropic_version: None,
+        key_prefix: None,
+    },
+    // Clauge AI — managed assistance routed through our worker. The worker
+    // is OpenAI-compatible, so the same stream_openai client drives it.
+    // model_id is a placeholder; the worker injects its own env-configured
+    // model. Auth uses the user's cloud Bearer token (passed as api_key)
+    // plus an X-Provider header (passed via extra_headers).
+    ProviderConfig {
+        provider_id: ProviderId::Clauge,
+        model_id: "clauge-managed",
+        display_name: "Clauge AI",
+        api_url: "https://clauge.in/api/ai/chat",
+        api_kind: ApiKind::OpenAICompat,
+        max_input_tokens: 200_000,
+        max_output_tokens: 4096,
+        default_temperature: 0.1,
+        supports_caching: false,
+        supports_parallel_tools: true,
+        supports_thinking: false,
+        daily_token_budget: None,
+        key_setting_name: "",
         anthropic_version: None,
         key_prefix: None,
     },

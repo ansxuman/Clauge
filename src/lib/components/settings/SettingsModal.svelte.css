@@ -324,6 +324,78 @@
     letter-spacing: 0.04em;
   }
 
+  /* Theme preview banner — shown while a free user is trying a pro theme.
+     Sits below the theme grid with a clear accent border + two CTAs.
+     Auto-cleanup happens via $effect when the modal closes / tab switches
+     / user upgrades. */
+  .theme-preview-banner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md, 8px);
+    border: 1px solid color-mix(in srgb, var(--acc) 45%, transparent);
+    background: color-mix(in srgb, var(--acc) 8%, var(--surface-hover));
+    font-family: var(--ui);
+  }
+  .theme-preview-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .theme-preview-eyebrow {
+    display: block;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--acc);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .theme-preview-name {
+    font-size: 13.5px;
+    color: var(--t1);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .theme-preview-sub {
+    margin: 4px 0 0;
+    font-size: 11.5px;
+    color: var(--t3);
+    line-height: 1.5;
+  }
+  .theme-preview-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .theme-preview-btn {
+    appearance: none;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--b1);
+    background: transparent;
+    color: var(--t1);
+    font-family: var(--ui);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+  }
+  .theme-preview-btn:hover {
+    background: var(--surface-hover);
+    border-color: var(--b2);
+  }
+  .theme-preview-btn-primary {
+    background: var(--acc);
+    border-color: transparent;
+    color: #fff;
+  }
+  .theme-preview-btn-primary:hover {
+    background: var(--acc);
+    opacity: 0.9;
+  }
+
   .theme-card:hover {
     border-color: var(--b2);
     background: var(--surface-hover);
@@ -609,36 +681,6 @@
     stroke-linecap: round;
     stroke-linejoin: round;
   }
-  .about-coffee {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 18px;
-    border-radius: 8px;
-    border: 1px solid rgba(245,166,35,0.3);
-    background: rgba(245,166,35,0.06);
-    color: #f5a623;
-    font-size: 13px;
-    font-weight: 600;
-    font-family: var(--ui);
-    text-decoration: none;
-    transition: background 0.12s, border-color 0.12s;
-    cursor: default;
-  }
-  .about-coffee:hover {
-    background: rgba(245,166,35,0.12);
-    border-color: rgba(245,166,35,0.5);
-  }
-  .about-coffee svg {
-    width: 18px;
-    height: 18px;
-    stroke: #f5a623;
-    fill: none;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
   /* -- AI Sub-tabs -- */
   .ai-subtabs {
     display: flex;
@@ -673,6 +715,505 @@
   }
   .ai-subtab.disabled { opacity: 0.35; cursor: not-allowed; }
   .ai-subtab-lock { flex-shrink: 0; margin-left: 2px; }
+
+  /* ── Clauge AI tab cards (Credits / By mode / Activity) ─────────── */
+  .cai2-card {
+    padding: 16px 18px;
+    border: 1px solid var(--b1);
+    border-radius: 10px;
+    background: var(--surface-hover);
+    margin-bottom: 12px;
+    font-family: var(--ui);
+  }
+  .cai2-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .cai2-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--acc) 14%, transparent);
+    color: var(--acc);
+    flex-shrink: 0;
+  }
+  .cai2-titles {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .cai2-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--t1);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .cai2-sub {
+    font-size: 11.5px;
+    color: var(--t3);
+    margin: 0;
+    line-height: 1.4;
+  }
+  .cai2-sub-right {
+    font-size: 11.5px;
+    color: var(--t3);
+    flex-shrink: 0;
+  }
+  .cai2-dot {
+    opacity: 0.5;
+    margin: 0 3px;
+  }
+  .cai2-status {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: capitalize;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: color-mix(in srgb, #22c55e 14%, transparent);
+    color: #22c55e;
+    border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);
+    flex-shrink: 0;
+  }
+
+  /* Credits hero */
+  .cai2-hero {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 4px 0 12px;
+  }
+  .cai2-hero-val {
+    font-size: 38px;
+    font-weight: 700;
+    color: var(--t1);
+    font-family: var(--mono, ui-monospace);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .cai2-hero-tot {
+    font-size: 13px;
+    color: var(--t3);
+    font-family: var(--mono, ui-monospace);
+  }
+  .cai2-bar-wrap {
+    height: 6px;
+    background: var(--b1);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .cai2-bar {
+    height: 100%;
+    background: var(--acc);
+    border-radius: 100px;
+    transition: width 0.3s ease;
+  }
+  .cai2-meta {
+    font-size: 11.5px;
+    color: var(--t3);
+    margin: 0;
+  }
+
+  /* Credits by mode */
+  .cai2-mode-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .cai2-mode-row {
+    display: grid;
+    grid-template-columns: 90px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    font-size: 12.5px;
+  }
+  .cai2-mode-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--t2);
+    font-weight: 500;
+  }
+  .cai2-mode-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cai2-mode-bar-wrap {
+    height: 4px;
+    background: var(--b1);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .cai2-mode-bar {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 0.3s ease;
+  }
+  .cai2-mode-val {
+    font-size: 12px;
+    color: var(--t2);
+    font-variant-numeric: tabular-nums;
+    font-family: var(--mono, ui-monospace);
+  }
+  .cai2-mode-pct {
+    font-size: 11.5px;
+    color: var(--t3);
+    font-variant-numeric: tabular-nums;
+    min-width: 30px;
+    text-align: right;
+  }
+
+  /* Recent activity table */
+  .cai2-empty {
+    margin: 0;
+    font-size: 12px;
+    color: var(--t3);
+    padding: 4px 0;
+  }
+  /* When the Clauge AI tab is open, kill the outer pane's auto-scroll so
+     only the activity table scrolls. Mirrors the agent-plugins-pane
+     pattern above. */
+  .stg-content:has(> .cai2-pane) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .stg-content:has(> .cai2-pane) > .ai-toptabs {
+    flex-shrink: 0;
+  }
+  .cai2-pane {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+  }
+  /* Non-activity cards keep their natural height — only the activity
+     card grows to absorb whatever's left. */
+  .cai2-pane > .cai2-card {
+    flex-shrink: 0;
+  }
+  .cai2-card-activity {
+    display: flex;
+    flex-direction: column;
+    min-height: 220px;
+    flex: 1 1 0;
+    /* Override .cai2-card's default margin-bottom so the activity card
+       sits flush against the bottom of the pane. */
+    margin-bottom: 0;
+  }
+  .cai2-table {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border-top: 1px solid color-mix(in srgb, var(--b1) 60%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--b1) 60%, transparent);
+    margin: 0 -4px;
+    padding: 0 4px;
+    /* Establish a stacking context so the sticky header stays above
+       data rows even when those rows have their own background. */
+    position: relative;
+  }
+  .cai2-table::-webkit-scrollbar {
+    width: 6px;
+  }
+  .cai2-table::-webkit-scrollbar-thumb {
+    background: var(--b2, #3a3a3a);
+    border-radius: 100px;
+  }
+  .cai2-table::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .cai2-tr {
+    display: grid;
+    grid-template-columns: minmax(110px, 1fr) minmax(0, 1.4fr) minmax(70px, auto) minmax(70px, auto);
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-top: 1px solid color-mix(in srgb, var(--b1) 60%, transparent);
+    font-size: 12px;
+  }
+  .cai2-tr:first-child {
+    border-top: 0;
+  }
+  .cai2-th {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: var(--t3);
+    text-transform: uppercase;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    /* Solid opaque fill so scrolling rows don't bleed through. The card's
+       --surface-hover may be semi-transparent; nest a solid base behind it. */
+    background-color: var(--n2, #0e0e0e);
+    background-image: linear-gradient(
+      var(--surface-hover, #1a1a1a),
+      var(--surface-hover, #1a1a1a)
+    );
+    /* Hairline that visually separates header from first data row. */
+    box-shadow: inset 0 -1px 0 var(--b1);
+  }
+  .cai2-loading-more {
+    padding: 12px 4px;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--t3);
+    border-top: 1px solid color-mix(in srgb, var(--b1) 60%, transparent);
+  }
+  .cai2-loading-more.cai2-end {
+    color: var(--t4, var(--t3));
+    font-style: italic;
+    opacity: 0.7;
+  }
+  .cai2-th-right {
+    text-align: right;
+  }
+  .cai2-td-time {
+    color: var(--t3);
+    font-family: var(--mono, ui-monospace);
+    font-variant-numeric: tabular-nums;
+  }
+  .cai2-td-op {
+    color: var(--t2);
+    font-family: var(--mono, ui-monospace);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cai2-td-mode {
+    font-weight: 600;
+  }
+  .cai2-td-cost {
+    color: var(--acc);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  /* -- Configured providers list (BYOK → Configuration sub-tab) --
+     Borderless rows separated by hairlines — same aesthetic as the
+     subscription card's meta sections. No per-row backgrounds, no
+     individual borders, no glyph chrome. Hover row gets the active
+     marker on the left edge instead. */
+  .cfg-prov-count {
+    margin-left: 8px;
+    color: var(--t3);
+    font-size: 11.5px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .cfg-prov-empty {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    color: var(--t3);
+    line-height: 1.55;
+    padding: 4px 0;
+  }
+  .cfg-prov-list {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cfg-prov-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--b1);
+    border-radius: var(--radius-md, 7px);
+    background: transparent;
+    cursor: pointer;
+    transition:
+      border-color 0.12s,
+      background 0.12s;
+  }
+  .cfg-prov-row:hover {
+    border-color: var(--b2);
+    background: color-mix(in srgb, var(--surface-hover) 45%, transparent);
+  }
+  .cfg-prov-row.is-active {
+    border-color: color-mix(in srgb, var(--acc) 45%, transparent);
+    background: color-mix(in srgb, var(--acc) 6%, transparent);
+  }
+  .cfg-prov-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .cfg-prov-name {
+    font-size: 13px;
+    color: var(--t1);
+    font-weight: 600;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cfg-prov-active-tag {
+    font-size: 9.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--acc) 14%, transparent);
+    color: var(--acc);
+  }
+  .cfg-prov-key {
+    font-size: 11px;
+    color: var(--t3);
+    font-family: var(--mono, ui-monospace);
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .cfg-prov-del {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: transparent;
+    border: 0;
+    border-radius: 5px;
+    color: var(--t4, var(--t3));
+    cursor: pointer;
+    opacity: 0.6;
+    transition:
+      color 0.12s,
+      opacity 0.12s,
+      background 0.12s;
+  }
+  .cfg-prov-row:hover .cfg-prov-del {
+    opacity: 1;
+  }
+  .cfg-prov-del:hover {
+    color: var(--err, #f04444);
+    background: color-mix(in srgb, var(--err, #f04444) 10%, transparent);
+  }
+
+  /* -- AI Top tabs (Clauge AI vs BYOK) -- sit above the existing subtabs */
+  .ai-toptabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--b1);
+  }
+  .ai-toptab {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    padding: 9px 14px;
+    font-family: var(--ui);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--t3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .ai-toptab:hover { color: var(--t2); }
+  .ai-toptab.active {
+    color: var(--t1);
+    border-bottom-color: var(--acc);
+  }
+
+  /* -- Clauge AI recent activity list -- */
+  .cai-history {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--b1);
+    border-radius: 10px;
+    background: var(--surface-hover);
+    font-family: var(--ui);
+  }
+  .cai-history-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .cai-history-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--t1);
+    letter-spacing: -0.01em;
+  }
+  .cai-history-sub {
+    font-size: 11px;
+    color: var(--t3);
+  }
+  .cai-history-empty {
+    margin: 0;
+    font-size: 12px;
+    color: var(--t3);
+    line-height: 1.55;
+  }
+  .cai-history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .cai-history-row {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 4px;
+    border-bottom: 1px solid color-mix(in srgb, var(--b1) 60%, transparent);
+    font-size: 12px;
+  }
+  .cai-history-row:last-child { border-bottom: none; }
+  .cai-history-when {
+    color: var(--t3);
+    font-family: var(--mono, ui-monospace);
+    font-variant-numeric: tabular-nums;
+  }
+  .cai-history-op {
+    color: var(--t2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cai-history-cost {
+    color: var(--acc);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
 
   .agent-settings-pane {
     display: flex;

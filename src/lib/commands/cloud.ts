@@ -1,6 +1,24 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { CloudUser, CloudProviderLink, Provider } from '$lib/stores/cloud';
 
+export interface CloudEntitlements {
+  plan: string;
+  credits?: {
+    remaining: number;
+    allowance: number;
+    resets_at: string | null;
+  };
+  subscription?: {
+    status: string;
+    cancel_at_period_end: boolean;
+    is_lifetime?: boolean;
+    current_period_end?: string | null;
+    current_period_start?: string | null;
+    interval?: 'monthly' | 'yearly' | 'lifetime' | null;
+    price_usd?: number | null;
+  };
+}
+
 export interface CloudStatus {
   connected: boolean;
   activeProvider: Provider | null;
@@ -8,6 +26,7 @@ export interface CloudStatus {
   providers: CloudProviderLink[];
   plan: string;
   lastSynced: Record<string, string>;
+  entitlements?: CloudEntitlements;
 }
 
 export const cloudGetStatus = () =>

@@ -25,6 +25,10 @@ pub async fn stream_openai(
     config: &ProviderConfig,
     sql_manager: &Arc<SqlConnectionManager>,
     nosql_conns: &NoSqlConnections,
+    // Extra headers to attach to every request. Used by the Clauge AI
+    // provider to send `X-Provider: github|google` so our worker can
+    // validate the bearer against the right JWKS.
+    extra_headers: &std::collections::HashMap<String, String>,
 ) -> Result<(), String> {
     let mut total_input_tokens: u64 = 0;
     let mut total_output_tokens: u64 = 0;
@@ -121,12 +125,37 @@ pub async fn stream_openai(
             }
         }
 
+        // Clauge AI worker requires a fresh UUID v4 per call for replay
+        // defense (prevents re-streaming a paid-for response). Generate a
+        // new one on every loop iteration — each tool round-trip is a
+        // distinct billable request from the worker's perspective.
+        // Also send the originating mode so the worker can attribute the
+        // deduction to the right mode in its usage log.
+        if matches!(
+            config.provider_id,
+            crate::shared::ai::providers::ProviderId::Clauge
+        ) {
+            body["request_id"] = serde_json::json!(uuid::Uuid::new_v4().to_string());
+            if !context.mode.is_empty() {
+                body["mode"] = serde_json::json!(context.mode);
+            }
+        }
+
         let mut headers = HeaderMap::new();
         headers.insert(
             "Authorization",
             HeaderValue::from_str(&format!("Bearer {}", api_key)).map_err(|e| e.to_string())?,
         );
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        // Insert any caller-supplied extra headers (e.g. X-Provider for Clauge AI).
+        for (k, v) in extra_headers.iter() {
+            if let (Ok(name), Ok(value)) = (
+                reqwest::header::HeaderName::from_bytes(k.as_bytes()),
+                HeaderValue::from_str(v),
+            ) {
+                headers.insert(name, value);
+            }
+        }
 
         log::info!("[AI OpenAI] POST {} model={}", config.api_url, config.model_id);
 
@@ -230,8 +259,22 @@ pub async fn stream_openai(
         let mut logged_sample_delta = false;
         let mut finish_reason = String::new();
 
+        // Track the most recent `event:` line so the data: that follows can
+        // be routed to the right handler. Default upstream chat SSE has no
+        // event: line at all (everything is `data: {...}`); our Clauge AI
+        // worker prefixes credit notifications with `event: balance`.
+        let mut current_event: Option<String> = None;
+
         while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
             let line = line.trim().to_string();
+            if line.is_empty() {
+                current_event = None;
+                continue;
+            }
+            if let Some(rest) = line.strip_prefix("event: ") {
+                current_event = Some(rest.to_string());
+                continue;
+            }
             if !line.starts_with("data: ") {
                 continue;
             }
@@ -240,10 +283,26 @@ pub async fn stream_openai(
                 break;
             }
 
+            // Clauge-AI-worker-specific: live credit balance after each chat.
+            // Forward to the same store the cloud_ai_balance command writes to.
+            if current_event.as_deref() == Some("balance") {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) {
+                    if let Some(remaining) = parsed.get("remaining").and_then(|v| v.as_i64()) {
+                        let _ = app.emit(
+                            "clauge_ai:balance",
+                            serde_json::json!({"remaining": remaining}),
+                        );
+                    }
+                }
+                current_event = None;
+                continue;
+            }
+
             let event: serde_json::Value = match serde_json::from_str(data) {
                 Ok(v) => v,
                 Err(_) => continue,
             };
+            current_event = None;
 
             let choice = &event["choices"][0];
             let delta = &choice["delta"];

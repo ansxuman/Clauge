@@ -2,10 +2,11 @@
   import { mod } from '$lib/utils/platform';
   const m = mod();
   import { aiPanelOpen, aiPanelOpenPerMode, mode, getModeChatMessages, setModeChatMessages, clearModeChatMessages, type AppMode } from '$lib/stores/app';
-  import { settings, setSetting } from '$lib/stores/settings';
+  import { settings } from '$lib/stores/settings';
   import { loadCollections } from '$lib/modes/rest/stores';
   import { activeTabId, draftRequests, openSettingsTab } from '$lib/shared/stores/tabs';
   import { sendChatMessage, generateSessionId } from '$lib/services/ai-chat';
+  import { cloudGetActiveToken } from '$lib/commands/ai';
   import { REST_SYSTEM_PROMPT, REST_TOOLS } from '$lib/modes/rest/ai/prompt';
   import { SQL_SYSTEM_PROMPT, SQL_TOOLS } from '$lib/modes/sql/ai/prompt';
   import { NOSQL_SYSTEM_PROMPT, NOSQL_TOOLS } from '$lib/modes/nosql/ai/prompt';
@@ -95,28 +96,6 @@
   let cleanup: (() => void) | null = null;
   let currentChatMode = $state('');
 
-  type AiConfig = {
-    id: number;
-    label: string;
-    provider: string;
-    baseUrl: string | null;
-    defaultModel: string | null;
-    isDefault: number;
-    createdAt: string;
-    lastUsedAt: string | null;
-  };
-
-  let aiConfigs = $state<AiConfig[]>([]);
-  let selectedAI = $state<string | null>(null);
-
-  async function loadAiConfigs() {
-    try {
-      aiConfigs = await invoke<AiConfig[]>('ai_config_list');
-    } catch (e) {
-      console.warn('ai_config_list failed', e);
-      aiConfigs = [];
-    }
-  }
 
   // SSH confirmation modal state — driven by ai:tool_pending events from Rust.
   let sshModalShow = $state(false);
@@ -162,7 +141,6 @@
 
   onMount(() => {
     sshAutoRun = getSshAutoRun();
-    loadAiConfigs();
   });
 
   function toggleSshAutoRun() {
@@ -291,70 +269,18 @@
     }
   });
 
-  // Did the legacy BYOK setup leave at least one usable api key behind?
-  // Used as a fallback "user can still chat" signal when they haven't migrated
-  // to the new ai_configurations rows yet.
-  let hasLegacyKey = $derived(
-    !!$settings[`ai_api_key_${$settings['ai_provider'] || 'claude'}`]?.trim()
+  // The active provider — Clauge AI (managed) or any BYOK provider id from
+  // the PROVIDERS catalogue. Stored in flat settings under `ai_provider`.
+  let activeProvider = $derived<string>($settings['ai_provider'] || 'claude');
+
+  // Panel is usable when:
+  //   - Clauge AI is active and user is Pro (managed → no key needed), or
+  //   - A BYOK provider is active and that provider has its key configured.
+  let hasApiKey = $derived(
+    activeProvider === 'clauge'
+      ? $cloudPlan === 'pro'
+      : !!$settings[`ai_api_key_${activeProvider}`]?.trim()
   );
-
-  // The panel is usable if the user has Clauge AI (Pro) or any BYOK config
-  // in the new ai_configurations table — or the old legacy key as fallback.
-  let hasAnyProvider = $derived(
-    $cloudPlan === 'pro' || aiConfigs.length > 0 || hasLegacyKey
-  );
-
-  // Auto-select an active provider as soon as we know the plan + configs.
-  // Pro users default to Clauge AI; free users default to their `is_default`
-  // BYOK row (or first one). Idempotent — only runs when selectedAI is null.
-  $effect(() => {
-    if (selectedAI !== null) return;
-    if ($cloudPlan === 'pro') {
-      selectedAI = 'clauge';
-      return;
-    }
-    if (aiConfigs.length > 0) {
-      const def = aiConfigs.find((c) => c.isDefault === 1) ?? aiConfigs[0];
-      selectedAI = `config:${def.id}`;
-    }
-  });
-
-  // Bridge new ai_configurations provider names to the legacy `ai_provider`
-  // setting key. The legacy send path looks up the API key as
-  // `ai_api_key_${ai_provider}` and the model as MODEL_MAP[ai_provider], so
-  // any new provider that doesn't match its legacy slug needs to map.
-  function legacyProviderKey(newProvider: string): string {
-    switch (newProvider) {
-      case 'anthropic':
-        return 'claude';
-      case 'openai':
-        return 'openai_direct';
-      default:
-        // groq, gemini, openrouter, opencode are 1:1 with the legacy slugs.
-        return newProvider;
-    }
-  }
-
-  // When the user picks a BYOK config from the selector, mirror its provider
-  // (mapped to the legacy slug) into the ai_provider setting so the existing
-  // send path routes to the right upstream + reads the right api key.
-  $effect(() => {
-    if (!selectedAI || !selectedAI.startsWith('config:')) return;
-    const id = Number(selectedAI.slice('config:'.length));
-    const cfg = aiConfigs.find((c) => c.id === id);
-    if (!cfg) return;
-    const legacy = legacyProviderKey(cfg.provider);
-    if ($settings['ai_provider'] !== legacy) {
-      setSetting('ai_provider', legacy);
-    }
-  });
-
-  // Re-load configs when SettingsModal mutates them (add/edit/delete/default).
-  $effect(() => {
-    function reload() { loadAiConfigs(); }
-    window.addEventListener('ai-configs-changed', reload);
-    return () => window.removeEventListener('ai-configs-changed', reload);
-  });
 
   const modeColors: Record<AppMode, string> = {
     rest: 'var(--acc)',
@@ -522,59 +448,26 @@
     const text = inputText.trim();
     if (!text || isStreaming) return;
 
-    const useClaugeAI = selectedAI === 'clauge' || (selectedAI === null && get(cloudPlan) === 'pro');
-    if (useClaugeAI) {
-      messages.push({ role: 'user', content: text, timestamp: Date.now() });
-      messages.push({ role: 'assistant', content: '', isStreaming: true, timestamp: Date.now() });
-      inputText = '';
-      isStreaming = true;
-      scrollToBottom();
-
-      const chatHistory: ChatMessage[] = messages
-        .filter(m => !m.isStreaming)
-        .map(m => ({ role: m.role, content: m.content }));
-
-      const sessionId = generateSessionId();
-      activeChatSessionId = sessionId;
-      const lastIdx = messages.length - 1;
-
-      let textOff: (() => void) | null = null;
-      let doneOff: (() => void) | null = null;
-      let errOff: (() => void) | null = null;
-
-      const cleanup2 = () => { textOff?.(); doneOff?.(); errOff?.(); };
-
-      textOff = await listen<string>(`ai:text:${sessionId}`, (e) => {
-        messages[lastIdx].content += e.payload;
-        scrollToBottom();
-      });
-      doneOff = await listen<void>(`ai:done:${sessionId}`, () => {
-        messages[lastIdx].isStreaming = false;
-        isStreaming = false;
-        cleanup2();
-      });
-      errOff = await listen<string>(`ai:error:${sessionId}`, (e) => {
-        messages[lastIdx].content = messages[lastIdx].content || `Error: ${e.payload}`;
-        messages[lastIdx].isStreaming = false;
-        isStreaming = false;
-        cleanup2();
-        showToast(String(e.payload), 'error');
-      });
-
-      try {
-        await invoke('cloud_ai_chat', { messages: chatHistory, sessionId });
-      } catch (e) {
-        messages[lastIdx].content = messages[lastIdx].content || `Error: ${e}`;
-        messages[lastIdx].isStreaming = false;
-        isStreaming = false;
-        cleanup2();
-        showToast(String(e), 'error');
-      }
-      return;
-    }
-
+    // Resolve provider + api key. Clauge AI is just another provider — but
+    // its "api key" is the user's cloud bearer token (fetched at send time)
+    // and it needs an X-Provider header so the worker can pick the right
+    // JWKS to validate the token against.
     const provider = $settings['ai_provider'] || 'claude';
-    const apiKey = $settings[`ai_api_key_${provider}`] || '';
+    let apiKey = $settings[`ai_api_key_${provider}`] || '';
+    let extraHeaders: Record<string, string> | undefined;
+    if (provider === 'clauge') {
+      if (get(cloudPlan) !== 'pro') {
+        upgradeModalOpen.set(true);
+        return;
+      }
+      const tok = await cloudGetActiveToken();
+      if (!tok) {
+        showToast('Sign in to Clauge to use managed AI', 'error');
+        return;
+      }
+      apiKey = tok[0];
+      extraHeaders = { 'X-Provider': tok[1] };
+    }
 
     // Add user message
     messages.push({
@@ -626,16 +519,9 @@
       openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
       openai_direct: 'gpt-4.1-mini',
       gemini: 'gemini-3.1-flash-lite-preview',
+      clauge: 'clauge-managed',
     };
-    // The selected BYOK config's defaultModel wins over the legacy MODEL_MAP
-    // fallback, so the model the user explicitly picked in Settings → AI
-    // Assistance is the one we actually send to upstream.
-    let modelId = MODEL_MAP[provider] || 'claude-haiku-4-5-20251001';
-    if (selectedAI?.startsWith('config:')) {
-      const sid = Number(selectedAI.slice('config:'.length));
-      const scfg = aiConfigs.find((c) => c.id === sid);
-      if (scfg?.defaultModel) modelId = scfg.defaultModel;
-    }
+    const modelId = MODEL_MAP[provider] || 'claude-haiku-4-5-20251001';
 
     cleanup?.();
     const currentMode = get(mode);
@@ -755,19 +641,10 @@
           }
           scrollToBottom();
         },
-        onDone: (inputTokens, outputTokens) => {
+        onDone: (_inputTokens, _outputTokens) => {
           messages[lastIdx].isStreaming = false;
           isStreaming = false;
           scrollToBottom();
-          // Local usage log for BYOK sends — feeds the per-provider stats
-          // line under each row in Settings → AI Assistance. BYOK calls go
-          // direct to upstream, so this is the only place we see them.
-          invoke('record_ai_usage', {
-            mode: currentMode,
-            model: modelId,
-            inputTokens: inputTokens ?? 0,
-            outputTokens: outputTokens ?? 0,
-          }).catch((e) => console.warn('record_ai_usage failed', e));
         },
         onError: (error) => {
           // Raw provider errors go to console for debugging; the chat bubble
@@ -799,6 +676,7 @@
       provider,
       modelId,
       currentMode,
+      extraHeaders,
     );
 
     // Combine the chat-stream cleanup with the per-session SSH listener cleanup.
@@ -894,6 +772,7 @@
           {modeLabels[$mode]}
         </span>
       </div>
+      <AIConfigSelector />
       <div class="ai-header-right">
         {#if $mode === 'ssh'}
           <button
@@ -920,18 +799,15 @@
       </div>
     </div>
 
-    {#if !hasAnyProvider}
+    {#if !hasApiKey}
       <div class="ai-chat">
         <div class="ai-welcome">
           <div class="welcome-icon">
             <svg viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>
           </div>
-          <p class="welcome-text">Pick how you'd like to use AI in Clauge.</p>
-          <div class="welcome-actions">
-            <button class="ai-setup-btn ai-setup-btn-primary" onclick={() => upgradeModalOpen.set(true)}>Get Clauge AI with Pro</button>
-            <button class="ai-setup-btn" onclick={openAiSettings}>Add your own API key</button>
-          </div>
-          <p class="welcome-hint">Toggle this panel with <kbd>{m}+L</kbd></p>
+          <p class="welcome-text">Set up your API key to start using AI assistance</p>
+          <button class="ai-setup-btn" onclick={openAiSettings}>Configure in Settings</button>
+          <p class="welcome-hint">Toggle with <kbd>{m}+L</kbd></p>
         </div>
       </div>
     {:else}
@@ -1166,15 +1042,6 @@
       {/each}
     </div>
 
-    <!-- Composer: provider selector chip on top, input + send below -->
-    <div class="ai-composer-meta">
-      <AIConfigSelector
-        bind:value={selectedAI}
-        configs={aiConfigs}
-        onUpgradeClick={() => upgradeModalOpen.set(true)}
-        onAddProvider={openAiSettings}
-      />
-    </div>
     <div class="ai-input-area">
       <textarea
         class="ai-input"

@@ -190,11 +190,17 @@ pub async fn ai_chat(
     system_prompt: String,
     tools: Vec<serde_json::Value>,
     provider: String,
+    // Optional extra HTTP headers to attach to each upstream request.
+    // Currently used by the `clauge` provider to send `X-Provider:
+    // github|google` so the worker can validate the cloud bearer token
+    // against the correct provider's JWKS.
+    extra_headers: Option<std::collections::HashMap<String, String>>,
 ) -> Result<(), String> {
     let client = crate::shared::http::build_app_http_client(pool.inner()).await?;
     let conversation_msgs = build_api_messages(&messages, &context);
     let sql_mgr = sql_manager.inner().clone();
     let nosql_mgr = nosql_connections.inner().clone();
+    let extra_headers = extra_headers.unwrap_or_default();
 
     let config = match resolve_config(&provider, None) {
         Ok(cfg) => cfg,
@@ -219,6 +225,7 @@ pub async fn ai_chat(
             clients::openai::stream_openai(
                 &client, &app, pool.inner(), &api_key, conversation_msgs,
                 &context, &session_id, &system_prompt, &tools, config, &sql_mgr, &nosql_mgr,
+                &extra_headers,
             )
             .await
         }

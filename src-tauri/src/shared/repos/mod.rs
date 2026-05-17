@@ -1,4 +1,3 @@
-pub mod ai_configurations;
 pub mod ai_usage;
 pub mod collections;
 pub mod coworkers;

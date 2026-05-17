@@ -10,6 +10,10 @@ pub struct CloudUser {
     pub last_name: Option<String>,
     pub avatar_url: Option<String>,
     pub slug: String,
+    /// ISO timestamp of the user row creation — drives "Member since" in
+    /// the subscription card. May be absent on legacy rows.
+    #[serde(default)]
+    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +48,26 @@ pub struct CloudCredits {
 pub struct CloudSubscription {
     pub status: String,
     pub cancel_at_period_end: bool,
+    /// True for users on the one-time Lifetime plan. Recurring users
+    /// (monthly/yearly) get this as false. Lifetime credits refill on
+    /// the purchase anniversary via lazy refill at worker side.
+    #[serde(default)]
+    pub is_lifetime: bool,
+    /// ISO timestamp for the next renewal / cancellation cutoff. Same value
+    /// as credits.resets_at on a recurring plan but exposed explicitly so
+    /// the subscription card doesn't have to reach across objects.
+    #[serde(default)]
+    pub current_period_end: Option<String>,
+    /// ISO timestamp the current cycle started — drives the period-length
+    /// math in the UI if needed (we already get `interval` from the worker).
+    #[serde(default)]
+    pub current_period_start: Option<String>,
+    /// "monthly" | "yearly" | "lifetime" — derived on the worker.
+    #[serde(default)]
+    pub interval: Option<String>,
+    /// Display price in USD (whole dollars), e.g. 12, 100, or 299.
+    #[serde(default)]
+    pub price_usd: Option<i64>,
 }
 
 /// Response from /api/auth/{provider}/exchange and /api/auth/me.
@@ -110,6 +134,11 @@ pub struct CloudStatus {
     pub providers: Vec<CloudProvider>,
     pub plan: String,
     pub last_synced: std::collections::HashMap<String, String>,
+    /// Entitlements snapshot (credits balance + subscription details) from
+    /// /api/auth/me. Optional so the default `CloudStatus` (signed-out) can
+    /// omit it; populated by `build_status` on any authenticated refresh.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entitlements: Option<CloudEntitlements>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,4 +198,9 @@ pub struct CloudAiUsageEntry {
     pub clauge_credits: i64,
     pub cost_usd_micros: i64,
     pub request_id: String,
+    /// Originating app mode (rest / sql / nosql / ssh / explorer / agent /
+    /// workspace). Optional — older log rows from before the migration
+    /// don't carry it. Drives the per-mode breakdown card.
+    #[serde(default)]
+    pub mode: Option<String>,
 }

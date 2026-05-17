@@ -1,9 +1,8 @@
 <script lang="ts">
     import ConfirmDialog from "$lib/shared/primitives/ConfirmDialog.svelte";
     import ClaugeAIBalance from "$lib/components/settings/ClaugeAIBalance.svelte";
-    import AIConfigEditor from "$lib/components/settings/AIConfigEditor.svelte";
     import { invoke } from "@tauri-apps/api/core";
-    import { cloudPlan, upgradeModalOpen } from "$lib/stores/cloud";
+    import { cloudPlan, cloudSub, upgradeModalOpen } from "$lib/stores/cloud";
     import AccountTabContent from "$lib/components/settings/AccountTabContent.svelte";
     import { getVersion } from "@tauri-apps/api/app";
     import { tabs as sharedTabs, activeTabId } from "$lib/shared/stores/tabs";
@@ -423,7 +422,139 @@
     }
 
     // AI Assistance state
+    let aiTopTab = $state<"clauge" | "byok">("clauge");
     let aiSubTab = $state<"config" | "usage">("config");
+
+    // Clauge AI usage history — fetched from /api/ai/usage via cloud_ai_usage.
+    // Worker returns the most recent entries first; we render the last ~30.
+    type CloudAiUsageEntry = {
+        occurred_at: string;
+        operation: string;
+        clauge_credits: number;
+        cost_usd_micros: number;
+        request_id: string;
+        mode: string | null;
+    };
+    let cloudAiUsage = $state<CloudAiUsageEntry[]>([]);
+    let cloudAiUsageLoading = $state(false);
+    // Cursor for the next page (oldest visible row's occurred_at). When
+    // null we've hit the end of history.
+    let cloudAiUsageNextBefore = $state<string | null>(null);
+    let cloudAiUsageLoadingMore = $state(false);
+
+    const CLOUD_AI_USAGE_PAGE = 30;
+
+    async function loadCloudAiUsage() {
+        cloudAiUsageLoading = true;
+        try {
+            const r = await invoke<{
+                entries: CloudAiUsageEntry[];
+                next_before: string | null;
+            }>("cloud_ai_usage", { limit: CLOUD_AI_USAGE_PAGE });
+            cloudAiUsage = r.entries ?? [];
+            cloudAiUsageNextBefore = r.next_before;
+        } catch {
+            cloudAiUsage = [];
+            cloudAiUsageNextBefore = null;
+        } finally {
+            cloudAiUsageLoading = false;
+        }
+    }
+
+    // Append the next page when the user scrolls near the bottom of the
+    // activity table. Cursor is the oldest row's occurred_at returned by
+    // the previous response.
+    async function loadMoreCloudAiUsage() {
+        if (cloudAiUsageLoadingMore) return;
+        if (!cloudAiUsageNextBefore) return;
+        cloudAiUsageLoadingMore = true;
+        try {
+            const r = await invoke<{
+                entries: CloudAiUsageEntry[];
+                next_before: string | null;
+            }>("cloud_ai_usage", {
+                limit: CLOUD_AI_USAGE_PAGE,
+                before: cloudAiUsageNextBefore,
+            });
+            if (r.entries?.length) {
+                cloudAiUsage = [...cloudAiUsage, ...r.entries];
+            }
+            cloudAiUsageNextBefore = r.next_before;
+        } catch {
+            // Silent — keep cursor, user can scroll again to retry.
+        } finally {
+            cloudAiUsageLoadingMore = false;
+        }
+    }
+
+    // Fires from the activity table's scroll listener. Trigger ~120px
+    // before the bottom so the next page is already loading by the time
+    // the user reaches it (no perceptible pause).
+    function handleActivityScroll(e: Event) {
+        const el = e.currentTarget as HTMLElement;
+        if (
+            el.scrollHeight - el.scrollTop - el.clientHeight < 120 &&
+            cloudAiUsageNextBefore
+        ) {
+            loadMoreCloudAiUsage();
+        }
+    }
+
+    function fmtUsageTime(iso: string): string {
+        try {
+            const d = new Date(iso);
+            return d.toLocaleString(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+            });
+        } catch {
+            return iso;
+        }
+    }
+
+    // Distinct color per mode for the per-mode breakdown bars and the
+    // MODE column in the activity table. Only the modes that actually
+    // host the AI panel (rest / sql / nosql / ssh / explorer) get colors;
+    // anything else falls back to muted grey.
+    function modeColor(mode: string | null | undefined): string {
+        switch (mode) {
+            case "sql": return "#8b7bf5";
+            case "rest": return "#f06b9e";
+            case "nosql": return "#4ec9ff";
+            case "ssh": return "#2dd4bf";
+            case "explorer": return "#f59e0b";
+            default: return "var(--t3, #888)";
+        }
+    }
+    function capitalizeMode(s: string): string {
+        if (!s) return "—";
+        if (s === "sql" || s === "rest" || s === "ssh") return s.toUpperCase();
+        if (s === "nosql") return "NoSQL";
+        return s[0].toUpperCase() + s.slice(1);
+    }
+    // Per-mode credit totals derived from the loaded usage entries. Sorted
+    // descending so the heaviest mode comes first in the bar chart.
+    type ModeBreakdown = { mode: string; credits: number; percent: number };
+    let cloudAiByMode = $derived.by<ModeBreakdown[]>(() => {
+        if (cloudAiUsage.length === 0) return [];
+        const totals = new Map<string, number>();
+        let grand = 0;
+        for (const e of cloudAiUsage) {
+            const m = e.mode ?? "other";
+            totals.set(m, (totals.get(m) ?? 0) + e.clauge_credits);
+            grand += e.clauge_credits;
+        }
+        if (grand === 0) return [];
+        return Array.from(totals.entries())
+            .map(([mode, credits]) => ({
+                mode,
+                credits,
+                percent: Math.round((credits / grand) * 100),
+            }))
+            .sort((a, b) => b.credits - a.credits);
+    });
     let aiProvider = $state<string>("claude");
     let aiApiKey = $state("");
     let showAiKey = $state(false);
@@ -444,25 +575,16 @@
     );
     let aiHasKey = $derived(!!$settings[`ai_api_key_${aiProvider}`]?.trim());
 
-    // --- AI Assistance v2 (BYOK multi-config + Clauge AI card) ---
-    type AiConfig = {
-        id: number;
-        label: string;
-        provider: string;
-        baseUrl: string | null;
-        defaultModel: string | null;
-        isDefault: number;
-        createdAt: string;
-        lastUsedAt: string | null;
-    };
+    // Every provider that has a saved API key — feeds the "Configured
+    // providers" list under the Configuration sub-tab so the user always
+    // sees what they've set up.
+    let configuredProviders = $derived(
+        AI_PROVIDER_REGISTRY.filter(
+            (p) => !!$settings[p.keySettingName]?.trim(),
+        ),
+    );
 
-    type EditorState =
-        | { open: false }
-        | { open: true; mode: "create" }
-        | { open: true; mode: "edit"; config: AiConfig };
-
-    let aiConfigs = $state<AiConfig[]>([]);
-    let editorState = $state<EditorState>({ open: false });
+    // --- Clauge AI balance (worker-tracked managed-AI credits) ---
     let cloudCreditsLocal = $state<{
         remaining: number;
         allowance: number;
@@ -472,15 +594,6 @@
         status: string;
         cancel_at_period_end: boolean;
     } | null>(null);
-
-    async function loadAiConfigs() {
-        try {
-            aiConfigs = await invoke<AiConfig[]>("ai_config_list");
-        } catch (e) {
-            console.warn("ai_config_list failed", e);
-            aiConfigs = [];
-        }
-    }
 
     async function loadCloudBalance() {
         try {
@@ -499,93 +612,8 @@
         }
     }
 
-    function openCreateEditor() {
-        editorState = { open: true, mode: "create" };
-    }
-
-    function openEditEditor(c: AiConfig) {
-        editorState = { open: true, mode: "edit", config: c };
-    }
-
-    // Notify AIPanel (or any other listener) that the BYOK config list
-    // changed so they refresh without waiting for the next app boot.
-    function broadcastConfigChange() {
-        window.dispatchEvent(new CustomEvent("ai-configs-changed"));
-    }
-
-    async function handleEditorSave(data: {
-        label: string;
-        provider: string;
-        baseUrl: string | null;
-        defaultModel: string | null;
-    }) {
-        if (editorState.open && editorState.mode === "create") {
-            await invoke("ai_config_create", { input: data });
-        } else if (editorState.open && editorState.mode === "edit") {
-            await invoke("ai_config_update", {
-                id: editorState.config.id,
-                input: data,
-            });
-        }
-        await loadAiConfigs();
-        await loadAiProviderStats();
-        broadcastConfigChange();
-    }
-
-    async function handleDeleteConfig(c: AiConfig) {
-        if (!confirm(`Delete provider configuration "${c.label}"?`)) return;
-        await invoke("ai_config_delete", { id: c.id });
-        await loadAiConfigs();
-        broadcastConfigChange();
-    }
-
-    async function handleSetDefault(c: AiConfig) {
-        await invoke("ai_config_set_default", { id: c.id });
-        await loadAiConfigs();
-        broadcastConfigChange();
-    }
-
-    // Per-provider usage stats — locally tracked via record_ai_usage from
-    // the BYOK send path in AIPanel. Each row is keyed by model name, so
-    // we look up by the config's default_model below.
-    type ProviderStat = {
-        model: string;
-        totalCalls: number;
-        inputTokens: number;
-        outputTokens: number;
-    };
-    let aiProviderStats = $state<ProviderStat[]>([]);
-    async function loadAiProviderStats() {
-        try {
-            aiProviderStats = await invoke<ProviderStat[]>(
-                "get_ai_provider_stats",
-            );
-        } catch (e) {
-            console.warn("get_ai_provider_stats failed", e);
-            aiProviderStats = [];
-        }
-    }
-    function statsForConfig(cfg: AiConfig): ProviderStat | null {
-        if (!cfg.defaultModel) return null;
-        return aiProviderStats.find((s) => s.model === cfg.defaultModel) ?? null;
-    }
-    function fmtTokens(n: number): string {
-        if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
-        return String(n);
-    }
-
     function handleUpgradeClick() {
         upgradeModalOpen.set(true);
-    }
-
-    async function handleManageClick() {
-        try {
-            const url = await invoke<string>("cloud_open_portal");
-            const { openUrl } = await import("@tauri-apps/plugin-opener");
-            await openUrl(url);
-        } catch (e) {
-            console.error("portal failed", e);
-        }
     }
 
     // --- Appearance ---
@@ -765,14 +793,37 @@
         }
     }
 
+    // Theme preview state for free users. When non-null, a pro theme is
+    // being previewed DOM-only (not persisted). previewOriginalTheme is
+    // the saved theme we revert to on cancel / close / tab-leave.
+    let previewThemeId = $state<string | null>(null);
+    let previewOriginalTheme = $state<string | null>(null);
+
+    // What the picker should highlight as active — the previewed theme
+    // if one is being tried, else the actually-saved theme.
+    let displayTheme = $derived(previewThemeId ?? currentTheme);
+
     async function handleThemeChange(themeId: string) {
         const themeDef = getTheme(themeId);
-        if (themeDef?.premium && $cloudPlan !== "pro") {
-            upgradeModalOpen.set(true);
+        const isPremium = !!themeDef?.premium;
+        const isFreeUser = $cloudPlan !== "pro";
+
+        if (isPremium && isFreeUser) {
+            // Enter / swap preview mode. Apply DOM-only — do NOT persist.
+            if (previewOriginalTheme === null) {
+                previewOriginalTheme = currentTheme;
+            }
+            previewThemeId = themeId;
+            applyTheme(themeId, accentColor);
             return;
         }
-        applyTheme(themeId, accentColor);
 
+        // Non-premium pick OR pro user: drop any active preview and persist.
+        if (previewThemeId !== null) {
+            previewThemeId = null;
+            previewOriginalTheme = null;
+        }
+        applyTheme(themeId, accentColor);
         const config: AppearanceConfig = {
             theme: themeId,
             accentColor: accentColor,
@@ -780,6 +831,50 @@
         appearance.set(config);
         await saveAppearance(config);
     }
+
+    // User clicked Cancel in the preview banner — revert to their saved
+    // theme and exit preview.
+    function cancelThemePreview() {
+        if (previewOriginalTheme === null) return;
+        applyTheme(previewOriginalTheme, accentColor);
+        previewThemeId = null;
+        previewOriginalTheme = null;
+    }
+
+    // User clicked Upgrade in the preview banner — open the upgrade
+    // modal. The plan-flip $effect below handles auto-finalize if the
+    // upgrade succeeds; if they dismiss the modal we keep the preview
+    // active so they can see it and choose Cancel.
+    function upgradeFromThemePreview() {
+        upgradeModalOpen.set(true);
+    }
+
+    // Auto-revert preview when the user navigates away from Appearance or
+    // closes the Settings modal entirely — otherwise they'd return to a
+    // pro theme they never actually own.
+    $effect(() => {
+        if (previewThemeId === null) return;
+        if (!show || activeTab !== "appearance") {
+            cancelThemePreview();
+        }
+    });
+
+    // If the user successfully upgrades while a preview is showing, save
+    // the previewed theme as their real choice and exit preview mode.
+    $effect(() => {
+        if (previewThemeId === null) return;
+        if ($cloudPlan === "pro") {
+            const themeId = previewThemeId;
+            previewThemeId = null;
+            previewOriginalTheme = null;
+            const config: AppearanceConfig = {
+                theme: themeId,
+                accentColor: accentColor,
+            };
+            appearance.set(config);
+            saveAppearance(config).catch(() => {});
+        }
+    });
 
     async function handleAccentChange(color: string) {
         document.documentElement.style.setProperty("--acc", color);
@@ -904,9 +999,8 @@
         if (activeTab === "ai" && show && !aiSettingsLoaded) {
             aiSettingsLoaded = true;
             loadAiSettings();
-            loadAiConfigs();
             loadCloudBalance();
-            loadAiProviderStats();
+            loadCloudAiUsage();
         }
         if (!show) {
             aiSettingsLoaded = false;
@@ -1901,7 +1995,7 @@
                             {#each getThemes() as theme}
                                 <button
                                     class="theme-card"
-                                    class:active={currentTheme === theme.id}
+                                    class:active={displayTheme === theme.id}
                                     class:locked={theme.premium && $cloudPlan !== "pro"}
                                     onclick={() => handleThemeChange(theme.id)}
                                 >
@@ -1923,12 +2017,40 @@
                                                 theme.description}</span
                                         >
                                     </div>
-                                    {#if theme.premium && $cloudPlan !== "pro"}
+                                    {#if theme.premium}
                                         <span class="pro-badge">PRO</span>
                                     {/if}
                                 </button>
                             {/each}
                         </div>
+
+                        {#if previewThemeId}
+                            {@const previewName = getTheme(previewThemeId)?.name ?? "Theme"}
+                            <div class="theme-preview-banner" role="alert">
+                                <div class="theme-preview-info">
+                                    <span class="theme-preview-eyebrow">PREVIEWING</span>
+                                    <strong class="theme-preview-name">{previewName}</strong>
+                                    <p class="theme-preview-sub">
+                                        This is a premium theme. Upgrade to keep it,
+                                        or cancel to go back to your current theme.
+                                    </p>
+                                </div>
+                                <div class="theme-preview-actions">
+                                    <button
+                                        class="theme-preview-btn"
+                                        onclick={cancelThemePreview}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        class="theme-preview-btn theme-preview-btn-primary"
+                                        onclick={upgradeFromThemePreview}
+                                    >
+                                        Upgrade to Pro
+                                    </button>
+                                </div>
+                            </div>
+                        {/if}
                     </div>
 
                     <div class="stg-section">
@@ -1979,135 +2101,985 @@
                         </div>
                     </div>
                 {:else if activeTab === "ai"}
-                    <!-- Clauge AI card (upsell or balance). Manage button
-                         lives only in Account → Profile strip now. -->
-                    <ClaugeAIBalance
-                        plan={$cloudPlan ?? "free"}
-                        credits={cloudCreditsLocal}
-                        subscription={cloudSubLocal}
-                        onUpgradeClick={handleUpgradeClick}
-                    />
+                    <!-- Top-level split: Clauge AI (managed credits + history)
+                         vs BYOK (your own keys + per-mode/per-model stats). -->
+                    <div class="ai-toptabs">
+                        <button
+                            class="ai-toptab"
+                            class:active={aiTopTab === "clauge"}
+                            onclick={() => (aiTopTab = "clauge")}
+                        >
+                            Clauge AI
+                        </button>
+                        <button
+                            class="ai-toptab"
+                            class:active={aiTopTab === "byok"}
+                            onclick={() => (aiTopTab = "byok")}
+                        >
+                            BYOK
+                        </button>
+                    </div>
 
-                    <!-- BYOK multi-config list -->
-                    <div class="byok-section">
-                        <div class="byok-section-header">
-                            <h3 class="byok-section-title">Your Providers</h3>
-                            <button
-                                class="byok-add-btn"
-                                onclick={openCreateEditor}
-                            >
-                                + Add provider
-                            </button>
-                        </div>
-
-                        {#if aiConfigs.length === 0}
-                            <p class="byok-empty-state">
-                                No AI providers configured yet. Add one to use
-                                BYOK, or upgrade to Clauge AI above.
-                            </p>
+                    {#if aiTopTab === "clauge"}
+                        {#if $cloudPlan !== "pro"}
+                            <!-- Free user: upsell card lives here, full data
+                                 panels only appear after upgrade. -->
+                            <ClaugeAIBalance
+                                plan={$cloudPlan ?? "free"}
+                                credits={cloudCreditsLocal}
+                                subscription={cloudSubLocal}
+                                onUpgradeClick={handleUpgradeClick}
+                            />
                         {:else}
-                            <ul class="byok-config-list">
-                                {#each aiConfigs as cfg (cfg.id)}
-                                    <li class="byok-config-row">
-                                        <div class="byok-config-info">
-                                            <span class="byok-config-label"
-                                                >{cfg.label}</span
-                                            >
-                                            {#if cfg.isDefault === 1}
-                                                <span class="byok-default-badge"
-                                                    >Default</span
-                                                >
+                            {@const remaining = cloudCreditsLocal?.remaining ?? 0}
+                            {@const allowance = cloudCreditsLocal?.allowance ?? 0}
+                            {@const used = Math.max(0, allowance - remaining)}
+                            {@const pctRemaining = allowance > 0
+                                ? Math.min(100, Math.round((remaining / allowance) * 100))
+                                : 0}
+                            {@const intervalLabel = ($cloudSub?.interval === "yearly") ? "Yearly" : "Monthly"}
+                            {@const periodLabel = ($cloudSub?.interval === "yearly") ? "this year" : "this month"}
+                            <div class="cai2-pane">
+
+                            <!-- Card 1: Credits hero -->
+                            <section class="cai2-card">
+                                <header class="cai2-head">
+                                    <span class="cai2-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                            <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/>
+                                        </svg>
+                                    </span>
+                                    <div class="cai2-titles">
+                                        <h3 class="cai2-title">Credits</h3>
+                                        <p class="cai2-sub">
+                                            {intervalLabel} allocation{#if cloudCreditsLocal?.resets_at}
+                                                <span class="cai2-dot">·</span>
+                                                resets {new Date(cloudCreditsLocal.resets_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                                             {/if}
-                                            <span class="byok-config-provider"
-                                                >{cfg.provider}{cfg.defaultModel
-                                                    ? ` · ${cfg.defaultModel}`
-                                                    : ""}</span
+                                        </p>
+                                    </div>
+                                    {#if cloudSubLocal?.status}
+                                        <span class="cai2-status">
+                                            {cloudSubLocal.cancel_at_period_end ? "Cancelling" : "Active"}
+                                        </span>
+                                    {/if}
+                                </header>
+
+                                <div class="cai2-hero">
+                                    <span class="cai2-hero-val">{remaining.toLocaleString()}</span>
+                                    <span class="cai2-hero-tot">/ {allowance.toLocaleString()} remaining</span>
+                                </div>
+                                <div class="cai2-bar-wrap">
+                                    <div class="cai2-bar" style="width: {pctRemaining}%"></div>
+                                </div>
+                                <p class="cai2-meta">{used.toLocaleString()} credits used {periodLabel}</p>
+                            </section>
+
+                            <!-- Card 2: Credits by mode -->
+                            {#if cloudAiByMode.length > 0}
+                                <section class="cai2-card">
+                                    <header class="cai2-head">
+                                        <span class="cai2-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                                            </svg>
+                                        </span>
+                                        <div class="cai2-titles">
+                                            <h3 class="cai2-title">Credits by mode</h3>
+                                            <p class="cai2-sub">Breakdown of usage across modes {periodLabel}.</p>
+                                        </div>
+                                    </header>
+                                    <ul class="cai2-mode-list">
+                                        {#each cloudAiByMode as m (m.mode)}
+                                            <li class="cai2-mode-row">
+                                                <span class="cai2-mode-name">
+                                                    <span class="cai2-mode-dot" style="background: {modeColor(m.mode)}"></span>
+                                                    {capitalizeMode(m.mode)}
+                                                </span>
+                                                <div class="cai2-mode-bar-wrap">
+                                                    <div class="cai2-mode-bar" style="width: {m.percent}%; background: {modeColor(m.mode)}"></div>
+                                                </div>
+                                                <span class="cai2-mode-val">{m.credits.toLocaleString()} cr</span>
+                                                <span class="cai2-mode-pct">{m.percent}%</span>
+                                            </li>
+                                        {/each}
+                                    </ul>
+                                </section>
+                            {/if}
+
+                            <!-- Card 3: Recent activity table -->
+                            <section class="cai2-card cai2-card-activity">
+                                <header class="cai2-head">
+                                    <span class="cai2-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                                        </svg>
+                                    </span>
+                                    <div class="cai2-titles">
+                                        <h3 class="cai2-title">Recent activity</h3>
+                                    </div>
+                                    <span class="cai2-sub-right">
+                                        {cloudAiUsage.length}
+                                        {cloudAiUsage.length === 1
+                                            ? "request"
+                                            : "requests"}
+                                        {#if cloudAiUsageNextBefore}loaded · scroll for more{/if}
+                                    </span>
+                                </header>
+                                {#if cloudAiUsageLoading && cloudAiUsage.length === 0}
+                                    <p class="cai2-empty">Loading…</p>
+                                {:else if cloudAiUsage.length === 0}
+                                    <p class="cai2-empty">
+                                        No Clauge AI requests yet. Start chatting from any mode with Clauge AI selected in the panel.
+                                    </p>
+                                {:else}
+                                    <div
+                                        class="cai2-table"
+                                        onscroll={handleActivityScroll}
+                                    >
+                                        <div class="cai2-tr cai2-th">
+                                            <span>TIME</span>
+                                            <span>TYPE</span>
+                                            <span>MODE</span>
+                                            <span class="cai2-th-right">CREDITS</span>
+                                        </div>
+                                        {#each cloudAiUsage as e (e.request_id)}
+                                            <div class="cai2-tr">
+                                                <span class="cai2-td-time">{fmtUsageTime(e.occurred_at)}</span>
+                                                <span class="cai2-td-op">{e.operation}</span>
+                                                <span class="cai2-td-mode" style="color: {modeColor(e.mode)}">
+                                                    {e.mode ? capitalizeMode(e.mode) : "—"}
+                                                </span>
+                                                <span class="cai2-td-cost">−{e.clauge_credits.toLocaleString()} cr</span>
+                                            </div>
+                                        {/each}
+                                        {#if cloudAiUsageLoadingMore}
+                                            <div class="cai2-loading-more">Loading more…</div>
+                                        {:else if !cloudAiUsageNextBefore && cloudAiUsage.length >= CLOUD_AI_USAGE_PAGE}
+                                            <div class="cai2-loading-more cai2-end">End of history</div>
+                                        {/if}
+                                    </div>
+                                {/if}
+                            </section>
+                            </div>
+                        {/if}
+                    {:else if aiTopTab === "byok"}
+                    <!-- AI sub-tabs -->
+                    <div class="ai-subtabs">
+                        <button
+                            class="ai-subtab"
+                            class:active={aiSubTab === "config"}
+                            onclick={() => (aiSubTab = "config")}
+                        >
+                            Configuration
+                        </button>
+                        <button
+                            class="ai-subtab"
+                            class:active={aiSubTab === "usage"}
+                            class:disabled={!aiHasKey}
+                            onclick={() => {
+                                if (aiHasKey) aiSubTab = "usage";
+                            }}
+                        >
+                            Usage Stats
+                            {#if !aiHasKey}
+                                <svg
+                                    class="ai-subtab-lock"
+                                    viewBox="0 0 24 24"
+                                    width="11"
+                                    height="11"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    ><rect
+                                        x="3"
+                                        y="11"
+                                        width="18"
+                                        height="11"
+                                        rx="2"
+                                        ry="2"
+                                    /><path d="M7 11V7a5 5 0 0110 0v4" /></svg
+                                >
+                            {/if}
+                        </button>
+                    </div>
+
+                    {#if aiSubTab === "config"}
+                        <div class="stg-card-stack">
+                            <section class="stg-card">
+                                <header class="stg-card-hd">
+                                    <span
+                                        class="stg-card-icon"
+                                        aria-hidden="true"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            width="14"
+                                            height="14"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        >
+                                            <path
+                                                d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+                                            />
+                                        </svg>
+                                    </span>
+                                    <div class="stg-card-titles">
+                                        <h3 class="stg-card-title">
+                                            Configuration
+                                        </h3>
+                                        <p class="stg-card-sub">
+                                            Provider, model, and API key for the
+                                            in-app AI assistant.
+                                        </p>
+                                    </div>
+                                </header>
+                                <div class="ai-cfg">
+                                    <!-- Provider & Model header -->
+                                    <div class="ai-cfg-row">
+                                        <div class="ai-cfg-field">
+                                            <label class="ai-cfg-label"
+                                                >Provider</label
+                                            >
+                                            <select
+                                                class="ai-cfg-select"
+                                                value={aiProvider}
+                                                onchange={(e) =>
+                                                    handleProviderChange(
+                                                        e.currentTarget.value,
+                                                    )}
+                                            >
+                                                {#each AI_PROVIDER_REGISTRY as p (p.providerId)}
+                                                    <option value={p.providerId}
+                                                        >{p.providerLabel}</option
+                                                    >
+                                                {/each}
+                                            </select>
+                                        </div>
+                                        <div class="ai-cfg-field">
+                                            <label class="ai-cfg-label"
+                                                >Model</label
+                                            >
+                                            <span class="ai-model-tag"
+                                                >{currentProviderConfig.modelLabel}</span
                                             >
                                         </div>
-                                        <div class="byok-config-actions">
-                                            <div
-                                                class="byok-config-actions-inner"
+                                    </div>
+
+                                    <!-- Divider -->
+                                    <div class="ai-cfg-divider"></div>
+
+                                    <!-- API Key -->
+                                    <div class="ai-cfg-section">
+                                        <label class="ai-cfg-label"
+                                            >API Key</label
+                                        >
+                                        <div class="ai-key-input-wrap">
+                                            <input
+                                                class="ai-cfg-input"
+                                                type={showAiKey
+                                                    ? "text"
+                                                    : "password"}
+                                                placeholder={currentProviderConfig.keyPlaceholder}
+                                                bind:value={aiApiKey}
+                                            />
+                                            <button
+                                                class="ai-key-toggle"
+                                                onclick={() =>
+                                                    (showAiKey = !showAiKey)}
+                                                type="button"
                                             >
-                                                {#if cfg.isDefault !== 1}
-                                                    <button
-                                                        class="byok-btn-link"
-                                                        onclick={() =>
-                                                            handleSetDefault(
-                                                                cfg,
-                                                            )}
-                                                        >Set default</button
+                                                {#if showAiKey}
+                                                    <svg
+                                                        viewBox="0 0 24 24"
+                                                        width="14"
+                                                        height="14"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="1.8"
+                                                        ><path
+                                                            d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"
+                                                        /><line
+                                                            x1="1"
+                                                            y1="1"
+                                                            x2="23"
+                                                            y2="23"
+                                                        /></svg
+                                                    >
+                                                {:else}
+                                                    <svg
+                                                        viewBox="0 0 24 24"
+                                                        width="14"
+                                                        height="14"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="1.8"
+                                                        ><path
+                                                            d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
+                                                        /><circle
+                                                            cx="12"
+                                                            cy="12"
+                                                            r="3"
+                                                        /></svg
                                                     >
                                                 {/if}
+                                            </button>
+                                        </div>
+
+                                        {#if aiTestStatus === "success"}
+                                            <span
+                                                class="ai-test-result success"
+                                            >
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    width="12"
+                                                    height="12"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    ><polyline
+                                                        points="20 6 9 17 4 12"
+                                                    /></svg
+                                                >
+                                                {aiTestMessage}
+                                            </span>
+                                        {:else if aiTestStatus === "error"}
+                                            <span class="ai-test-result error">
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    width="12"
+                                                    height="12"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    ><circle
+                                                        cx="12"
+                                                        cy="12"
+                                                        r="10"
+                                                    /><line
+                                                        x1="15"
+                                                        y1="9"
+                                                        x2="9"
+                                                        y2="15"
+                                                    /><line
+                                                        x1="9"
+                                                        y1="9"
+                                                        x2="15"
+                                                        y2="15"
+                                                    /></svg
+                                                >
+                                                {aiTestMessage}
+                                            </span>
+                                        {/if}
+
+                                        <div class="ai-key-actions">
+                                            <button
+                                                class="ai-action-btn primary"
+                                                onclick={() =>
+                                                    handleSaveAiKey()}
+                                                disabled={!aiApiKey.trim() ||
+                                                    aiTestStatus === "testing"}
+                                            >
+                                                {#if aiTestStatus === "testing"}
+                                                    Verifying...
+                                                {:else}
+                                                    Save & Verify
+                                                {/if}
+                                            </button>
+                                            {#if aiHasKey}
                                                 <button
-                                                    class="byok-btn-link"
-                                                    onclick={() =>
-                                                        openEditEditor(cfg)}
-                                                    >Edit</button
+                                                    class="ai-action-btn danger"
+                                                    onclick={handleRemoveAiKey}
+                                                    >Remove Key</button
+                                                >
+                                            {/if}
+                                        </div>
+                                    </div>
+
+                                    <!-- Divider -->
+                                    <div class="ai-cfg-divider"></div>
+
+                                    <!-- Footer: links + status -->
+                                    <div class="ai-cfg-footer">
+                                        <div class="ai-cfg-links">
+                                            <a
+                                                class="ai-link"
+                                                href={currentProviderConfig.keyUrl}
+                                                target="_blank"
+                                                rel="noopener"
+                                            >
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    width="12"
+                                                    height="12"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    ><path d="M15 3h6v6" /><path
+                                                        d="M10 14L21 3"
+                                                    /><path
+                                                        d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"
+                                                    /></svg
+                                                >
+                                                Get API Key
+                                            </a>
+                                            <span class="ai-link-sep"
+                                                >&middot;</span
+                                            >
+                                            <a
+                                                class="ai-link"
+                                                href="https://github.com/mnfst/awesome-free-llm-apis"
+                                                target="_blank"
+                                                rel="noopener"
+                                            >
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    width="12"
+                                                    height="12"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    ><path d="M15 3h6v6" /><path
+                                                        d="M10 14L21 3"
+                                                    /><path
+                                                        d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"
+                                                    /></svg
+                                                >
+                                                Free LLM APIs
+                                            </a>
+                                        </div>
+                                        {#if aiHasKey}
+                                            <span class="ai-status-badge">
+                                                <span class="ai-status-dot"
+                                                ></span>
+                                                Connected
+                                            </span>
+                                        {/if}
+                                    </div>
+                                </div>
+                            </section>
+
+                            <!-- Configured providers list — every provider
+                                 with a saved key, count + delete + click-to-edit.
+                                 Sits directly under the Configuration card so
+                                 the user can see what they have without opening
+                                 the provider dropdown. -->
+                            <section class="stg-card">
+                                <header class="stg-card-hd">
+                                    <span
+                                        class="stg-card-icon"
+                                        aria-hidden="true"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            width="14"
+                                            height="14"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        >
+                                            <path
+                                                d="M9 11l3 3L22 4"
+                                            /><path
+                                                d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"
+                                            />
+                                        </svg>
+                                    </span>
+                                    <div class="stg-card-titles">
+                                        <h3 class="stg-card-title">
+                                            Configured providers
+                                            <span class="cfg-prov-count"
+                                                >{configuredProviders.length}</span
+                                            >
+                                        </h3>
+                                        <p class="stg-card-sub">
+                                            Keys you've saved. Click a row to
+                                            edit, or remove with delete.
+                                        </p>
+                                    </div>
+                                </header>
+
+                                {#if configuredProviders.length === 0}
+                                    <p class="cfg-prov-empty">
+                                        No providers configured yet. Save a key
+                                        above to add one.
+                                    </p>
+                                {:else}
+                                    <ul class="cfg-prov-list">
+                                        {#each configuredProviders as p (p.providerId)}
+                                            {@const key =
+                                                $settings[p.keySettingName] ?? ""}
+                                            {@const tail = key.length > 4
+                                                ? key.slice(-4)
+                                                : key}
+                                            <!-- svelte-ignore a11y_click_events_have_key_events -->
+                                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                                            <li
+                                                class="cfg-prov-row"
+                                                class:is-active={p.providerId ===
+                                                    aiProvider}
+                                                onclick={() =>
+                                                    handleProviderChange(
+                                                        p.providerId,
+                                                    )}
+                                            >
+                                                <div class="cfg-prov-info">
+                                                    <span
+                                                        class="cfg-prov-name"
+                                                    >
+                                                        {p.providerLabel}
+                                                        {#if p.providerId === aiProvider}
+                                                            <span
+                                                                class="cfg-prov-active-tag"
+                                                                >Active</span
+                                                            >
+                                                        {/if}
+                                                    </span>
+                                                    <span
+                                                        class="cfg-prov-key"
+                                                        title="Key ends in {tail}"
+                                                    >
+                                                        ••••••••{tail}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    class="cfg-prov-del"
+                                                    title="Remove saved key for {p.providerLabel}"
+                                                    onclick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleSettingChange(
+                                                            p.keySettingName,
+                                                            "",
+                                                        );
+                                                        if (
+                                                            p.providerId ===
+                                                            aiProvider
+                                                        ) {
+                                                            aiApiKey = "";
+                                                            aiTestStatus =
+                                                                "idle";
+                                                        }
+                                                    }}
+                                                >
+                                                    <svg
+                                                        viewBox="0 0 24 24"
+                                                        width="13"
+                                                        height="13"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        stroke-width="2"
+                                                        stroke-linecap="round"
+                                                        stroke-linejoin="round"
+                                                        ><polyline
+                                                            points="3 6 5 6 21 6"
+                                                        /><path
+                                                            d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                                        /></svg
+                                                    >
+                                                </button>
+                                            </li>
+                                        {/each}
+                                    </ul>
+                                {/if}
+                            </section>
+                        </div>
+                    {:else if aiSubTab === "usage"}
+                        {#if aiUsageStats.length === 0}
+                            <div class="ai-usage-empty">
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    width="36"
+                                    height="36"
+                                    fill="none"
+                                    stroke="var(--t4)"
+                                    stroke-width="1.2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    ><path d="M18 20V10M12 20V4M6 20v-6" /></svg
+                                >
+                                <p>No API calls recorded yet</p>
+                                <span
+                                    >Start chatting with AI to see usage data
+                                    here</span
+                                >
+                            </div>
+                        {:else}
+                            <div class="stg-card-stack">
+                                <section class="stg-card">
+                                    <header class="stg-card-hd">
+                                        <span
+                                            class="stg-card-icon"
+                                            aria-hidden="true"
+                                        >
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                width="14"
+                                                height="14"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                ><line
+                                                    x1="18"
+                                                    y1="20"
+                                                    x2="18"
+                                                    y2="10"
+                                                /><line
+                                                    x1="12"
+                                                    y1="20"
+                                                    x2="12"
+                                                    y2="4"
+                                                /><line
+                                                    x1="6"
+                                                    y1="20"
+                                                    x2="6"
+                                                    y2="14"
+                                                /></svg
+                                            >
+                                        </span>
+                                        <div class="stg-card-titles">
+                                            <h3 class="stg-card-title">
+                                                Overview
+                                            </h3>
+                                            <p class="stg-card-sub">
+                                                Aggregated calls, tokens, and
+                                                estimated cost across all AI
+                                                activity.
+                                            </p>
+                                        </div>
+                                        {#if showResetConfirm}
+                                            <div class="ai-reset-confirm">
+                                                <span>Reset all data?</span>
+                                                <button
+                                                    class="ai-action-btn danger sm"
+                                                    onclick={handleResetUsage}
+                                                    >Reset</button
                                                 >
                                                 <button
-                                                    class="byok-btn-link danger"
+                                                    class="ai-action-btn sm"
                                                     onclick={() =>
-                                                        handleDeleteConfig(cfg)}
-                                                    >Delete</button
+                                                        (showResetConfirm = false)}
+                                                    >Cancel</button
+                                                >
+                                            </div>
+                                        {:else}
+                                            <button
+                                                class="ai-action-btn sm"
+                                                onclick={() =>
+                                                    (showResetConfirm = true)}
+                                            >
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    width="11"
+                                                    height="11"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.8"
+                                                    ><polyline
+                                                        points="3 6 5 6 21 6"
+                                                    /><path
+                                                        d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"
+                                                    /></svg
+                                                >
+                                                Reset
+                                            </button>
+                                        {/if}
+                                    </header>
+                                    <div class="stg-card-body">
+                                        <div class="ai-summary-grid">
+                                            <div class="ai-summary-card">
+                                                <span class="ai-summary-val"
+                                                    >{aiUsageStats.reduce(
+                                                        (s, v) =>
+                                                            s + v.totalCalls,
+                                                        0,
+                                                    )}</span
+                                                >
+                                                <span class="ai-summary-lbl"
+                                                    >Total Calls</span
+                                                >
+                                            </div>
+                                            <div class="ai-summary-card">
+                                                <span class="ai-summary-val"
+                                                    >{formatTokens(
+                                                        aiUsageStats.reduce(
+                                                            (s, v) =>
+                                                                s +
+                                                                v.inputTokens,
+                                                            0,
+                                                        ),
+                                                    )}</span
+                                                >
+                                                <span class="ai-summary-lbl"
+                                                    >Input Tokens</span
+                                                >
+                                            </div>
+                                            <div class="ai-summary-card">
+                                                <span class="ai-summary-val"
+                                                    >{formatTokens(
+                                                        aiUsageStats.reduce(
+                                                            (s, v) =>
+                                                                s +
+                                                                v.outputTokens,
+                                                            0,
+                                                        ),
+                                                    )}</span
+                                                >
+                                                <span class="ai-summary-lbl"
+                                                    >Output Tokens</span
+                                                >
+                                            </div>
+                                            <div class="ai-summary-card accent">
+                                                <span class="ai-summary-val"
+                                                    >{estimateCost(
+                                                        aiUsageStats.reduce(
+                                                            (s, v) =>
+                                                                s +
+                                                                v.inputTokens,
+                                                            0,
+                                                        ),
+                                                        aiUsageStats.reduce(
+                                                            (s, v) =>
+                                                                s +
+                                                                v.outputTokens,
+                                                            0,
+                                                        ),
+                                                    )}</span
+                                                >
+                                                <span class="ai-summary-lbl"
+                                                    >Est. Cost</span
                                                 >
                                             </div>
                                         </div>
-                                        {@const s = statsForConfig(cfg)}
-                                        <div class="byok-config-stats">
-                                            {#if s}
-                                                <span class="byok-stat"
-                                                    ><strong
-                                                        >{s.totalCalls.toLocaleString()}</strong
-                                                    >
-                                                    {s.totalCalls === 1
-                                                        ? "request"
-                                                        : "requests"}</span
-                                                >
-                                                <span class="byok-stat-sep"
-                                                    >·</span
-                                                >
-                                                <span class="byok-stat"
-                                                    >{fmtTokens(s.inputTokens)}
-                                                    in</span
-                                                >
-                                                <span class="byok-stat-sep"
-                                                    >·</span
-                                                >
-                                                <span class="byok-stat"
-                                                    >{fmtTokens(
-                                                        s.outputTokens,
-                                                    )} out</span
-                                                >
-                                            {:else}
-                                                <span class="byok-stat muted"
-                                                    >No usage tracked yet</span
-                                                >
-                                            {/if}
+                                    </div>
+                                </section>
+
+                                <section class="stg-card">
+                                    <header class="stg-card-hd">
+                                        <span
+                                            class="stg-card-icon"
+                                            aria-hidden="true"
+                                        >
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                width="14"
+                                                height="14"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                ><polygon
+                                                    points="12 2 2 7 12 12 22 7 12 2"
+                                                /><polyline
+                                                    points="2 17 12 22 22 17"
+                                                /><polyline
+                                                    points="2 12 12 17 22 12"
+                                                /></svg
+                                            >
+                                        </span>
+                                        <div class="stg-card-titles">
+                                            <h3 class="stg-card-title">
+                                                By Mode
+                                            </h3>
+                                            <p class="stg-card-sub">
+                                                Per-mode breakdown of AI calls
+                                                and token spend.
+                                            </p>
                                         </div>
-                                    </li>
-                                {/each}
-                            </ul>
+                                    </header>
+                                    <div class="stg-card-body">
+                                        <div class="ai-table">
+                                            <div class="ai-table-head">
+                                                <span>Mode</span>
+                                                <span>Calls</span>
+                                                <span>Input</span>
+                                                <span>Output</span>
+                                                <span>Cost</span>
+                                            </div>
+                                            {#each aiUsageStats as stat}
+                                                <div class="ai-table-row">
+                                                    <span
+                                                        class="ai-table-label"
+                                                    >
+                                                        <span
+                                                            class="ai-dot"
+                                                            data-mode={stat.mode}
+                                                        ></span>
+                                                        {stat.mode.toUpperCase()}
+                                                    </span>
+                                                    <span class="ai-table-val"
+                                                        >{stat.totalCalls}</span
+                                                    >
+                                                    <span class="ai-table-val"
+                                                        >{formatTokens(
+                                                            stat.inputTokens,
+                                                        )}</span
+                                                    >
+                                                    <span class="ai-table-val"
+                                                        >{formatTokens(
+                                                            stat.outputTokens,
+                                                        )}</span
+                                                    >
+                                                    <span
+                                                        class="ai-table-val accent"
+                                                        >{estimateCost(
+                                                            stat.inputTokens,
+                                                            stat.outputTokens,
+                                                        )}</span
+                                                    >
+                                                </div>
+                                            {/each}
+                                        </div>
+                                    </div>
+                                </section>
+
+                                {#if aiProviderStats.length > 0}
+                                    <section class="stg-card">
+                                        <header class="stg-card-hd">
+                                            <span
+                                                class="stg-card-icon"
+                                                aria-hidden="true"
+                                            >
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    width="14"
+                                                    height="14"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    ><rect
+                                                        x="4"
+                                                        y="4"
+                                                        width="16"
+                                                        height="16"
+                                                        rx="2"
+                                                    /><rect
+                                                        x="9"
+                                                        y="9"
+                                                        width="6"
+                                                        height="6"
+                                                    /><line
+                                                        x1="9"
+                                                        y1="2"
+                                                        x2="9"
+                                                        y2="4"
+                                                    /><line
+                                                        x1="15"
+                                                        y1="2"
+                                                        x2="15"
+                                                        y2="4"
+                                                    /><line
+                                                        x1="9"
+                                                        y1="20"
+                                                        x2="9"
+                                                        y2="22"
+                                                    /><line
+                                                        x1="15"
+                                                        y1="20"
+                                                        x2="15"
+                                                        y2="22"
+                                                    /><line
+                                                        x1="20"
+                                                        y1="9"
+                                                        x2="22"
+                                                        y2="9"
+                                                    /><line
+                                                        x1="20"
+                                                        y1="15"
+                                                        x2="22"
+                                                        y2="15"
+                                                    /><line
+                                                        x1="2"
+                                                        y1="9"
+                                                        x2="4"
+                                                        y2="9"
+                                                    /><line
+                                                        x1="2"
+                                                        y1="15"
+                                                        x2="4"
+                                                        y2="15"
+                                                    /></svg
+                                                >
+                                            </span>
+                                            <div class="stg-card-titles">
+                                                <h3 class="stg-card-title">
+                                                    By Provider
+                                                </h3>
+                                                <p class="stg-card-sub">
+                                                    Spend grouped by model —
+                                                    useful when switching
+                                                    providers.
+                                                </p>
+                                            </div>
+                                        </header>
+                                        <div class="stg-card-body">
+                                            <div class="ai-table">
+                                                <div class="ai-table-head">
+                                                    <span>Model</span>
+                                                    <span>Calls</span>
+                                                    <span>Input</span>
+                                                    <span>Output</span>
+                                                    <span>Cost</span>
+                                                </div>
+                                                {#each aiProviderStats as pstat}
+                                                    <div class="ai-table-row">
+                                                        <span
+                                                            class="ai-table-label"
+                                                        >
+                                                            <span
+                                                                class="ai-dot"
+                                                                style="background: var(--acc)"
+                                                            ></span>
+                                                            {formatModelName(
+                                                                pstat.model,
+                                                            )}
+                                                        </span>
+                                                        <span
+                                                            class="ai-table-val"
+                                                            >{pstat.totalCalls}</span
+                                                        >
+                                                        <span
+                                                            class="ai-table-val"
+                                                            >{formatTokens(
+                                                                pstat.inputTokens,
+                                                            )}</span
+                                                        >
+                                                        <span
+                                                            class="ai-table-val"
+                                                            >{formatTokens(
+                                                                pstat.outputTokens,
+                                                            )}</span
+                                                        >
+                                                        <span
+                                                            class="ai-table-val accent"
+                                                            >{estimateCost(
+                                                                pstat.inputTokens,
+                                                                pstat.outputTokens,
+                                                            )}</span
+                                                        >
+                                                    </div>
+                                                {/each}
+                                            </div>
+                                            <p class="ai-pricing-note">
+                                                Haiku 4.5: $1.00 / MTok in
+                                                &middot; $5.00 / MTok out
+                                            </p>
+                                        </div>
+                                    </section>
+                                {/if}
+                            </div>
                         {/if}
-                    </div>
-
-                    {#if editorState.open}
-                        <AIConfigEditor
-                            mode={editorState.mode}
-                            existing={editorState.mode === "edit"
-                                ? {
-                                      id: editorState.config.id,
-                                      label: editorState.config.label,
-                                      provider: editorState.config.provider,
-                                      baseUrl: editorState.config.baseUrl,
-                                      defaultModel:
-                                          editorState.config.defaultModel,
-                                  }
-                                : null}
-                            onClose={() => (editorState = { open: false })}
-                            onSave={handleEditorSave}
-                        />
                     {/if}
-
+                    {/if}
                 {:else if activeTab === "agent"}
                     <div class="agent-settings-pane">
                         <!-- Agent sub-tabs -->
@@ -4188,64 +5160,6 @@
                             </div>
                         </section>
 
-                        <section class="stg-card">
-                            <header class="stg-card-hd">
-                                <span class="stg-card-icon" aria-hidden="true">
-                                    <svg
-                                        viewBox="0 0 24 24"
-                                        width="14"
-                                        height="14"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        ><path
-                                            d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-                                        /></svg
-                                    >
-                                </span>
-                                <div class="stg-card-titles">
-                                    <h3 class="stg-card-title">Support</h3>
-                                    <p class="stg-card-sub">
-                                        If Clauge helped you in development,
-                                        consider buying the developer a coffee.
-                                    </p>
-                                </div>
-                            </header>
-                            <div class="stg-card-body">
-                                <a
-                                    class="about-coffee"
-                                    href="https://buymeacoffee.com/ansxuman"
-                                    target="_blank"
-                                    rel="noopener"
-                                >
-                                    <svg viewBox="0 0 24 24"
-                                        ><path
-                                            d="M17 8h1a4 4 0 110 8h-1"
-                                        /><path
-                                            d="M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8z"
-                                        /><line
-                                            x1="6"
-                                            y1="2"
-                                            x2="6"
-                                            y2="4"
-                                        /><line
-                                            x1="10"
-                                            y1="2"
-                                            x2="10"
-                                            y2="4"
-                                        /><line
-                                            x1="14"
-                                            y1="2"
-                                            x2="14"
-                                            y2="4"
-                                        /></svg
-                                    >
-                                    Buy me a coffee
-                                </a>
-                            </div>
-                        </section>
                     </div>
                 {/if}
             </div>
