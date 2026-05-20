@@ -370,18 +370,32 @@
                             <p class="cl-mode-lede">
                                 A Kanban + notes layer your agents can actually
                                 read, write, and act on. Coworkers (Tech Lead,
-                                Reviewer, QA — your own personas) can claim
-                                cards, comment, raise PRs. A built-in
-                                <b>MCP server</b> exposes 45+ tools so any
-                                external AI can query and mutate your workspace.
+                                Brainstormer, Developer, Reviewer, QA — your
+                                own personas) can claim cards, comment, raise
+                                PRs. A built-in <b>MCP server</b> exposes 30+
+                                tools so any external AI can query and mutate
+                                your workspace — <em>auto-started on launch</em>,
+                                no flag, no setup.
                             </p>
                             <dl class="cl-mode-specs">
                                 <dt>Boards</dt>
                                 <dd>
                                     <b>Kanban</b> · Backlog → Todo → In Progress
-                                    → In Review → Done. Cards have priority,
-                                    tags, comments, review checklists, PR +
-                                    session links.
+                                    → In Review → Done. <em>Review</em> is a
+                                    safety gate, not a column you skip past.
+                                    Cards carry priority, tags, comments,
+                                    review checklists, PR + session links.
+                                </dd>
+                                <dt>Two-way Git</dt>
+                                <dd>
+                                    Pull open issues from <b>GitHub</b> and
+                                    <b>GitLab</b> into a board — finish the
+                                    card and push it back as a pull request.
+                                </dd>
+                                <dt>Project linking</dt>
+                                <dd>
+                                    Point a workspace at a git repo and Clauge
+                                    auto-spawns one board per subproject.
                                 </dd>
                                 <dt>Coworkers</dt>
                                 <dd>
@@ -390,18 +404,31 @@
                                     changes, claim work, commit,
                                     <em>raise PRs</em>, hand back for review.
                                 </dd>
+                                <dt>Single-owner lock</dt>
+                                <dd>
+                                    Only one coworker — or one terminal session
+                                    — owns a card at any moment. Switching
+                                    owners, claiming from a terminal, and
+                                    chatting in the card drawer all go through
+                                    the same lock. <em>No race conditions, no
+                                    lost work.</em>
+                                </dd>
                                 <dt>Notes</dt>
                                 <dd>
-                                    Markdown-first, per-project, freezable,
-                                    searchable. Linked to sessions and exposed
-                                    through MCP.
+                                    A <em>Notion-style WYSIWYG editor</em> for
+                                    markdown — not a textarea. Per-project,
+                                    linked to sessions, full-text searchable
+                                    across every board, exposed through MCP.
                                 </dd>
                                 <dt>MCP server</dt>
                                 <dd>
                                     <b>45+ tools</b> over board ops, card
-                                    lifecycle, notes, REST collections, coworker
-                                    coordination — usable from Claude Desktop,
-                                    IDEs, CLI agents.
+                                    lifecycle, notes, REST collections, and
+                                    coworker coordination — including
+                                    <code>cards_call_coworker</code> so the
+                                    agent in your terminal can
+                                    <em>@-mention</em> a coworker on a card
+                                    without leaving the shell.
                                 </dd>
                                 <dt>Inbox</dt>
                                 <dd>
@@ -642,7 +669,8 @@
                                 <dt>Profile manager</dt>
                                 <dd>
                                     Tag servers, group by environment, filter by
-                                    protocol.
+                                    protocol. Open <b>multiple tabs against the
+                                    same host</b> — no re-authenticating.
                                 </dd>
                                 <dt>Tunneling</dt>
                                 <dd>
@@ -701,8 +729,11 @@
                                 </dd>
                                 <dt>Bulk transfer</dt>
                                 <dd>
-                                    Drag in or out. Resumable, parallel,
-                                    transfer panel logs everything.
+                                    <b>Drag-and-drop</b> in or out, right-click
+                                    <em>"Download to…"</em> to anywhere on disk.
+                                    Resumable, parallel, with a live transfer
+                                    panel that logs every operation and lets
+                                    you cancel mid-flight.
                                 </dd>
                                 <dt>Quick preview</dt>
                                 <dd>
@@ -803,6 +834,7 @@
                             <span class="cl-cchip"
                                 >Built-in Clauge MCP server</span
                             ><span class="cl-cchip">45+ tools</span
+                            ><span class="cl-cchip">auto-starts on launch</span
                             ><span class="cl-cchip">stdio</span
                             ><span class="cl-cchip">HTTP</span>
                         </dd>
