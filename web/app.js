@@ -646,43 +646,50 @@
   const mount = document.getElementById('site-footer');
   if (!mount) return;
 
+  // adopt v2 class so the schematic styling applies
+  mount.classList.add('cl-footer');
+
   const year = new Date().getFullYear();
 
   mount.innerHTML = `
-    <div class="container">
-      <div class="row">
-        <div class="col" style="max-width: 320px;">
-          <a class="brand" href="./" style="margin-bottom: 8px;">
-            <img src="clauge-mark.svg" alt="" />
-            <span>Clauge</span>
-          </a>
-          <p style="color: var(--text-dim);">The AI-powered super-app for developers.</p>
-        </div>
-        <div class="col">
-          <h5>Product</h5>
-          <a href="index.html#modes">Modes</a>
-          <a href="pricing.html">Pricing</a>
-          <a href="changelog.html">Changelog</a>
-        </div>
-        <div class="col">
-          <h5>Open</h5>
-          <a href="https://github.com/ansxuman/Clauge" target="_blank" rel="noopener">GitHub</a>
-          <a href="https://github.com/ansxuman/Clauge/issues" target="_blank" rel="noopener">Report an issue</a>
-          <a href="https://github.com/ansxuman/Clauge/releases" target="_blank" rel="noopener">Releases</a>
-          <a href="https://github.com/ansxuman/Clauge/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
-        </div>
-        <div class="col">
-          <h5>Legal</h5>
-          <a href="terms.html">Terms of Service</a>
-          <a href="privacy.html">Privacy Policy</a>
-          <a href="enterprise.html">Enterprise</a>
-          <a href="mailto:support@clauge.in">Commercial licensing</a>
-        </div>
+    <div class="footer-grid">
+      <div>
+        <a class="brand" href="./">
+          <img src="clauge-mark.svg" alt="" />
+          <span>Clauge</span>
+        </a>
+        <p class="footer-tag">An AI-powered super-app for developers. Eight modes, one keyboard, one shell.</p>
       </div>
-      <div class="meta-row">
-        <span>© ${year} Clauge</span>
-        <span>Made for developers · macOS · Windows · Linux</span>
+      <div>
+        <h6>Product</h6>
+        <ul>
+          <li><a href="index.html#agent">Modes</a></li>
+          <li><a href="pricing.html">Pricing</a></li>
+          <li><a href="changelog.html">Changelog</a></li>
+          <li><a href="enterprise.html">Enterprise</a></li>
+        </ul>
       </div>
+      <div>
+        <h6>Open</h6>
+        <ul>
+          <li><a href="https://github.com/ansxuman/Clauge" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/ansxuman/Clauge/issues" target="_blank" rel="noopener">Report an issue</a></li>
+          <li><a href="https://github.com/ansxuman/Clauge/releases" target="_blank" rel="noopener">Releases</a></li>
+          <li><a href="https://github.com/ansxuman/Clauge/blob/main/LICENSE" target="_blank" rel="noopener">License</a></li>
+        </ul>
+      </div>
+      <div>
+        <h6>Legal</h6>
+        <ul>
+          <li><a href="terms.html">Terms of Service</a></li>
+          <li><a href="privacy.html">Privacy Policy</a></li>
+          <li><a href="mailto:support@clauge.in">Commercial licensing</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-meta">
+      <span>© ${year} CLAUGE.IN</span>
+      <span>MADE FOR DEVELOPERS · macOS · WINDOWS · LINUX</span>
     </div>
   `;
 })();
@@ -691,28 +698,28 @@
 (() => {
   const mount = document.getElementById('site-header');
   if (!mount) return;
+
+  // adopt v2 class so the schematic styling applies
+  mount.classList.add('cl-header');
+
   // current-page detection so the active link matches without per-page edits
   const path = (location.pathname || '/').replace(/\/$/, '');
   const file = path.split('/').pop() || '';
   const isHome = file === '' || file === 'index.html';
-  const active = (a) => a === file || (a === 'index.html' && isHome) ? ' is-active' : '';
-  const homeHref = isHome ? '#modes' : 'index.html#modes';
+  const homeHref = isHome ? '#agent' : 'index.html#agent';
 
   mount.innerHTML = `
-    <div class="container header-inner">
-      <a class="brand" href="./" aria-label="Clauge home">
-        <img src="${isHome ? '' : ''}clauge-mark.svg" alt="" />
+    <div class="cl-header-wrap">
+      <a class="cl-brand" href="./" aria-label="Clauge home">
+        <img src="clauge-mark.svg" alt="" />
         <span>Clauge</span>
       </a>
-      <nav class="nav" aria-label="Primary">
-        <a href="${homeHref}">Modes</a>
-        <a class="${active('pricing.html').trim()}" href="pricing.html">Pricing</a>
-        <a class="${active('changelog.html').trim()}" href="changelog.html">Changelog</a>
-        <a class="${active('enterprise.html').trim()}" href="enterprise.html">Enterprise</a>
-        <a href="https://github.com/ansxuman/Clauge" target="_blank" rel="noopener" class="cta">
-          <i class="fa-brands fa-github" aria-hidden="true"></i>
-          <span>GitHub</span>
-        </a>
+      <nav class="cl-nav" aria-label="Primary">
+        <a href="${homeHref}"><span class="num">01</span>Modes</a>
+        <a href="pricing.html"><span class="num">02</span>Pricing</a>
+        <a href="changelog.html"><span class="num">03</span>Changelog</a>
+        <a href="enterprise.html"><span class="num">04</span>Enterprise</a>
+        <a href="https://github.com/ansxuman/Clauge" target="_blank" rel="noopener" class="is-cta"><span class="num">↗</span>GitHub</a>
       </nav>
     </div>
   `;
@@ -980,3 +987,39 @@
     });
   }
 })();
+
+
+/* ── Hero plate scroll-pull: plate starts slightly wider (scale 1.05) at the
+   top of the page and settles to natural width (scale 1) as the user scrolls
+   past the hero. Sets --plate-progress (0 → 1) on the plate element. ── */
+(() => {
+  const plate = document.querySelector('.cl-plate');
+  if (!plate) return;
+
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    plate.style.setProperty('--plate-progress', '1');
+    return;
+  }
+
+  let ticking = false;
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => {
+      const rect = plate.getBoundingClientRect();
+      // Progress = how far the top of the plate has scrolled past 60% of the viewport.
+      // 0 when plate is fully below that line; 1 once the plate has scrolled up past it.
+      const trigger = window.innerHeight * 0.6;
+      const distance = window.innerHeight * 0.5;
+      const raw = (trigger - rect.top) / distance;
+      const progress = Math.max(0, Math.min(1, raw));
+      plate.style.setProperty('--plate-progress', progress.toFixed(3));
+      ticking = false;
+    });
+  };
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  onScroll();
+})();
+

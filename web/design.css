@@ -1,0 +1,1091 @@
+/* ═════════════════════════════════════════════════════════════════
+   Clauge v2 — "Engineering Schematic"
+   Cool navy-black, electric coral accent, hairline grid, condensed
+   display + DM Mono body, dimension annotations everywhere.
+   ═════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800;900&family=DM+Mono:wght@300;400;500&family=Syne:wght@500;600;700&display=swap');
+
+:root {
+  /* surface */
+  --bg:           #0a0d14;
+  --bg-2:         #0e121a;
+  --bg-3:         #131826;
+  --bg-plate:     #07090f;
+
+  /* ink */
+  --ink:          #e8ecf2;
+  --ink-2:        #aab2c4;
+  --ink-3:        #6c7689;
+  --ink-4:        #3a4254;
+
+  /* rules */
+  --rule:         rgba(232, 236, 242, 0.08);
+  --rule-2:       rgba(232, 236, 242, 0.18);
+  --grid:         rgba(232, 236, 242, 0.035);
+
+  /* accent — surveyor's flag coral */
+  --accent:       #ff5436;
+  --accent-2:     #ff8060;
+  --accent-soft:  rgba(255, 84, 54, 0.12);
+  --accent-glow:  rgba(255, 84, 54, 0.35);
+
+  /* type */
+  --f-display:    'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  --f-mono:       'DM Mono', ui-monospace, SFMono-Regular, monospace;
+  --f-brand:      'Syne', system-ui, sans-serif;  /* preserved Clauge wordmark font */
+
+  /* layout */
+  --col:          min(1240px, calc(100% - 64px));
+  --ease:         cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  /* ─── Legacy token remap ───
+     Other pages (pricing, enterprise, terms, privacy, changelog, 404,
+     upgrade-success) reference v1 token names in their embedded styles.
+     Remap them here so the entire site picks up the schematic palette
+     without rewriting every page. */
+  --acc:          var(--accent);
+  --purple:       var(--accent);
+  --ssh:          var(--accent);
+  --agent:        var(--accent);
+  --text:         var(--ink);
+  --text-muted:   var(--ink-2);
+  --text-dim:     var(--ink-3);
+  --border:       var(--rule-2);
+  --border-3:     var(--rule-2);
+  --bg-card:      var(--bg-3);
+  --bg-glass:     rgba(10, 13, 20, 0.62);
+  --b-subtle:     var(--bg-3);
+  --b1:           var(--rule);
+  --b2:           var(--rule-2);
+  --t1:           var(--ink);
+  --t2:           var(--ink-2);
+  --t3:           var(--ink-3);
+  --t4:           var(--ink-4);
+  --s:            var(--bg-2);
+  --n:            var(--bg-3);
+  --n2:           var(--bg-3);
+  --c:            var(--bg-3);
+  --e:            var(--bg-3);
+  --r-sm:         0;
+  --r-md:         0;
+  --r-lg:         0;
+  --r-xl:         0;
+  --r-2xl:        0;
+  --font-display: 'Big Shoulders Display', 'Arial Narrow', sans-serif;
+  --font-body:    'DM Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-mono:    'DM Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-mono);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ─── Hairline grid backdrop (CAD program vibe) ─── */
+body::before {
+  content: "";
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(to right,  var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 80px 80px;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 90%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 90%);
+}
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1   0 0 0 0 1   0 0 0 0 1   0 0 0 0.035 0'/></filter><rect width='240' height='240' filter='url(%23n)'/></svg>");
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+
+main { position: relative; z-index: 1; }
+
+a { color: inherit; text-decoration: none; }
+img, svg, video { display: block; max-width: 100%; }
+::selection { background: var(--accent); color: var(--bg); }
+
+/* ─── Header (preserved Clauge wordmark, schematic chrome) ─── */
+.cl-header {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(140%) blur(10px);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.cl-header-wrap {
+  width: var(--col); margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 60px;
+}
+/* user's brand — Clauge SVG + Syne wordmark, preserved as requested */
+.cl-brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--f-brand);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.cl-brand img { width: 22px; height: 22px; }
+
+.cl-nav {
+  display: flex; gap: 0; align-items: stretch;
+  height: 60px;
+  font-family: var(--f-mono); font-size: 11px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+.cl-nav a {
+  display: inline-flex; align-items: center;
+  color: var(--ink-3);
+  padding: 0 16px;
+  border-right: 1px solid var(--rule);
+  transition: color .2s var(--ease), background .2s var(--ease);
+  cursor: pointer;
+}
+.cl-nav a:first-of-type { border-left: 1px solid var(--rule); }
+.cl-nav a:hover { color: var(--ink); background: rgba(255, 255, 255, 0.025); }
+.cl-nav a.is-cta {
+  color: var(--accent);
+}
+.cl-nav a.is-cta:hover { background: var(--accent-soft); }
+.cl-nav a.is-active { color: var(--ink); }
+.cl-nav a .num {
+  color: var(--ink-4);
+  margin-right: 6px;
+}
+
+/* ─── Container helper ─── */
+.col { width: var(--col); margin: 0 auto; }
+
+/* ─── Schematic chrome utilities ─── */
+.cl-crosshair {
+  position: absolute;
+  width: 14px; height: 14px;
+  pointer-events: none;
+}
+.cl-crosshair::before, .cl-crosshair::after {
+  content: ""; position: absolute; background: var(--accent);
+}
+.cl-crosshair::before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-0.5px); }
+.cl-crosshair::after  { top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-0.5px); }
+.cl-crosshair.tl { top: -7px; left: -7px; }
+.cl-crosshair.tr { top: -7px; right: -7px; }
+.cl-crosshair.bl { bottom: -7px; left: -7px; }
+.cl-crosshair.br { bottom: -7px; right: -7px; }
+
+.cl-coord {
+  font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.cl-coord .cl-coord-key { color: var(--ink-4); margin-right: 6px; }
+.cl-coord .cl-coord-val { color: var(--ink-2); }
+.cl-coord-accent { color: var(--accent); }
+
+/* ═══ HERO ════════════════════════════════════════════════════════ */
+.cl-hero {
+  position: relative;
+  padding: 56px 0 64px;
+}
+
+/* corner-coord block bracketing the hero */
+.cl-hero-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: 20px;
+  margin-bottom: 32px;
+  border-bottom: 1px dashed var(--rule);
+}
+.cl-hero-meta .cl-coord-val { color: var(--ink); }
+.cl-hero-meta .cl-coord-accent { color: var(--accent); font-weight: 500; }
+
+.cl-hero-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 28px;
+}
+
+.cl-hero-headline {
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: clamp(40px, 7.2vw, 108px);
+  line-height: 0.92;
+  letter-spacing: -0.014em;
+  color: var(--ink);
+  margin: 0;
+  text-transform: uppercase;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.cl-hero-headline em {
+  font-style: normal;
+  font-weight: 900;
+  color: var(--accent);
+  position: relative;
+  white-space: nowrap;
+}
+.cl-hero-headline em::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0.1em;
+  height: 4px; background: var(--accent);
+  opacity: 0.18;
+}
+
+
+.cl-hero-sub {
+  font-family: var(--f-mono);
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  margin: 0;
+  max-width: 60ch;
+  text-align: center;
+}
+.cl-hero-sub b { color: var(--ink); font-weight: 500; }
+
+.cl-hero-actions {
+  display: flex; align-items: center; justify-content: center;
+  gap: 14px; flex-wrap: wrap;
+  margin-top: 8px;
+}
+.cl-btn {
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 14px 20px;
+  border-radius: 0;
+  font-family: var(--f-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+  transition: background .2s var(--ease), color .2s var(--ease), transform .12s var(--ease);
+  cursor: pointer;
+}
+.cl-btn:hover { transform: translateY(-1px); background: var(--accent-2); }
+.cl-btn-ghost {
+  background: transparent;
+  color: var(--ink-2);
+  border-color: var(--ink-4);
+}
+.cl-btn-ghost:hover { color: var(--ink); border-color: var(--ink-2); background: transparent; }
+.cl-btn .cl-btn-chip {
+  margin-left: 4px; padding: 2px 6px;
+  border: 1px solid currentColor;
+  font-size: 9.5px; letter-spacing: 0.12em;
+  opacity: 0.75;
+}
+.cl-btn-ghost .cl-btn-chip { border-color: var(--ink-4); }
+
+.cl-hero-aside {
+  font-family: var(--f-mono); font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  text-align: center;
+  display: block;
+  margin: 0 auto;
+}
+.cl-hero-aside u { text-decoration: none; border-bottom: 1px dashed currentColor; }
+
+/* ─── Plate — schematic-framed app preview ─── */
+.cl-plate {
+  position: relative;
+  margin: 72px 0 0;
+  /* widen beyond the col container — break the grid for visual impact */
+  margin-left:  -64px;
+  margin-right: -64px;
+  /* scroll-pull: at top of page the plate is slightly wider than the container,
+     then it settles to its natural width as the user scrolls past the hero.
+     JS sets --plate-progress on the element from 0 (top) to 1 (settled). */
+  --plate-progress: 0;
+  transform: scale(calc(1 + (1 - var(--plate-progress)) * 0.04));
+  transform-origin: 50% 0%;
+  transition: transform 0.12s linear;
+  will-change: transform;
+}
+@media (max-width: 1100px) {
+  .cl-plate { margin-left: 0; margin-right: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cl-plate { transform: none; transition: none; }
+}
+.cl-plate-rail {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  gap: 18px; align-items: center;
+  font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+.cl-plate-rail .cl-rail-key { color: var(--accent); font-weight: 500; }
+.cl-plate-rail .cl-rail-mid { color: var(--ink-2); text-align: center; border-top: 1px dashed var(--rule); padding-top: 2px; }
+.cl-plate-rail .cl-rail-end { color: var(--ink-4); }
+
+.cl-plate-frame {
+  position: relative;
+  background: var(--bg-plate);
+  border: 1px solid var(--rule-2);
+  padding: 12px;
+}
+.cl-plate-frame::after {
+  content: "";
+  position: absolute; inset: 4px;
+  border: 1px solid var(--rule);
+  pointer-events: none;
+}
+
+.cl-plate-foot {
+  display: flex; justify-content: space-between;
+  font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--rule);
+}
+.cl-plate-foot b { color: var(--ink-2); font-weight: 500; }
+
+/* ─── Re-skin embedded app preview to navy + coral ───
+   The app-stage DOM comes from style.css which uses violet-indigo tokens.
+   Override those tokens inside .cl-plate scope so the preview matches the site
+   without breaking app.js or per-mode behavior. */
+.cl-plate {
+  /* surface tokens (style.css uses these names) */
+  --acc:        var(--accent);        /* coral replaces indigo */
+  --s:          #07090f;              /* deep plate well */
+  --n:          #0c1018;
+  --n2:         #11161f;
+  --c:          #131927;
+  --e:          #0f1320;
+  --b1:         rgba(232, 236, 242, 0.08);
+  --b2:         rgba(232, 236, 242, 0.16);
+  --b-subtle:   #10141c;
+  --t1:         var(--ink);
+  --t2:         var(--ink-2);
+  --t3:         var(--ink-3);
+  --t4:         var(--ink-4);
+  /* per-mode accents — all coral so the preview reads as one palette */
+  --agent:      var(--accent);
+  --ssh:        var(--accent);
+  --purple:     var(--accent);
+}
+.cl-plate .app-stage { width: 100%; }
+.cl-plate .app-window {
+  background: #06080d;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  overflow: hidden;
+}
+.cl-plate .chrome,
+.cl-plate .status-bar { background: #0a0e16; border-color: var(--rule); }
+.cl-plate .nav-rail,
+.cl-plate .sidebar,
+.cl-plate .ai-panel { background: var(--s); border-color: var(--rule); }
+.cl-plate .workspace { background: var(--n); }
+
+/* intel-link / arm-alt overrides for v2 styling (production app.js shows/hides these) */
+.cl-hero-aside.intel-link {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 4px;
+}
+.cl-hero-aside.intel-link.arm-alt { flex-wrap: wrap; gap: 8px; }
+.cl-hero-aside .arm-chip {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--rule-2);
+  color: var(--ink-2);
+  font-family: var(--f-mono); font-size: 11px;
+  letter-spacing: 0.06em;
+  transition: border-color .2s var(--ease), color .2s var(--ease);
+}
+.cl-hero-aside .arm-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ═══ MODE FEATURE — schematic spec ═══════════════════════════════ */
+.cl-mode {
+  position: relative;
+  padding: 96px 0;
+  border-top: 1px solid var(--rule);
+}
+.cl-mode:nth-of-type(even) { background: var(--bg-2); }
+
+.cl-mode-rail {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  gap: 24px; align-items: center;
+  font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 48px;
+}
+.cl-mode-rail .cl-rail-module {
+  color: var(--accent);
+  font-weight: 500;
+}
+.cl-mode-rail .cl-rail-line {
+  border-top: 1px dashed var(--rule-2);
+  height: 1px;
+}
+.cl-mode-rail .cl-rail-tag {
+  color: var(--ink-4);
+}
+
+.cl-mode-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 72px;
+  align-items: start;
+}
+/* alternating layout — even-numbered modes flip headline / detail columns */
+.cl-mode-reverse .cl-mode-head {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+.cl-mode-reverse .cl-mode-headline { order: 2; }
+.cl-mode-reverse .cl-mode-detail   { order: 1; }
+.cl-mode-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  min-width: 0;
+}
+.cl-mode-headline {
+  font-family: var(--f-display);
+  font-weight: 800;
+  font-size: clamp(44px, 6.4vw, 88px);
+  line-height: 0.92;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  margin: 0;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+.cl-mode-headline em {
+  font-style: normal;
+  font-weight: 900;
+  color: var(--accent);
+}
+.cl-mode-lede {
+  font-family: var(--f-mono);
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+  margin: 0;
+  max-width: 46ch;
+}
+.cl-mode-lede b { color: var(--ink); font-weight: 500; }
+
+/* the technical-figure plate */
+.cl-mode-fig {
+  position: relative;
+  background: var(--bg-plate);
+  border: 1px solid var(--rule-2);
+  padding: 12px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+.cl-mode-fig::before {
+  content: "";
+  position: absolute; inset: 4px;
+  border: 1px solid var(--rule);
+  pointer-events: none; z-index: 2;
+}
+.cl-mode-fig::after {
+  content: "";
+  position: absolute; inset: -30% -15%;
+  background: radial-gradient(50% 50% at 30% 35%, var(--accent-soft), transparent 70%);
+  filter: blur(40px);
+  pointer-events: none;
+  z-index: 0;
+}
+.cl-mode-fig > video,
+.cl-mode-fig > img {
+  position: absolute; inset: 12px;
+  width: calc(100% - 24px); height: calc(100% - 24px);
+  object-fit: cover; z-index: 1;
+}
+.cl-mode-fig-pending {
+  position: relative; z-index: 1;
+  height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 18px;
+}
+.cl-mode-fig-shimmer {
+  position: absolute; inset: 0; overflow: hidden;
+  background: repeating-linear-gradient(110deg, rgba(232, 236, 242, 0.018) 0 5px, transparent 5px 12px);
+}
+.cl-mode-fig-shimmer::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(232, 236, 242, 0.07) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: cl-shim 2.8s ease-in-out infinite;
+}
+@keyframes cl-shim { to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .cl-mode-fig-shimmer::after { animation: none; }
+}
+.cl-mode-fig-label {
+  position: relative; z-index: 1;
+  font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-3);
+  text-align: center;
+  padding: 8px 14px;
+  border: 1px dashed var(--rule-2);
+  background: rgba(10, 13, 20, 0.6);
+}
+.cl-mode-fig-label code {
+  font-family: var(--f-mono);
+  background: rgba(255, 84, 54, 0.12);
+  color: var(--accent);
+  padding: 1px 5px;
+  margin: 0 2px;
+}
+
+/* dimension annotations around the figure */
+.cl-mode-fig-wrap { position: relative; }
+.cl-dim-x, .cl-dim-y {
+  position: absolute;
+  font-family: var(--f-mono); font-size: 10px;
+  letter-spacing: 0.10em; color: var(--ink-4);
+  display: flex; align-items: center; justify-content: center;
+}
+.cl-dim-x {
+  left: 0; right: 0; bottom: -22px;
+  height: 14px;
+}
+.cl-dim-x::before, .cl-dim-x::after {
+  content: ""; flex: 1; height: 1px; background: var(--rule-2);
+}
+.cl-dim-x span { padding: 0 10px; }
+.cl-dim-y {
+  top: 0; bottom: 0; left: -32px;
+  width: 14px; writing-mode: vertical-rl; transform: rotate(180deg);
+}
+.cl-dim-y::before, .cl-dim-y::after {
+  content: ""; flex: 1; width: 1px; background: var(--rule-2);
+}
+.cl-dim-y span { padding: 10px 0; }
+
+/* specifications panel — compact datasheet, lives inside cl-mode-detail */
+.cl-mode-specs {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0;
+  border-top: 1px solid var(--rule-2);
+  font-family: var(--f-mono);
+}
+.cl-mode-specs > div {
+  display: contents;
+}
+.cl-mode-specs dt, .cl-mode-specs dd {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+}
+.cl-mode-specs dt {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  padding-right: 28px;
+  min-width: 160px;
+}
+.cl-mode-specs dd {
+  margin: 0;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+}
+.cl-mode-specs dd b { color: var(--ink); font-weight: 500; }
+.cl-mode-specs dd em { font-style: normal; color: var(--accent); }
+.cl-mode-specs dd .cl-spec-key {
+  color: var(--accent); margin-right: 8px;
+}
+
+/* ═══ COMPATIBILITY (works-with) ════════════════════════════════ */
+.cl-compat {
+  position: relative;
+  padding: 120px 0;
+  border-top: 1px solid var(--rule);
+  background: var(--bg-2);
+}
+.cl-compat-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0;
+  border-top: 1px solid var(--rule-2);
+  font-family: var(--f-mono);
+}
+.cl-compat-grid dt, .cl-compat-grid dd {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12px;
+}
+.cl-compat-grid dt {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  padding-right: 32px;
+  min-width: 200px;
+}
+.cl-compat-grid dd {
+  margin: 0;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  align-items: center;
+}
+.cl-cchip {
+  display: inline-flex; align-items: center;
+  padding: 5px 11px;
+  border: 1px solid var(--rule-2);
+  color: var(--ink-2);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  transition: border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
+}
+.cl-cchip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ═══ DOWNLOAD CTA ════════════════════════════════════════════════ */
+.cl-download {
+  position: relative;
+  padding: 120px 0 96px;
+  border-top: 1px solid var(--rule);
+}
+.cl-download::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: radial-gradient(60% 50% at 50% 0%, var(--accent-soft), transparent 70%);
+  pointer-events: none;
+}
+.cl-download-card {
+  position: relative;
+  margin-top: 32px;
+  padding: 48px 56px;
+  border: 1px solid var(--rule-2);
+  background: var(--bg-plate);
+  display: flex; flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+.cl-download-card::after {
+  content: "";
+  position: absolute; inset: 4px;
+  border: 1px solid var(--rule);
+  pointer-events: none;
+}
+.cl-download-card .cl-mode-headline {
+  font-size: clamp(40px, 5.2vw, 72px);
+  margin: 0;
+}
+.cl-download-sub {
+  font-family: var(--f-mono);
+  font-size: 13.5px;
+  color: var(--ink-2);
+  margin: 0;
+  max-width: 56ch;
+}
+.cl-alpha {
+  display: inline-block;
+  font-family: var(--f-mono); font-size: 10px; font-weight: 500;
+  letter-spacing: 0.18em;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: var(--bg);
+  margin-right: 6px;
+}
+.cl-download-actions {
+  display: flex; flex-wrap: wrap; gap: 14px;
+  margin-top: 10px;
+}
+
+/* ═══ FOOTER ════════════════════════════════════════════════════ */
+.cl-footer {
+  position: relative; z-index: 1;
+  padding: 56px 0 80px;
+  border-top: 1px solid var(--rule);
+  background: var(--bg);
+  color: var(--ink-3);
+}
+.cl-footer .container,
+.cl-footer .footer-inner,
+.cl-footer .footer-grid {
+  width: var(--col); margin: 0 auto;
+}
+.cl-footer .footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+.cl-footer h6 {
+  font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-4);
+  margin: 0 0 14px;
+  font-weight: 500;
+}
+.cl-footer ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cl-footer a {
+  font-family: var(--f-mono); font-size: 12px;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+  transition: color .2s var(--ease);
+}
+.cl-footer a:hover { color: var(--accent); }
+.cl-footer .brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--f-brand); font-weight: 700;
+  font-size: 20px; color: var(--ink);
+  letter-spacing: -0.01em;
+  margin-bottom: 12px;
+}
+.cl-footer .brand img { width: 26px; height: 26px; }
+.cl-footer .footer-tag {
+  font-family: var(--f-mono); font-size: 12px;
+  color: var(--ink-3); max-width: 32ch; line-height: 1.5;
+}
+.cl-footer .footer-meta {
+  width: var(--col); margin: 40px auto 0;
+  padding-top: 18px;
+  border-top: 1px dashed var(--rule);
+  display: flex; justify-content: space-between;
+  font-family: var(--f-mono); font-size: 10.5px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--ink-4);
+}
+
+/* ═══ Generic page (pricing / privacy / terms / enterprise / changelog / 404) ═══ */
+/* When pages load both style.css and design.css, these resets make the page
+   adopt the schematic system without us having to rewrite every page's markup. */
+body.v2 main > section,
+section.cl-section {
+  padding: 96px 0;
+  position: relative;
+}
+.cl-section + .cl-section { border-top: 1px solid var(--rule); }
+
+/* ═══ CHANGELOG — schematic release plates ═══ */
+.changelog-hero { padding: 88px 0 24px !important; }
+.changelog-hero .eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--f-mono); font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent) !important;
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  margin-bottom: 22px;
+  border-radius: 0 !important;
+}
+.changelog-hero h1 {
+  font-family: var(--f-display) !important;
+  font-weight: 800 !important;
+  font-size: clamp(48px, 6.4vw, 88px) !important;
+  line-height: 0.96 !important;
+  letter-spacing: -0.018em !important;
+  text-transform: uppercase;
+  margin: 0 !important;
+  color: var(--ink) !important;
+}
+.changelog-hero p {
+  font-family: var(--f-mono) !important;
+  font-size: 14px !important;
+  color: var(--ink-2) !important;
+  margin-top: 16px !important;
+  max-width: 56ch !important;
+}
+.changelog-hero .all-releases {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--f-mono) !important; font-size: 11px !important;
+  letter-spacing: 0.16em !important; text-transform: uppercase;
+  color: var(--accent) !important;
+  margin-top: 24px !important;
+  border-bottom: 1px dashed var(--accent) !important;
+  border-top: 0 !important; border-left: 0 !important; border-right: 0 !important;
+  padding-bottom: 2px !important;
+}
+.changelog-hero .all-releases:hover {
+  color: var(--accent-2) !important;
+  border-color: var(--accent-2) !important;
+}
+
+.releases {
+  display: flex; flex-direction: column; gap: 28px;
+}
+.cl-loading {
+  font-family: var(--f-mono); font-size: 12px;
+  color: var(--ink-3);
+  letter-spacing: 0.14em; text-transform: uppercase;
+  padding: 48px 0; text-align: center;
+}
+
+.release-card {
+  position: relative;
+  padding: 28px !important;
+  border-radius: 0 !important;
+  background: var(--bg-plate) !important;
+  border: 1px solid var(--rule-2) !important;
+}
+.release-card::after {
+  content: "";
+  position: absolute; inset: 4px;
+  border: 1px solid var(--rule);
+  pointer-events: none;
+}
+.release-card:hover { border-color: var(--accent) !important; }
+.release-card.is-latest {
+  background: var(--bg-plate) !important;
+  border-color: var(--accent) !important;
+}
+.release-card.is-latest::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: radial-gradient(60% 50% at 0% 0%, var(--accent-soft), transparent 70%);
+  pointer-events: none;
+}
+.release-card > * { position: relative; z-index: 1; }
+
+/* meta rail at top of card */
+.release-meta {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  font-family: var(--f-mono) !important; font-size: 10.5px !important;
+  letter-spacing: 0.18em !important; text-transform: uppercase;
+  color: var(--ink-3) !important;
+  margin-bottom: 18px !important;
+  padding-bottom: 14px !important;
+  border-bottom: 1px dashed var(--rule-2) !important;
+}
+.release-meta .release-dot { display: none !important; }
+.release-meta .release-date {
+  color: var(--ink-2) !important;
+}
+.release-badge-latest {
+  font-family: var(--f-mono) !important;
+  font-size: 9.5px !important; font-weight: 500 !important;
+  padding: 2px 8px !important;
+  border-radius: 0 !important;
+  background: var(--accent) !important;
+  color: var(--bg) !important;
+  border: 1px solid var(--accent) !important;
+  letter-spacing: 0.18em !important;
+  margin-left: auto;
+}
+
+/* headline + version chip */
+.release-card-head {
+  display: flex; align-items: baseline; flex-wrap: wrap;
+  gap: 14px !important;
+  margin-bottom: 18px !important;
+}
+.release-card-head h2 {
+  font-family: var(--f-display) !important;
+  font-weight: 800 !important;
+  font-size: clamp(26px, 3vw, 36px) !important;
+  line-height: 1 !important;
+  letter-spacing: -0.012em !important;
+  text-transform: uppercase;
+  margin: 0;
+}
+.release-card-head h2 a {
+  color: var(--ink) !important;
+}
+.release-card-head h2 a:hover {
+  color: var(--accent) !important;
+}
+.release-tag {
+  font-family: var(--f-mono) !important;
+  font-size: 10.5px !important;
+  padding: 3px 9px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: 1px solid var(--rule-2) !important;
+  color: var(--ink-2) !important;
+  letter-spacing: 0.10em !important;
+  text-transform: uppercase;
+}
+
+/* body markdown */
+.release-body {
+  font-family: var(--f-mono) !important;
+  font-size: 12.5px !important;
+  line-height: 1.7 !important;
+  color: var(--ink-2) !important;
+}
+.release-body h1, .release-body h2, .release-body h3, .release-body h4 {
+  font-family: var(--f-mono) !important;
+  font-weight: 500 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.18em !important;
+  color: var(--ink-4) !important;
+  margin-top: 20px !important;
+  margin-bottom: 8px !important;
+  border-top: 1px dashed var(--rule);
+  padding-top: 16px;
+}
+.release-body > :first-child { margin-top: 0 !important; padding-top: 0 !important; border-top: 0 !important; }
+.release-body h1 { font-size: 11.5px !important; color: var(--accent) !important; }
+.release-body h2 { font-size: 11px !important; color: var(--accent) !important; }
+.release-body h3 { font-size: 10.5px !important; }
+.release-body h4 { font-size: 10.5px !important; }
+.release-body p { color: var(--ink-2) !important; }
+.release-body strong { color: var(--ink) !important; font-weight: 500 !important; }
+.release-body em { color: var(--ink) !important; font-style: italic; }
+.release-body a {
+  color: var(--accent) !important;
+  border-bottom: 1px dashed var(--accent) !important;
+}
+.release-body a:hover { color: var(--accent-2) !important; border-color: var(--accent-2) !important; }
+.release-body ul, .release-body ol {
+  padding-left: 20px !important;
+  display: grid !important;
+  gap: 4px !important;
+  color: var(--ink-2) !important;
+}
+.release-body ul li::marker { color: var(--accent) !important; }
+.release-body ol li::marker { color: var(--accent) !important; font-family: var(--f-mono); font-size: 11px; }
+.release-body code {
+  font-family: var(--f-mono) !important;
+  font-size: 11.5px !important;
+  padding: 1px 6px !important;
+  border-radius: 0 !important;
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+  border: 1px solid var(--rule);
+}
+.release-body pre {
+  font-family: var(--f-mono) !important;
+  font-size: 11.5px !important;
+  padding: 14px !important;
+  border-radius: 0 !important;
+  background: rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid var(--rule) !important;
+  color: var(--ink) !important;
+}
+.release-body pre code {
+  background: none !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: var(--ink-2) !important;
+}
+.release-body blockquote {
+  padding: 10px 14px !important;
+  border-left: 2px solid var(--accent) !important;
+  background: var(--accent-soft) !important;
+  border-radius: 0 !important;
+  color: var(--ink-2) !important;
+}
+.release-body hr {
+  border: 0 !important;
+  border-top: 1px dashed var(--rule-2) !important;
+  margin: 18px 0 !important;
+}
+
+/* @mention badges */
+.release-body a.cl-mention {
+  display: inline-flex; align-items: baseline;
+  font-family: var(--f-mono) !important; font-size: 11.5px !important; font-weight: 500 !important;
+  padding: 1px 7px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: 1px solid var(--accent) !important;
+  color: var(--accent) !important;
+}
+.release-body a.cl-mention:hover {
+  background: var(--accent-soft) !important;
+  color: var(--ink) !important;
+  border-color: var(--accent) !important;
+}
+
+/* image plates */
+.release-images { gap: 6px !important; margin: 14px 0 !important; }
+.release-images img {
+  border-radius: 0 !important;
+  border: 1px solid var(--rule-2) !important;
+}
+
+/* download assets — compact mono chips */
+.release-assets {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  margin-top: 22px !important;
+  padding-top: 18px !important;
+  border-top: 1px dashed var(--rule-2) !important;
+}
+.release-asset {
+  padding: 7px 12px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: 1px solid var(--rule-2) !important;
+  font-family: var(--f-mono) !important;
+  font-size: 11px !important;
+  color: var(--ink-2) !important;
+  gap: 8px !important;
+  letter-spacing: 0.04em !important;
+}
+.release-asset:hover {
+  background: var(--accent-soft) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  transform: none !important;
+}
+.release-asset:hover i { color: var(--accent) !important; }
+.release-asset i { color: var(--ink-3) !important; font-size: 12px !important; }
+.release-asset .asset-label {
+  font-family: var(--f-mono) !important;
+  font-weight: 500 !important; font-size: 11px !important;
+  color: inherit !important; letter-spacing: 0.04em !important;
+}
+.release-asset .asset-suffix {
+  font-family: var(--f-mono) !important; font-size: 9.5px !important;
+  color: var(--ink-4) !important;
+  padding-left: 8px !important; margin-left: 4px !important;
+  border-left: 1px solid var(--rule-2) !important;
+  letter-spacing: 0.10em !important;
+}
+
+/* responsive */
+@media (max-width: 900px) {
+  .cl-hero-body, .cl-mode-head { grid-template-columns: 1fr; gap: 36px; }
+  .cl-mode, .cl-compat, .cl-download { padding: 72px 0; }
+  .cl-hero { padding: 40px 0 32px; }
+  .cl-plate { margin-top: 56px; }
+  .cl-nav { display: none; }
+  .cl-mode-specs dt,
+  .cl-compat-grid dt { min-width: 0; padding-right: 16px; }
+  .cl-download-card { padding: 32px 24px; }
+  .cl-footer .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+}
+@media (max-width: 560px) {
+  .cl-footer .footer-grid { grid-template-columns: 1fr; }
+  .cl-footer .footer-meta { flex-direction: column; gap: 6px; }
+}

@@ -4,45 +4,38 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Clauge — Connecting to GitHub</title>
+<meta name="theme-color" content="#0a0d14">
+<link rel="stylesheet" href="../design.css">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #07070b;
-    color: rgba(255,255,255,0.94);
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
     display: flex; align-items: center; justify-content: center;
-    min-height: 100vh;
-    overflow: hidden;
-    position: relative;
-  }
-  .bg-field { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-  .bg-field::before {
-    content: ""; position: absolute; inset: 0;
-    background:
-      radial-gradient(900px 600px at 12% -8%, rgba(210, 168, 255, 0.14), transparent 60%),
-      radial-gradient(700px 500px at 92% 8%, rgba(86, 212, 221, 0.10), transparent 60%),
-      radial-gradient(600px 500px at 50% 110%, rgba(210, 168, 255, 0.08), transparent 65%);
-  }
-  .bg-field::after {
-    content: ""; position: absolute; inset: 0;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
-    background-size: 48px 48px;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, #000 30%, transparent 80%);
+    min-height: 100vh; overflow: hidden;
   }
   .card {
-    text-align: center; max-width: 420px; padding: 40px;
     position: relative; z-index: 1;
+    text-align: center;
+    width: min(480px, calc(100% - 48px));
+    padding: 40px;
+    border: 1px solid var(--rule-2);
+    background: var(--bg-plate);
   }
-  h1 { font-size: 20px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em; }
-  p { font-size: 14px; color: rgba(255,255,255,0.6); line-height: 1.55; margin-bottom: 20px; }
-  .spinner { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.12); border-top-color: #d2a8ff; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  .card::after {
+    content: ""; position: absolute; inset: 4px;
+    border: 1px solid var(--rule); pointer-events: none;
+  }
+  .card img { margin: 0 auto 18px; width: 48px; height: 48px; }
+  h1 {
+    font-family: var(--f-display); font-weight: 800;
+    font-size: 26px; text-transform: uppercase; letter-spacing: -0.01em;
+    color: var(--ink); margin-bottom: 10px;
+  }
+  p { font-family: var(--f-mono); font-size: 13px; color: var(--ink-2); line-height: 1.6; margin-bottom: 20px; }
+  .spinner { width: 22px; height: 22px; border: 2px solid var(--rule-2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .error { color: #f85149; }
   .success { color: #3fb950; }
-  a { color: #d2a8ff; text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  a { color: var(--accent); border-bottom: 1px dashed currentColor; }
+  a:hover { color: var(--accent-2); }
 </style>
 </head>
 <body>

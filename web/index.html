@@ -3,615 +3,940 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Clauge — Engineering Schematic preview</title>
+        <meta name="theme-color" content="#0a0d14" />
+        <meta name="color-scheme" content="dark" />
+        <meta name="robots" content="noindex,nofollow" />
 
-        <!-- ─── Primary SEO ──────────────────────────────────────────── -->
-        <title>Clauge — The AI-powered super-app for developers</title>
-        <meta
-            name="description"
-            content="One window. One keyboard. One AI that knows what you're doing. Clauge replaces the dev tools you keep flipping between — Claude Code sessions, REST, SQL, NoSQL, SSH, and remote files all in one shell."
-        />
-        <meta
-            name="keywords"
-            content="Clauge, AI coding assistant, Claude Code, developer super app, REST client, SQL client, NoSQL client, SSH client, Tauri app, terminal, developer tools"
-        />
-        <meta name="author" content="Clauge" />
-        <meta name="publisher" content="Clauge" />
-        <meta name="robots" content="index, follow, max-image-preview:large" />
-        <meta name="googlebot" content="index, follow" />
-        <link rel="canonical" href="https://clauge.in/" />
-
-        <!-- Browser chrome / color scheme. Two theme-color entries let
-             Safari/Chrome pick the right address-bar tint per user mode. -->
-        <meta name="theme-color" content="#07070b" media="(prefers-color-scheme: dark)" />
-        <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-        <meta name="color-scheme" content="dark light" />
-        <meta name="format-detection" content="telephone=no" />
-        <meta name="application-name" content="Clauge" />
-        <meta name="apple-mobile-web-app-title" content="Clauge" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-
-        <!-- ─── Open Graph (Facebook, LinkedIn, Slack, Discord) ──────── -->
-        <!-- NOTE: og:image SHOULD be a 1200×630 PNG/JPG for proper card
-             rendering. Most platforms (Facebook, LinkedIn, Slack) won't
-             render SVGs in link previews. Create `og-image.png` at the
-             repo root (1200×630) and swap the URL below once it exists. -->
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Clauge" />
-        <meta property="og:locale" content="en_US" />
-        <meta property="og:url" content="https://clauge.in/" />
-        <meta
-            property="og:title"
-            content="Clauge — The AI-powered super-app for developers"
-        />
-        <meta
-            property="og:description"
-            content="One window. One keyboard. One AI that knows what you're doing. Clauge replaces the dev tools you keep flipping between."
-        />
-        <meta property="og:image" content="https://clauge.in/og-image.png" />
-        <meta property="og:image:alt" content="Clauge — AI-powered super-app for developers" />
-
-        <!-- ─── Twitter / X card ─────────────────────────────────────── -->
-        <meta name="twitter:card" content="summary_large_image" />
-        <!-- Add your Twitter / X handle when you have one, e.g.:
-             <meta name="twitter:site" content="@clauge_app" />
-             <meta name="twitter:creator" content="@ansxuman" /> -->
-        <meta
-            name="twitter:title"
-            content="Clauge — The AI-powered super-app for developers"
-        />
-        <meta
-            name="twitter:description"
-            content="One window. One keyboard. One AI that knows what you're doing. Clauge replaces the dev tools you keep flipping between."
-        />
-        <meta name="twitter:image" content="https://clauge.in/og-image.png" />
-        <meta name="twitter:image:alt" content="Clauge — AI-powered super-app for developers" />
-
-        <!-- ─── Icons ────────────────────────────────────────────────── -->
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
-        <link rel="shortcut icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <link rel="manifest" href="/site.webmanifest" />
 
-        <!-- ─── Structured data (Google rich results) ────────────────── -->
-        <!-- Two graphs: the Organization that publishes Clauge, and the
-             SoftwareApplication for the app itself. Google merges them via
-             the shared `@id` URL so the knowledge panel / search card has
-             the right name, logo, and download link. -->
-        <script type="application/ld+json">
-            {
-                "@context": "https://schema.org",
-                "@graph": [
-                    {
-                        "@type": "Organization",
-                        "@id": "https://clauge.in/#org",
-                        "name": "Clauge",
-                        "url": "https://clauge.in/",
-                        "logo": "https://clauge.in/clauge-mark.svg",
-                        "sameAs": [
-                            "https://github.com/ansxuman/Clauge"
-                        ]
-                    },
-                    {
-                        "@type": "SoftwareApplication",
-                        "@id": "https://clauge.in/#app",
-                        "name": "Clauge",
-                        "url": "https://clauge.in/",
-                        "image": "https://clauge.in/clauge-mark.svg",
-                        "description": "An AI-powered super-app for developers — Claude Code session manager, REST client, SQL client, NoSQL client, SSH client, and remote file browser, all in one cross-platform desktop shell.",
-                        "applicationCategory": "DeveloperApplication",
-                        "operatingSystem": "macOS, Windows, Linux",
-                        "publisher": { "@id": "https://clauge.in/#org" },
-                        "offers": {
-                            "@type": "Offer",
-                            "price": "0",
-                            "priceCurrency": "USD"
-                        }
-                    },
-                    {
-                        "@type": "WebSite",
-                        "@id": "https://clauge.in/#website",
-                        "url": "https://clauge.in/",
-                        "name": "Clauge",
-                        "publisher": { "@id": "https://clauge.in/#org" }
-                    }
-                ]
-            }
-        </script>
-
-        <!-- ─── Fonts + stylesheets ──────────────────────────────────── -->
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <!-- style.css for the embedded app-stage internals only;
+             design.css overrides everything page-level. -->
+        <link rel="stylesheet" href="style.css" />
+        <link rel="stylesheet" href="design.css" />
         <link
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
             referrerpolicy="no-referrer"
         />
-        <script src="config.js"></script>
-        <link rel="stylesheet" href="style.css" />
     </head>
     <body>
-        <a class="skip-link" href="#main">Skip to content</a>
-        <div class="bg-field" aria-hidden="true"></div>
-
-        <header class="header" id="site-header"></header>
-
         <main id="main">
+            <!-- ─── HEADER — injected by app.js (single source of truth) ─── -->
+            <header id="site-header"></header>
+
             <!-- ─── HERO ─── -->
-            <section class="hero">
-                <div class="container">
-                    <div class="hero-copy">
-                        <h1>
-                            The AI-powered
-                            <span class="grad">super-app</span> for developers.
+            <section class="cl-hero" id="top">
+                <div class="col">
+                    <div class="cl-hero-meta">
+                        <span
+                            ><span class="cl-coord-key">REF</span
+                            ><span class="cl-coord-val"
+                                >CLG-HOME-001</span
+                            ></span
+                        >
+                        <span class="cl-coord-accent"
+                            >◆ AI-POWERED SUPER-APP FOR DEVELOPERS</span
+                        >
+                        <span
+                            ><span class="cl-coord-key">CLAUGE</span
+                            ><span class="cl-coord-val">.IN</span></span
+                        >
+                    </div>
+
+                    <div class="cl-hero-body">
+                        <h1 class="cl-hero-headline">
+                            One window. <em>Every</em> dev tool.
                         </h1>
 
-                        <div class="hero-actions">
-                            <div class="hero-ctas">
-                                <a
-                                    class="btn btn-primary"
-                                    id="cta-download"
-                                    data-os-arch="auto"
-                                    href="https://github.com/ansxuman/Clauge/releases/latest"
-                                    target="_blank"
-                                    rel="noopener"
-                                >
-                                    <i data-cta-icon class="fa-brands fa-apple" aria-hidden="true"></i>
-                                    <span data-cta-label>Download for Mac</span>
-                                    <span class="chip" data-cta-arch>Apple Silicon</span>
-                                </a>
-                                <a
-                                    class="btn btn-primary"
-                                    id="cta-download-2"
-                                    data-os-arch="linux-x64-rpm"
-                                    href="https://github.com/ansxuman/Clauge/releases/latest"
-                                    target="_blank"
-                                    rel="noopener"
-                                    style="display: none"
-                                >
-                                    <i data-cta-icon-2 class="fa-brands fa-linux" aria-hidden="true"></i>
-                                    <span data-cta-label-2>Download for Linux</span>
-                                    <span class="chip" data-cta-arch-2>x64 · .rpm</span>
-                                </a>
-                                <a
-                                    class="btn btn-ghost"
-                                    href="https://github.com/ansxuman/Clauge"
-                                    target="_blank"
-                                    rel="noopener"
-                                >
-                                    <i class="fa-brands fa-github" aria-hidden="true"></i>
-                                    Star on GitHub
-                                </a>
-                            </div>
+                        <!-- Download CTAs — preserve production OS-detection DOM exactly so app.js drives it. -->
+                        <div class="hero-ctas cl-hero-actions">
                             <a
-                                class="intel-link"
-                                id="intel-link"
-                                data-os-arch="mac-intel"
+                                class="cl-btn"
+                                id="cta-download"
+                                data-os-arch="auto"
                                 href="https://github.com/ansxuman/Clauge/releases/latest"
                                 target="_blank"
                                 rel="noopener"
                             >
-                                <span data-cta-alt-label>On an Intel Mac? <u>Get the Intel build</u></span>
+                                <i
+                                    data-cta-icon
+                                    class="fa-brands fa-apple"
+                                    aria-hidden="true"
+                                ></i>
+                                <span data-cta-label>Download for Mac</span>
+                                <span class="cl-btn-chip" data-cta-arch
+                                    >Apple Silicon</span
+                                >
                             </a>
-                            <span class="intel-link arm-alt" id="intel-link-arm" style="display: none">
-                                On ARM?
-                                <a class="arm-chip" data-os-arch="linux-arm-deb" href="https://github.com/ansxuman/Clauge/releases/latest" target="_blank" rel="noopener">.deb</a>
-                                <a class="arm-chip" data-os-arch="linux-arm-rpm" href="https://github.com/ansxuman/Clauge/releases/latest" target="_blank" rel="noopener">.rpm</a>
-                            </span>
                             <a
-                                class="intel-link"
-                                id="intel-link-win-arm"
-                                data-os-arch="win-arm"
+                                class="cl-btn"
+                                id="cta-download-2"
+                                data-os-arch="linux-x64-rpm"
                                 href="https://github.com/ansxuman/Clauge/releases/latest"
                                 target="_blank"
                                 rel="noopener"
                                 style="display: none"
                             >
-                                On Windows on ARM? <u>Get the ARM64 build</u>
+                                <i
+                                    data-cta-icon-2
+                                    class="fa-brands fa-linux"
+                                    aria-hidden="true"
+                                ></i>
+                                <span data-cta-label-2>Download for Linux</span>
+                                <span class="cl-btn-chip" data-cta-arch-2
+                                    >x64 · .rpm</span
+                                >
+                            </a>
+                            <a
+                                class="cl-btn cl-btn-ghost"
+                                href="https://github.com/ansxuman/Clauge"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                <i
+                                    class="fa-brands fa-github"
+                                    aria-hidden="true"
+                                ></i>
+                                Star on GitHub
                             </a>
                         </div>
-                    </div>
-
-                    <!-- BELOW: live app — full container width -->
-                    <!-- BELOW: live app demo — JS-driven, 8 modes -->
-                    <div class="hero-preview">
-                        <div class="app-stage" id="app-stage" data-mode="agent">
-                            <div class="app-window">
-                                <div class="chrome">
-                                    <div class="dots">
-                                        <span class="dot r"></span>
-                                        <span class="dot y"></span>
-                                        <span class="dot g"></span>
-                                    </div>
-                                    <div class="tabbar" data-tabbar></div>
-                                    <span class="chrome-avatar" aria-hidden="true">
-                                        <i class="fa-solid fa-circle-user"></i>
-                                    </span>
-                                </div>
-                                <div class="app-body">
-                                    <nav class="nav-rail" role="tablist" aria-label="Modes" data-rail></nav>
-                                    <aside class="sidebar">
-                                        <button class="side-cta" data-side-cta type="button">
-                                            <i class="fa-solid fa-plus" aria-hidden="true"></i>
-                                            <span data-side-cta-label>New Session</span>
-                                        </button>
-                                        <div class="side-cards" data-side-cards></div>
-                                        <div class="side-list" data-side-list></div>
-                                    </aside>
-                                    <main class="workspace" data-workspace></main>
-                                    <aside class="ai-panel">
-                                        <div class="ai-head">
-                                            <span class="ai-title">AI Assistant</span>
-                                            <span class="ai-pill" data-ai-pill>AGENT</span>
-                                        </div>
-                                        <div class="ai-stream" data-ai-stream></div>
-                                        <div class="ai-input">
-                                            <input data-ai-input type="text" placeholder="ask anything · ⌘L to focus" aria-label="AI prompt" />
-                                            <button class="ai-send" type="button" aria-label="Send"><i class="fa-solid fa-paper-plane"></i></button>
-                                        </div>
-                                    </aside>
-                                </div>
-                                <div class="status-bar">
-                                    <span class="sb-left" data-sb-left>~/atlas-team/atlas</span>
-                                    <span class="sb-center" data-sb-center></span>
-                                    <span class="sb-right" data-sb-right>★ MCP · :7421 · Clauge v3.0.0-alpha.13</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- .hero-preview -->
-                </div>
-            </section>
-
-            <!-- ─── MODES — Codex-style alternating feature blocks ─── -->
-            <section id="modes">
-                <div class="container modes-intro">
-                    <p class="section-tag reveal">What's inside</p>
-                    <h2 class="section-heading reveal">
-                        Every dev tool you reach for.
-                        <span class="grad">One window.</span>
-                    </h2>
-                    <p class="section-lede reveal">
-                        Each Clauge mode is a first-class tool with shared
-                        sessions, shared AI context, and the same keyboard.
-                        Switch with one tap; never lose your place.
-                    </p>
-                </div>
-
-                <!-- AGENT -->
-                <article class="mode-feature reveal" data-accent="agent" id="mode-agent">
-                    <div class="container mf-wrap">
-                        <div class="mf-copy">
-                            <span class="mf-eyebrow"><span class="mf-eyebrow-svg"><svg viewBox="0 0 24 24"><path d="M12 3l1.6 4.8L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.2L12 3z"/><path d="M18.5 14l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6z"/></svg></span> Agent</span>
-                            <h3 class="mf-title">Run Claude Code like it belongs in a real app.</h3>
-                            <p class="mf-lede">
-                                Spawn parallel agent sessions, each pinned to a
-                                purpose &mdash; brainstorm, build, review, debug.
-                                Each session gets its own git worktree, its own
-                                context, its own shell.
-                            </p>
-                            <ul class="mf-caps">
-                                <li><span class="mc-icon"><i class="fa-solid fa-layer-group"></i></span><div><b>Multi-session manager</b><span>Sessions are tabs. Each remembers its purpose, model, and context.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-code-branch"></i></span><div><b>Worktree per session</b><span>Each agent works in its own git worktree. No stomping on uncommitted changes.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-folder-tree"></i></span><div><b>Context Manager</b><span>Pin files, folders, and MCP servers per session. Reuse across sessions.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-shield-halved"></i></span><div><b>Approve before run</b><span>Every Bash, Edit, and Write is gated. Read freely, write only when you say so.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-chart-column"></i></span><div><b>Usage tracking</b><span>Tokens, cost, cache hit, model mix &mdash; per session and aggregated.</span></div></li>
-                            </ul>
-                            <div class="mf-brands">
-                                <span class="mf-brands-label">Models</span>
-                                <span class="mf-brand mf-brand-plain">Claude</span>
-                                <span class="mf-brand mf-brand-plain">Codex</span>
-                                <span class="mf-brand mf-brand-plain">Gemini</span>
-                                <span class="mf-brand mf-brand-plain">OpenCode</span>
-                            </div>
-                        </div>
-                        <div class="mf-viz">
-                            <div class="vmock vmock-agent">
-                                <div class="vmock-titlebar"><span class="vmock-tab is-active"><span class="vmock-tab-mark">A</span> atlas-payments <span class="vmock-tab-close">×</span></span></div>
-                                <div class="vmock-session">
-                                    <div class="vs-head"><div class="vs-mark"></div><div><div class="vs-title">Clauge Code <span class="vs-ver">v2.1.128</span></div><div class="vs-meta">Opus 4.7 (1M context) · Clauge Max</div><div class="vs-meta vs-path">~/atlas/.clauge-worktrees/payments-refactor</div></div></div>
-                                    <div class="vs-prompt">Review the payments-refactor branch for bugs.</div>
-                                    <div class="vs-stream">
-                                        <div class="vs-line"><span class="vs-dot"></span> <b>Bash</b>(git log --oneline main..HEAD)</div>
-                                        <div class="vs-ai">Found it &mdash; <code>confirmIntent()</code> returns the raw Stripe error to the client.</div>
-                                        <div class="vs-line"><span class="vs-dot"></span> <b>Edit</b> <code>payments/intent.ts</code> · <span class="ok">+6</span> / <span class="bad">−2</span></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-
-                <!-- WORKSPACE -->
-                <article class="mode-feature reveal mf-reverse" data-accent="workspace" id="mode-workspace">
-                    <div class="container mf-wrap">
-                        <div class="mf-copy">
-                            <span class="mf-eyebrow"><span class="mf-eyebrow-svg"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span> Workspace</span>
-                            <h3 class="mf-title">A brain for the work, not just the code.</h3>
-                            <p class="mf-lede">Pull open issues from your Git remote into a Kanban board, attach markdown notes to sessions, assign AI co-workers with custom personas to each card.</p>
-                            <ul class="mf-caps">
-                                <li><span class="mc-icon"><i class="fa-solid fa-table-columns"></i></span><div><b>Kanban boards</b><span>Backlog · Todo · In Review · Done. Pull issues from GitHub.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-user-group"></i></span><div><b>AI co-workers</b><span>Tech Lead, Reviewer, QA &mdash; configure once, @mention on any card.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-pen-to-square"></i></span><div><b>Markdown notes</b><span>Linked to sessions. Code blocks, mentions, exportable.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-inbox"></i></span><div><b>Inbox</b><span>Mentions, review requests, approval queues across boards.</span></div></li>
-                            </ul>
-                            <div class="mf-brands">
-                                <span class="mf-brands-label">Co-workers powered by</span>
-                                <span class="mf-brand mf-brand-plain">Claude</span>
-                                <span class="mf-brand mf-brand-plain">Codex</span>
-                                <span class="mf-brand mf-brand-plain">OpenCode</span>
-                            </div>
-                        </div>
-                        <div class="mf-viz">
-                            <div class="vmock vmock-kanban">
-                                <div class="vmock-titlebar"><span class="vmock-tab is-active">Payments board <span class="vmock-tab-close">×</span></span></div>
-                                <div class="kanban">
-                                    <div class="kcol"><div class="kcol-head">Backlog <span>0</span></div></div>
-                                    <div class="kcol kcol-active">
-                                        <div class="kcol-head">Todo <span>4</span></div>
-                                        <div class="kcard"><div class="kcard-title">Fix confirmIntent error leak</div><div class="kcard-tags"><span class="pill pill-red mini">critical</span><span class="pill mini">payments</span></div><div class="kcard-foot"><span class="kcw"><span class="bd-cw-avatar">A</span>@alex</span><span>2m</span></div></div>
-                                        <div class="kcard"><div class="kcard-title">Refund webhook never acks</div><div class="kcard-tags"><span class="pill pill-red mini">critical</span></div><div class="kcard-foot"><span class="kcw"><span class="bd-cw-avatar">A</span>@alex</span><span>2m</span></div></div>
-                                        <div class="kcard"><div class="kcard-title">Idempotency key cross-tenant</div><div class="kcard-tags"><span class="pill pill-purple mini">race</span></div><div class="kcard-foot"><span class="kcw"><span class="bd-cw-avatar">Q</span>@quinn</span><span>5m</span></div></div>
-                                    </div>
-                                    <div class="kcol"><div class="kcol-head">In Review <span>0</span></div></div>
-                                    <div class="kcol"><div class="kcol-head">Done <span>0</span></div></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-
-                <!-- REST -->
-                <article class="mode-feature reveal" data-accent="rest" id="mode-rest">
-                    <div class="container mf-wrap">
-                        <div class="mf-copy">
-                            <span class="mf-eyebrow"><span class="mf-eyebrow-svg"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg></span> REST</span>
-                            <h3 class="mf-title">An API client that runs whole collections in one prompt.</h3>
-                            <p class="mf-lede">Collections, environments, history. Paste a cURL and hit Send. Or just ask: "run the smoke tests in staging" &mdash; the AI fires the collection, tracks pass/fail, reports inline.</p>
-                            <ul class="mf-caps">
-                                <li><span class="mc-icon"><i class="fa-solid fa-rectangle-list"></i></span><div><b>Collections</b><span>Folders, tags, per-collection auth, pre-script hooks.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-flask"></i></span><div><b>Environments</b><span>Global, per-collection, per-request &mdash; overrides clearly resolved.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-bolt"></i></span><div><b>AI batch runner</b><span>Fires whole collections, summarizes failures with the failing request.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-clock-rotate-left"></i></span><div><b>Replay history</b><span>Every request you've ever sent. Resurrect, diff, re-fire.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-file-import"></i></span><div><b>Postman import</b><span>Drop your existing v2/v2.1 collections, environments, and variables.</span></div></li>
-                            </ul>
-                            <div class="mf-brands">
-                                <span class="mf-brands-label">Works with</span>
-                                <span class="mf-brand mf-brand-plain">HTTP / REST</span>
-                                <span class="mf-brand mf-brand-plain">cURL</span>
-                                <span class="mf-brand mf-brand-plain">Postman v2 / v2.1</span>
-                                <span class="mf-brand mf-brand-plain">OpenAPI</span>
-                            </div>
-                        </div>
-                        <div class="mf-viz">
-                            <div class="vmock vmock-rest">
-                                <div class="vmock-titlebar"><span class="vmock-tab is-active">Atlas Smoke Tests <span class="vmock-tab-close">×</span></span></div>
-                                <div class="rest-rows">
-                                    <div class="rest-row"><span class="m-get pill-mini">GET</span> /health <span class="ok mono">200 · 41ms</span></div>
-                                    <div class="rest-row"><span class="m-post pill-mini">POST</span> /auth/token <span class="ok mono">200 · 187ms</span></div>
-                                    <div class="rest-row"><span class="m-get pill-mini">GET</span> /products?limit=10 <span class="ok mono">200 · 73ms</span></div>
-                                    <div class="rest-row"><span class="m-post pill-mini">POST</span> /cart/add <span class="ok mono">200 · 99ms</span></div>
-                                    <div class="rest-row"><span class="m-post pill-mini">POST</span> /checkout/intent <span class="bad mono">422 · 112ms</span></div>
-                                    <div class="rest-row"><span class="m-get pill-mini">GET</span> /webhooks/log <span class="ok mono">200 · 58ms</span></div>
-                                </div>
-                                <div class="vmock-foot"><span><b>5 / 6 passed</b> · avg 95ms</span><span class="vmock-quiet">/checkout/intent → <code>intent_amount_too_low</code></span></div>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-
-                <!-- SQL -->
-                <article class="mode-feature reveal mf-reverse" data-accent="sql" id="mode-sql">
-                    <div class="container mf-wrap">
-                        <div class="mf-copy">
-                            <span class="mf-eyebrow"><span class="mf-eyebrow-svg"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="2.5"/><path d="M4 5v14c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5V5"/><path d="M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5"/></svg></span> SQL</span>
-                            <h3 class="mf-title">One SQL client. Every engine.</h3>
-                            <p class="mf-lede">Postgres, MySQL, ClickHouse, SQL Server, SQLite &mdash; same editor, same shortcuts, same AI. Ask in English; Clauge writes the query schema-aware, runs it through your bastion, renders rows.</p>
-                            <ul class="mf-caps">
-                                <li><span class="mc-icon"><i class="fa-solid fa-database"></i></span><div><b>Multi-engine</b><span>Postgres · MySQL · ClickHouse · SQL Server · SQLite. Same UX.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span><div><b>AI · NL → SQL</b><span>"Top customers Q2" → schema-aware query, ready to run.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-shield-halved"></i></span><div><b>Tunneled & encrypted</b><span>Bastion SSH, TLS, keychain-backed credentials.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-sitemap"></i></span><div><b>Schema browser</b><span>Tables, columns, indexes, foreign keys &mdash; one-click jump.</span></div></li>
-                            </ul>
-                            <div class="mf-brands">
-                                <span class="mf-brands-label">Works with</span>
-                                <span class="mf-brand" style="--brand:#336791"><svg viewBox="0 0 24 24"><path d="M12 3c4 0 7 2 7 5v8c0 3-3 5-7 5s-7-2-7-5V8c0-3 3-5 7-5zm0 3c-2.2 0-4 1-4 2v8c0 1 1.8 2 4 2s4-1 4-2V8c0-1-1.8-2-4-2z"/></svg>PostgreSQL</span>
-                                <span class="mf-brand" style="--brand:#00758F"><svg viewBox="0 0 24 24"><path d="M4 7c4 0 7 3 8 7M5 9c3 0 6 2 7 6M16 4l4 4-4 4M20 8h-8"/></svg>MySQL</span>
-                                <span class="mf-brand" style="--brand:#FFCC01"><svg viewBox="0 0 24 24"><path d="M3 3h2v18H3zM7 3h2v18H7zM11 3h2v18h-2zM15 3h2v18h-2zM19 10h2v4h-2z"/></svg>ClickHouse</span>
-                                <span class="mf-brand" style="--brand:#F38020"><svg viewBox="0 0 24 24"><path d="M18 11a4 4 0 00-7.7-1.4A4 4 0 003 12a4 4 0 004 4h11a3 3 0 000-6h-.5z"/></svg>Cloudflare D1</span>
-                                <span class="mf-brand" style="--brand:#909090"><svg viewBox="0 0 24 24"><path d="M4 6h12l4 4v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2zm10 0v4h4"/></svg>SQLite</span>
-                            </div>
-                        </div>
-                        <div class="mf-viz">
-                            <div class="vmock vmock-sql">
-                                <div class="vmock-titlebar"><span class="vmock-tab is-active">atlas_prod / Postgres <span class="vmock-tab-close">×</span></span><span class="vmock-titlebar-action">Execute ▶</span></div>
-                                <pre class="vmock-code"><code><span class="t-key">SELECT</span> name, <span class="t-fn">SUM</span>(total) <span class="t-key">AS</span> revenue
-<span class="t-key">FROM</span>   customers c <span class="t-key">JOIN</span> orders o <span class="t-key">ON</span> o.customer_id = c.id
-<span class="t-key">WHERE</span>  o.placed_at &gt;= <span class="t-str">'2026-04-01'</span>
-<span class="t-key">GROUP BY</span> name <span class="t-key">ORDER BY</span> revenue <span class="t-key">DESC LIMIT</span> <span class="t-num">5</span>;</code></pre>
-                                <table class="vmock-table"><thead><tr><th>name</th><th class="ral">revenue</th></tr></thead><tbody><tr><td>Northwind Logistics</td><td class="ral mono">$48,210</td></tr><tr><td>Acme Provisions</td><td class="ral mono">$37,944</td></tr><tr><td>Boréal Coffee Co.</td><td class="ral mono">$29,118</td></tr><tr><td>Helix Robotics</td><td class="ral mono">$22,705</td></tr><tr><td>Yamashita Press</td><td class="ral mono">$18,302</td></tr></tbody></table>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-
-                <!-- NoSQL -->
-                <article class="mode-feature reveal" data-accent="nosql" id="mode-nosql">
-                    <div class="container mf-wrap">
-                        <div class="mf-copy">
-                            <span class="mf-eyebrow"><span class="mf-eyebrow-svg"><svg viewBox="0 0 24 24"><path d="M8 3a2 2 0 00-2 2v4a2 2 0 01-2 2H3a1 1 0 000 2h1a2 2 0 012 2v4a2 2 0 002 2"/><path d="M16 3a2 2 0 012 2v4a2 2 0 002 2h1a1 1 0 010 2h-1a2 2 0 00-2 2v4a2 2 0 01-2 2"/></svg></span> NoSQL</span>
-                            <h3 class="mf-title">Mongo and Redis, side by side.</h3>
-                            <p class="mf-lede">Browse Mongo collections like a real database client. Walk Redis keys with TTL and streams. Translate intent into a find, an aggregation pipeline, or a <code>SCAN</code> &mdash; with previews of every stage.</p>
-                            <ul class="mf-caps">
-                                <li><span class="mc-icon"><i class="fa-solid fa-code"></i></span><div><b>JSON query editor</b><span>Auto-format, schema hints, inline document preview.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-diagram-project"></i></span><div><b>Aggregation pipelines</b><span>Stage-by-stage builder; preview output between every step.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-bolt-lightning"></i></span><div><b>Redis</b><span>Keys, TTL, streams, pub-sub &mdash; in one panel.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span><div><b>AI document filter</b><span>"Pro users inactive 30 days" → JSON filter, ready to run.</span></div></li>
-                            </ul>
-                            <div class="mf-brands">
-                                <span class="mf-brands-label">Works with</span>
-                                <span class="mf-brand" style="--brand:#00ED64"><svg viewBox="0 0 24 24"><path d="M12 2c2 4 4 7 4 11s-2 7-4 9c-2-2-4-5-4-9s2-7 4-11zm0 14v6"/></svg>MongoDB</span>
-                                <span class="mf-brand" style="--brand:#DC382D"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4zm0 5l9 4 9-4M3 17l9 4 9-4"/></svg>Redis</span>
-                            </div>
-                        </div>
-                        <div class="mf-viz">
-                            <div class="vmock vmock-nosql">
-                                <div class="vmock-titlebar"><span class="vmock-tab is-active">users · find <span class="vmock-tab-close">×</span></span><span class="vmock-titlebar-action">Run ▶</span></div>
-                                <pre class="vmock-code"><code>db.<span class="t-fn">users</span>.<span class="t-fn">find</span>({
-  <span class="t-key">plan</span>: <span class="t-str">"pro"</span>,
-  <span class="t-key">last_seen</span>: { $lt: <span class="t-fn">ISODate</span>(<span class="t-str">"2026-04-14"</span>) }
-})</code></pre>
-                                <div class="vmock-docs"><div>{ <b>email</b>: "r.bauer · northwind", <b>plan</b>: "pro", <b>last_seen</b>: "2026-03-09" }</div><div>{ <b>email</b>: "s.okonkwo · helix", <b>plan</b>: "pro", <b>last_seen</b>: "2026-03-12" }</div><div>{ <b>email</b>: "m.tanaka · yamashita", <b>plan</b>: "pro", <b>last_seen</b>: "2026-03-18" }</div></div>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-
-                <!-- SSH -->
-                <article class="mode-feature reveal mf-reverse" data-accent="ssh" id="mode-ssh">
-                    <div class="container mf-wrap">
-                        <div class="mf-copy">
-                            <span class="mf-eyebrow"><span class="mf-eyebrow-svg"><svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span> SSH</span>
-                            <h3 class="mf-title">A terminal that asks before it writes.</h3>
-                            <p class="mf-lede">Profiles, keychain-backed keys, agent forwarding, ed25519 by default. The AI proposes commands; you approve them with one key. Reads are free, writes are gated.</p>
-                            <ul class="mf-caps">
-                                <li><span class="mc-icon"><i class="fa-solid fa-key"></i></span><div><b>Keychain integration</b><span>ed25519, agent forwarding, no flat keys on disk.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-shield-halved"></i></span><div><b>Approve before run</b><span>AI commands are dry-run with [Cancel] / [Run] gates.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-server"></i></span><div><b>Profile manager</b><span>Tag servers, group by environment, filter by protocol.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-waveform-lines"></i></span><div><b>Stream summarizer</b><span>AI watches stdout and surfaces what matters.</span></div></li>
-                            </ul>
-                            <div class="mf-brands">
-                                <span class="mf-brands-label">Works with</span>
-                                <span class="mf-brand mf-brand-plain">OpenSSH</span>
-                                <span class="mf-brand mf-brand-plain">ed25519</span>
-                                <span class="mf-brand mf-brand-plain">Agent forwarding</span>
-                                <span class="mf-brand mf-brand-plain">macOS Keychain</span>
-                            </div>
-                        </div>
-                        <div class="mf-viz">
-                            <div class="vmock vmock-ssh">
-                                <div class="vmock-titlebar"><span class="vmock-tab is-active">pi · box.atlas.dev <span class="vmock-tab-close">×</span></span></div>
-                                <pre class="vmock-term"><span class="t-muted">Linux box.atlas.dev 6.1.0-arm64 #1 SMP PREEMPT</span>
-<span class="prompt">pi@box ~ $</span> ps -eo pid,rss,comm --sort=-rss | head -5
-<span class="t-muted">  PID   RSS COMMAND</span>
- 1842 <span class="warn">2483120</span> node
- 1190  626432 redis-server
- 1027  187904 nginx
-<span class="prompt">pi@box ~ $</span> <span class="cursor">▍</span></pre>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-
-                <!-- EXPLORER -->
-                <article class="mode-feature reveal" data-accent="explorer" id="mode-explorer">
-                    <div class="container mf-wrap">
-                        <div class="mf-copy">
-                            <span class="mf-eyebrow"><span class="mf-eyebrow-svg"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></span> Explorer</span>
-                            <h3 class="mf-title">SFTP, FTP, S3 &mdash; one browser.</h3>
-                            <p class="mf-lede">Walk remote machines and cloud buckets like local folders. Sort, filter, preview text/JSON/CSV inline. Ask what grew today; the AI tells you.</p>
-                            <ul class="mf-caps">
-                                <li><span class="mc-icon"><i class="fa-solid fa-network-wired"></i></span><div><b>Multi-protocol</b><span>SFTP · FTP · S3 · Azure Blob &mdash; same UI, same shortcuts.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-table-list"></i></span><div><b>Detail view</b><span>Name · Size · Modified · Perms &mdash; sortable, filterable.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-eye"></i></span><div><b>Quick preview</b><span>Text, JSON, CSV preview inline &mdash; no roundtrip.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-arrows-up-down"></i></span><div><b>Bulk transfer</b><span>Drag in or out. Resumable, parallel, transfer panel logs everything.</span></div></li>
-                                <li><span class="mc-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span><div><b>AI scan</b><span>"What grew today?" &mdash; AI summarizes large or recent files.</span></div></li>
-                            </ul>
-                            <div class="mf-brands">
-                                <span class="mf-brands-label">Works with</span>
-                                <span class="mf-brand" style="--brand:#06b6d4"><svg viewBox="0 0 24 24"><path d="M12 2l7 4v6c0 5-3 9-7 10-4-1-7-5-7-10V6l7-4zm-3 10l2 2 4-4"/></svg>SFTP</span>
-                                <span class="mf-brand" style="--brand:#9ca3af"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 012-2h5l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>FTP</span>
-                                <span class="mf-brand" style="--brand:#FF9900"><svg viewBox="0 0 24 24"><path d="M12 2L3 6v10l9 6 9-6V6l-9-4zm0 4l5 2-5 2-5-2 5-2zm-5 4l5 2v8l-5-3v-7zm10 0v7l-5 3v-8l5-2z"/></svg>Amazon S3</span>
-                                <span class="mf-brand" style="--brand:#0078D4"><svg viewBox="0 0 24 24"><path d="M18 11a4 4 0 00-7.7-1.4A4 4 0 003 12a4 4 0 004 4h11a3 3 0 000-6h-.5z"/></svg>Azure Blob</span>
-                            </div>
-                        </div>
-                        <div class="mf-viz">
-                            <div class="vmock vmock-exp">
-                                <div class="vmock-titlebar"><span class="vmock-tab is-active">/var/log @ box.atlas.dev <span class="vmock-tab-close">×</span></span></div>
-                                <table class="vmock-exp"><thead><tr><th>Name</th><th>Size</th><th>Modified</th><th>Perms</th></tr></thead><tbody><tr><td><i class="fa-solid fa-folder"></i> nginx</td><td>4.0 KB</td><td>21:48</td><td class="mono">drwxr-xr-x</td></tr><tr><td><i class="fa-solid fa-file-lines"></i> syslog</td><td class="warn">12.4 MB</td><td>21:51</td><td class="mono">-rw-r-----</td></tr><tr><td><i class="fa-solid fa-file-lines"></i> auth.log</td><td>814 KB</td><td>21:18</td><td class="mono">-rw-r-----</td></tr><tr><td><i class="fa-solid fa-file-lines"></i> dpkg.log</td><td>91 KB</td><td>03:01</td><td class="mono">-rw-r--r--</td></tr></tbody></table>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-            </section>
-
-                                    <!-- ─── DOWNLOAD ─── -->
-            <section id="download">
-                <div class="container">
-                    <div class="download-card reveal">
-                        <div class="copy">
-                            <h3 data-dl-headline>Get Clauge.</h3>
-                            <p>
-                                Native, fast, free for personal use.
-                                <span data-alpha-only>
-                                    <span class="alpha-pill">Alpha</span> on all
-                                    platforms.
-                                </span>
-                            </p>
-                        </div>
-                        <div class="download-actions">
-                            <div class="download-btns">
-                                <a
-                                    class="btn btn-primary"
-                                    id="dl-primary"
-                                    data-os-arch="auto"
-                                    href="https://github.com/ansxuman/Clauge/releases/latest"
-                                    target="_blank"
-                                    rel="noopener"
-                                >
-                                    <i data-dl-icon class="fa-brands fa-apple" aria-hidden="true"></i>
-                                    Download
-                                    <span class="chip" data-dl-arch>Apple Silicon</span>
-                                </a>
-                                <a
-                                    class="btn btn-primary"
-                                    id="dl-primary-2"
-                                    data-os-arch="linux-x64-rpm"
-                                    href="https://github.com/ansxuman/Clauge/releases/latest"
-                                    target="_blank"
-                                    rel="noopener"
-                                    style="display: none"
-                                >
-                                    <i data-dl-icon-2 class="fa-brands fa-linux" aria-hidden="true"></i>
-                                    Download
-                                    <span class="chip" data-dl-arch-2>x64 · .rpm</span>
-                                </a>
-                            </div>
+                        <a
+                            class="intel-link cl-hero-aside"
+                            id="intel-link"
+                            data-os-arch="mac-intel"
+                            href="https://github.com/ansxuman/Clauge/releases/latest"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <span data-cta-alt-label
+                                >On an Intel Mac?
+                                <u>Get the Intel build</u></span
+                            >
+                        </a>
+                        <span
+                            class="intel-link arm-alt cl-hero-aside"
+                            id="intel-link-arm"
+                            style="display: none"
+                        >
+                            On ARM?
                             <a
-                                class="intel-link"
-                                id="dl-alt"
-                                data-os-arch="mac-intel"
+                                class="arm-chip"
+                                data-os-arch="linux-arm-deb"
+                                href="https://github.com/ansxuman/Clauge/releases/latest"
+                                target="_blank"
+                                rel="noopener"
+                                >.deb</a
+                            >
+                            <a
+                                class="arm-chip"
+                                data-os-arch="linux-arm-rpm"
+                                href="https://github.com/ansxuman/Clauge/releases/latest"
+                                target="_blank"
+                                rel="noopener"
+                                >.rpm</a
+                            >
+                        </span>
+                        <a
+                            class="intel-link cl-hero-aside"
+                            id="intel-link-win-arm"
+                            data-os-arch="win-arm"
+                            href="https://github.com/ansxuman/Clauge/releases/latest"
+                            target="_blank"
+                            rel="noopener"
+                            style="display: none"
+                        >
+                            On Windows on ARM? <u>Get the ARM64 build</u>
+                        </a>
+                    </div>
+
+                    <!-- ─── PLATE 01: live app preview, framed as a schematic figure ─── -->
+                    <figure class="cl-plate">
+                        <div class="cl-plate-rail">
+                            <span class="cl-rail-key">PLATE 01</span>
+                            <span class="cl-rail-mid"
+                                >— clauge.in · Agent mode · live preview —</span
+                            >
+                            <span class="cl-rail-end">SCALE 1:1</span>
+                        </div>
+                        <div class="cl-plate-frame">
+                            <!-- preserved app-stage DOM so app.js still drives it -->
+                            <div
+                                class="app-stage"
+                                id="app-stage"
+                                data-mode="agent"
+                            >
+                                <div class="app-window">
+                                    <div class="chrome">
+                                        <div class="dots">
+                                            <span class="dot r"></span>
+                                            <span class="dot y"></span>
+                                            <span class="dot g"></span>
+                                        </div>
+                                        <div class="tabbar" data-tabbar></div>
+                                        <span
+                                            class="chrome-avatar"
+                                            aria-hidden="true"
+                                        >
+                                            <i
+                                                class="fa-solid fa-circle-user"
+                                            ></i>
+                                        </span>
+                                    </div>
+                                    <div class="app-body">
+                                        <nav
+                                            class="nav-rail"
+                                            role="tablist"
+                                            aria-label="Modes"
+                                            data-rail
+                                        ></nav>
+                                        <aside class="sidebar">
+                                            <button
+                                                class="side-cta"
+                                                data-side-cta
+                                                type="button"
+                                            >
+                                                <i class="fa-solid fa-plus"></i>
+                                                <span data-side-cta-label
+                                                    >New Session</span
+                                                >
+                                            </button>
+                                            <div
+                                                class="side-cards"
+                                                data-side-cards
+                                            ></div>
+                                            <div
+                                                class="side-list"
+                                                data-side-list
+                                            ></div>
+                                        </aside>
+                                        <main
+                                            class="workspace"
+                                            data-workspace
+                                        ></main>
+                                        <aside class="ai-panel">
+                                            <div class="ai-head">
+                                                <span class="ai-title"
+                                                    >AI Assistant</span
+                                                >
+                                                <span
+                                                    class="ai-pill"
+                                                    data-ai-pill
+                                                    >AGENT</span
+                                                >
+                                            </div>
+                                            <div
+                                                class="ai-stream"
+                                                data-ai-stream
+                                            ></div>
+                                            <div class="ai-input">
+                                                <input
+                                                    data-ai-input
+                                                    type="text"
+                                                    placeholder="ask anything · ⌘L to focus"
+                                                    aria-label="AI prompt"
+                                                />
+                                                <button
+                                                    class="ai-send"
+                                                    type="button"
+                                                    aria-label="Send"
+                                                >
+                                                    <i
+                                                        class="fa-solid fa-paper-plane"
+                                                    ></i>
+                                                </button>
+                                            </div>
+                                        </aside>
+                                    </div>
+                                    <div class="status-bar">
+                                        <span class="sb-left" data-sb-left
+                                            >~/atlas-team/atlas</span
+                                        >
+                                        <span
+                                            class="sb-center"
+                                            data-sb-center
+                                        ></span>
+                                        <span class="sb-right" data-sb-right
+                                            >★ MCP · :7421 · clauge.in</span
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <figcaption class="cl-plate-foot">
+                            <span
+                                ><b>Eight modes, one keyboard.</b> Hover the
+                                left rail or press ⌘1–⌘8 to switch.</span
+                            >
+                            <span>OUTPUT · 1180 × 720</span>
+                        </figcaption>
+                    </figure>
+                </div>
+            </section>
+
+            <!-- ═══ MODULE 01 / AGENT ═════════════════════════════════ -->
+            <section class="cl-mode" id="agent">
+                <div class="col">
+                    <div class="cl-mode-rail">
+                        <span class="cl-rail-module">MODULE 01 / AGENT</span>
+                        <span class="cl-rail-line"></span>
+                        <span class="cl-rail-tag"
+                            >CL-AGT · PARALLELISM · COORD</span
+                        >
+                    </div>
+
+                    <div class="cl-mode-head">
+                        <h2 class="cl-mode-headline">
+                                Coding agents,<br />
+                                <em>in parallel.</em>
+                            </h2>
+                        <div class="cl-mode-detail">
+                            <p class="cl-mode-lede">
+                                Spawn multiple terminal-based sessions —
+                                <b>Claude</b>, <b>Codex</b>, <b>Gemini</b>,
+                                <b>OpenCode</b> — each pinned to a purpose (<em
+                                    >brainstorming, development, code review, PR
+                                    review, or custom</em
+                                >), each in its own git worktree, each with its
+                                own context. Resume exactly where you left off,
+                                even after a restart.
+                            </p>
+                            <dl class="cl-mode-specs">
+                                <dt>Purposes</dt>
+                                <dd>
+                                    <b
+                                        >Brainstorming · Development · Code
+                                        Review · PR Review · Custom</b
+                                    >
+                                    — every session is pinned to a purpose; the
+                                    AI prompt and tools are primed for that
+                                    workflow.
+                                </dd>
+                                <dt>Parallelism</dt>
+                                <dd>
+                                    <b>Unbounded.</b> Spawn N concurrent agent
+                                    sessions. Each gets its own git worktree,
+                                    its own context.
+                                </dd>
+                                <dt>Resume</dt>
+                                <dd>
+                                    Sessions survive restarts and crashes. Pick
+                                    up <em>exactly</em> where you left off —
+                                    tabs, scroll, pending prompts.
+                                </dd>
+                                <dt>Approval gates</dt>
+                                <dd>
+                                    Every <code>Bash</code>, <code>Edit</code>,
+                                    and <code>Write</code> is gated. Reads are
+                                    free, writes require your <em>OK</em>.
+                                </dd>
+                                <dt>Context manager</dt>
+                                <dd>
+                                    Pin files, folders, and MCP servers per
+                                    session. Save sets, reuse across sessions.
+                                </dd>
+                                <dt>Telemetry</dt>
+                                <dd>
+                                    Tokens, cost, cache-hit, model mix — per
+                                    session and aggregated.
+                                    <em>No upsell, just facts.</em>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ MODULE 02 / WORKSPACE ═════════════════════════════ -->
+            <section class="cl-mode cl-mode-reverse" id="workspace">
+                <div class="col">
+                    <div class="cl-mode-rail">
+                        <span class="cl-rail-module"
+                            >MODULE 02 / WORKSPACE</span
+                        >
+                        <span class="cl-rail-line"></span>
+                        <span class="cl-rail-tag"
+                            >CL-WS · BOARDS · COWORKERS · MCP</span
+                        >
+                    </div>
+
+                    <div class="cl-mode-head">
+                        <h2 class="cl-mode-headline">
+                                The brain for<br />
+                                <em>the work.</em>
+                            </h2>
+                        </div>
+                        <div class="cl-mode-detail">
+                            <p class="cl-mode-lede">
+                                A Kanban + notes layer your agents can actually
+                                read, write, and act on. Coworkers (Tech Lead,
+                                Reviewer, QA — your own personas) can claim
+                                cards, comment, raise PRs. A built-in
+                                <b>MCP server</b> exposes 45+ tools so any
+                                external AI can query and mutate your workspace.
+                            </p>
+                            <dl class="cl-mode-specs">
+                                <dt>Boards</dt>
+                                <dd>
+                                    <b>Kanban</b> · Backlog → Todo → In Progress
+                                    → In Review → Done. Cards have priority,
+                                    tags, comments, review checklists, PR +
+                                    session links.
+                                </dd>
+                                <dt>Coworkers</dt>
+                                <dd>
+                                    Named AI personas with their own prompts and
+                                    providers. Read cards, comment, request
+                                    changes, claim work, commit,
+                                    <em>raise PRs</em>, hand back for review.
+                                </dd>
+                                <dt>Notes</dt>
+                                <dd>
+                                    Markdown-first, per-project, freezable,
+                                    searchable. Linked to sessions and exposed
+                                    through MCP.
+                                </dd>
+                                <dt>MCP server</dt>
+                                <dd>
+                                    <b>45+ tools</b> over board ops, card
+                                    lifecycle, notes, REST collections, coworker
+                                    coordination — usable from Claude Desktop,
+                                    IDEs, CLI agents.
+                                </dd>
+                                <dt>Inbox</dt>
+                                <dd>
+                                    Mentions, review requests, approval queues —
+                                    <em>one pane</em>, across every board.
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ MODULE 03 / REST ═════════════════════════════════ -->
+            <section class="cl-mode" id="rest">
+                <div class="col">
+                    <div class="cl-mode-rail">
+                        <span class="cl-rail-module">MODULE 03 / REST</span>
+                        <span class="cl-rail-line"></span>
+                        <span class="cl-rail-tag"
+                            >CL-RST · HTTP · COLLECTIONS · BATCH</span
+                        >
+                    </div>
+
+                    <div class="cl-mode-head">
+                        <h2 class="cl-mode-headline">
+                                An API client<br />
+                                your AI <em>can drive.</em>
+                            </h2>
+                        </div>
+                        <div class="cl-mode-detail">
+                            <p class="cl-mode-lede">
+                                Build, save, and run HTTP requests. Or just say
+                                <em>"run the smoke tests in staging"</em> — the
+                                AI fires the whole collection, tracks pass/fail,
+                                summarises failures with the failing request
+                                inline. Agents can also
+                                <b>read, edit, and add</b> collections and
+                                requests through Clauge's MCP server.
+                            </p>
+                            <dl class="cl-mode-specs">
+                                <dt>MCP exposed</dt>
+                                <dd>
+                                    Agents
+                                    <b
+                                        >list, read, create, update, and
+                                        delete</b
+                                    >
+                                    collections, requests, and environments via
+                                    Clauge's built-in MCP server — Claude
+                                    Desktop, Cursor, or any MCP-speaking client
+                                    can drive your REST workspace.
+                                </dd>
+                                <dt>Collections</dt>
+                                <dd>
+                                    Folders, tags, per-collection auth,
+                                    pre-script hooks. Postman v2 / v2.1 import.
+                                </dd>
+                                <dt>Environments</dt>
+                                <dd>
+                                    Global, per-collection, per-request —
+                                    overrides clearly resolved.
+                                </dd>
+                                <dt>AI Assistance</dt>
+                                <dd>
+                                    Fires whole collections from natural
+                                    language. Summarises failures with the
+                                    failing request.
+                                </dd>
+                                <dt>History</dt>
+                                <dd>
+                                    Every request you've ever sent. Resurrect,
+                                    diff, re-fire.
+                                </dd>
+                                <dt>Generate from English</dt>
+                                <dd>
+                                    Describe an endpoint; the AI writes the
+                                    request and saves it in the right
+                                    collection.
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ MODULE 04 / SQL ═════════════════════════════════ -->
+            <section class="cl-mode cl-mode-reverse" id="sql">
+                <div class="col">
+                    <div class="cl-mode-rail">
+                        <span class="cl-rail-module">MODULE 04 / SQL</span>
+                        <span class="cl-rail-line"></span>
+                        <span class="cl-rail-tag"
+                            >CL-SQL · MULTI-ENGINE · NL-TO-SQL</span
+                        >
+                    </div>
+
+                    <div class="cl-mode-head">
+                        <h2 class="cl-mode-headline">
+                                One SQL client.<br />
+                                <em>Every engine.</em>
+                            </h2>
+                        </div>
+                        <div class="cl-mode-detail">
+                            <p class="cl-mode-lede">
+                                <b
+                                    >PostgreSQL, MySQL, ClickHouse, SQLite,
+                                    Cloudflare D1</b
+                                >
+                                — same editor, same shortcuts, same AI. Ask in
+                                English; Clauge writes the query schema-aware,
+                                runs it through your bastion, renders rows.
+                            </p>
+                            <dl class="cl-mode-specs">
+                                <dt>Engines</dt>
+                                <dd>
+                                    <b
+                                        >PostgreSQL · MySQL · ClickHouse ·
+                                        SQLite · Cloudflare D1</b
+                                    >
+                                    — same UX across all.
+                                </dd>
+                                <dt>AI · NL → SQL</dt>
+                                <dd>
+                                    "Top customers Q2" → schema-aware query,
+                                    ready to run.
+                                </dd>
+                                <dt>Schema browser</dt>
+                                <dd>
+                                    Tables, columns, indexes, foreign keys —
+                                    one-click jump and inline editing.
+                                </dd>
+                                <dt>SSH tunneling</dt>
+                                <dd>
+                                    Bastion connections shared across modes.
+                                    Keychain-backed credentials.
+                                </dd>
+                                <dt>Translate dialects</dt>
+                                <dd>
+                                    Postgres → MySQL → ClickHouse. AI rewrites
+                                    the query for the target engine.
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ MODULE 05 / NOSQL ═════════════════════════════════ -->
+            <section class="cl-mode" id="nosql">
+                <div class="col">
+                    <div class="cl-mode-rail">
+                        <span class="cl-rail-module">MODULE 05 / NOSQL</span>
+                        <span class="cl-rail-line"></span>
+                        <span class="cl-rail-tag">CL-NOS · MONGO · REDIS</span>
+                    </div>
+
+                    <div class="cl-mode-head">
+                        <h2 class="cl-mode-headline">
+                                One NoSQL client.<br />
+                                <em>Every store.</em>
+                            </h2>
+                        </div>
+                        <div class="cl-mode-detail">
+                            <p class="cl-mode-lede">
+                                Browse document stores like a real database
+                                client. Walk key-value engines with TTL and
+                                streams. Translate intent into the right
+                                <code>find</code>, aggregation, or
+                                <code>SCAN</code> — engine-aware AI, never mixes
+                                the two.
+                            </p>
+                            <dl class="cl-mode-specs">
+                                <dt>Engines</dt>
+                                <dd>
+                                    <b>MongoDB · Redis</b> — engine-aware AI,
+                                    never mixes the two.
+                                </dd>
+                                <dt>JSON query editor</dt>
+                                <dd>
+                                    Auto-format, schema hints, inline document
+                                    preview.
+                                </dd>
+                                <dt>Aggregation pipelines</dt>
+                                <dd>
+                                    Stage-by-stage builder; preview output
+                                    between every step.
+                                </dd>
+                                <dt>Redis console</dt>
+                                <dd>
+                                    Keys, TTL, streams, pub-sub — interactive,
+                                    in one panel.
+                                </dd>
+                                <dt>AI document filter</dt>
+                                <dd>
+                                    "Pro users inactive 30 days" → JSON filter,
+                                    ready to run.
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ MODULE 06 / SSH ═════════════════════════════════ -->
+            <section class="cl-mode cl-mode-reverse" id="ssh">
+                <div class="col">
+                    <div class="cl-mode-rail">
+                        <span class="cl-rail-module">MODULE 06 / SSH</span>
+                        <span class="cl-rail-line"></span>
+                        <span class="cl-rail-tag"
+                            >CL-SSH · PROFILES · TUNNELS · AI</span
+                        >
+                    </div>
+
+                    <div class="cl-mode-head">
+                        <h2 class="cl-mode-headline">
+                                A terminal that<br />
+                                <em>asks first.</em>
+                            </h2>
+                        </div>
+                        <div class="cl-mode-detail">
+                            <p class="cl-mode-lede">
+                                Persistent SSH with reusable profiles,
+                                tunneling, and an AI Assistance. Reads are free,
+                                writes are gated — every destructive command
+                                requires a one-key confirmation before it
+                                touches the wire.
+                            </p>
+                            <dl class="cl-mode-specs">
+                                <dt>Authentication</dt>
+                                <dd>
+                                    <b
+                                        >Password · Public-key · Agent · Jump
+                                        host</b
+                                    >
+                                    — ed25519 by default, OS keychain backed.
+                                </dd>
+                                <dt>Profile manager</dt>
+                                <dd>
+                                    Tag servers, group by environment, filter by
+                                    protocol.
+                                </dd>
+                                <dt>Tunneling</dt>
+                                <dd>
+                                    Local / remote port-forwarding shared with
+                                    SQL, NoSQL, REST — wire it once.
+                                </dd>
+                                <dt>AI commands</dt>
+                                <dd>
+                                    Plain-English → shell. Destructive commands
+                                    are <em>dry-run first</em>, gated with
+                                    [Cancel] / [Run].
+                                </dd>
+                                <dt>Stream summary</dt>
+                                <dd>
+                                    AI watches stdout, surfaces what matters
+                                    from long-running output.
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ MODULE 07 / EXPLORER ═════════════════════════════════ -->
+            <section class="cl-mode" id="explorer">
+                <div class="col">
+                    <div class="cl-mode-rail">
+                        <span class="cl-rail-module">MODULE 07 / EXPLORER</span>
+                        <span class="cl-rail-line"></span>
+                        <span class="cl-rail-tag"
+                            >CL-EXP · LOCAL · S3 · AZURE · SFTP</span
+                        >
+                    </div>
+
+                    <div class="cl-mode-head">
+                        <h2 class="cl-mode-headline">
+                                Every storage,<br />
+                                <em>one explorer.</em>
+                            </h2>
+                        </div>
+                        <div class="cl-mode-detail">
+                            <p class="cl-mode-lede">
+                                Walk local folders, S3 buckets, Azure Blob
+                                containers, and SFTP paths like one filesystem.
+                                Sort, filter, preview inline. Ask
+                                <em>"what grew today?"</em> — the AI tells you.
+                            </p>
+                            <dl class="cl-mode-specs">
+                                <dt>Backends</dt>
+                                <dd>
+                                    <b
+                                        >Local · Amazon S3 (+ compatibles) ·
+                                        Azure Blob · SFTP / SSH</b
+                                    >
+                                    — same UI everywhere.
+                                </dd>
+                                <dt>Bulk transfer</dt>
+                                <dd>
+                                    Drag in or out. Resumable, parallel,
+                                    transfer panel logs everything.
+                                </dd>
+                                <dt>Quick preview</dt>
+                                <dd>
+                                    Text, JSON, CSV preview inline — no
+                                    round-trip download.
+                                </dd>
+                                <dt>AI scan</dt>
+                                <dd>
+                                    "What grew today?" — the AI summarises large
+                                    or recent files.
+                                </dd>
+                                <dt>Confirmation gates</dt>
+                                <dd>
+                                    Destructive ops (delete, overwrite) require
+                                    an explicit <em>OK</em>. S3 provider presets
+                                    included.
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══ WORKS-WITH STRIP ═════════════════════════════════ -->
+            <section class="cl-compat" id="works-with">
+                <div class="col">
+                    <div class="cl-mode-rail">
+                        <span class="cl-rail-module"
+                            >DATASHEET / COMPATIBILITY</span
+                        >
+                        <span class="cl-rail-line"></span>
+                        <span class="cl-rail-tag"
+                            >PROTOCOL · DRIVER · MODEL · SDK</span
+                        >
+                    </div>
+
+                    <div class="cl-mode-head">
+                        <h2 class="cl-mode-headline">
+                            Talks to <em>everything.</em>
+                        </h2>
+                        <p class="cl-mode-lede">
+                            No glue scripts. No SDK shims. Clauge speaks the
+                            same protocols, drivers, and APIs your stack already
+                            uses — and exposes them to every AI agent through
+                            MCP.
+                        </p>
+                    </div>
+
+                    <dl class="cl-compat-grid">
+                        <dt>AI agents</dt>
+                        <dd>
+                            <span class="cl-cchip">Claude</span
+                            ><span class="cl-cchip">Codex</span
+                            ><span class="cl-cchip">Gemini</span
+                            ><span class="cl-cchip">OpenCode</span>
+                        </dd>
+                        <dt>SQL engines</dt>
+                        <dd>
+                            <span class="cl-cchip">PostgreSQL</span
+                            ><span class="cl-cchip">MySQL</span
+                            ><span class="cl-cchip">ClickHouse</span
+                            ><span class="cl-cchip">Cloudflare D1</span
+                            ><span class="cl-cchip">SQLite</span>
+                        </dd>
+                        <dt>NoSQL engines</dt>
+                        <dd>
+                            <span class="cl-cchip">MongoDB</span
+                            ><span class="cl-cchip">Redis</span>
+                        </dd>
+                        <dt>Object storage</dt>
+                        <dd>
+                            <span class="cl-cchip">Amazon S3</span
+                            ><span class="cl-cchip">S3-compatible</span
+                            ><span class="cl-cchip">Azure Blob</span>
+                        </dd>
+                        <dt>File transfer</dt>
+                        <dd>
+                            <span class="cl-cchip">SFTP</span
+                            ><span class="cl-cchip">FTP</span
+                            ><span class="cl-cchip">Local FS</span>
+                        </dd>
+                        <dt>HTTP &amp; specs</dt>
+                        <dd>
+                            <span class="cl-cchip">REST / HTTP</span
+                            ><span class="cl-cchip">cURL</span
+                            ><span class="cl-cchip">Postman v2 / v2.1</span
+                            ><span class="cl-cchip">OpenAPI</span>
+                        </dd>
+                        <dt>SSH</dt>
+                        <dd>
+                            <span class="cl-cchip">OpenSSH</span
+                            ><span class="cl-cchip">ed25519</span
+                            ><span class="cl-cchip">Agent forwarding</span
+                            ><span class="cl-cchip">macOS Keychain</span>
+                        </dd>
+                        <dt>MCP</dt>
+                        <dd>
+                            <span class="cl-cchip"
+                                >Built-in Clauge MCP server</span
+                            ><span class="cl-cchip">45+ tools</span
+                            ><span class="cl-cchip">stdio</span
+                            ><span class="cl-cchip">HTTP</span>
+                        </dd>
+                    </dl>
+                </div>
+            </section>
+
+            <!-- ═══ DOWNLOAD CTA ═════════════════════════════════ -->
+            <section class="cl-download" id="download">
+                <div class="col">
+                    <div class="cl-mode-rail">
+                        <span class="cl-rail-module">ACQUIRE / 00</span>
+                        <span class="cl-rail-line"></span>
+                        <span class="cl-rail-tag"
+                            >FREE · NONCOMMERCIAL · ALL PLATFORMS</span
+                        >
+                    </div>
+
+                    <div class="cl-download-card">
+                        <h2 class="cl-mode-headline" data-dl-headline>
+                            Get <em>Clauge</em>.
+                        </h2>
+                        <p class="cl-download-sub">
+                            Native, fast, free for personal use.
+                            <span data-alpha-only
+                                ><span class="cl-alpha">ALPHA</span> on all
+                                platforms.</span
+                            >
+                        </p>
+                        <div class="cl-download-actions hero-ctas">
+                            <a
+                                class="cl-btn"
+                                id="dl-primary"
+                                data-os-arch="auto"
                                 href="https://github.com/ansxuman/Clauge/releases/latest"
                                 target="_blank"
                                 rel="noopener"
                             >
-                                <span data-dl-alt-label>On Intel? <u>Get the Intel build</u></span>
+                                <i
+                                    data-dl-icon
+                                    class="fa-brands fa-apple"
+                                    aria-hidden="true"
+                                ></i>
+                                Download
+                                <span class="cl-btn-chip" data-dl-arch
+                                    >Apple Silicon</span
+                                >
                             </a>
-                            <span class="intel-link arm-alt" id="dl-alt-arm" style="display: none">
-                                On ARM?
-                                <a class="arm-chip" data-os-arch="linux-arm-deb" href="https://github.com/ansxuman/Clauge/releases/latest" target="_blank" rel="noopener">.deb</a>
-                                <a class="arm-chip" data-os-arch="linux-arm-rpm" href="https://github.com/ansxuman/Clauge/releases/latest" target="_blank" rel="noopener">.rpm</a>
-                            </span>
                             <a
-                                class="intel-link"
-                                id="dl-alt-win-arm"
-                                data-os-arch="win-arm"
+                                class="cl-btn"
+                                id="dl-primary-2"
+                                data-os-arch="linux-x64-rpm"
                                 href="https://github.com/ansxuman/Clauge/releases/latest"
                                 target="_blank"
                                 rel="noopener"
                                 style="display: none"
                             >
-                                On Windows on ARM? <u>Get the ARM64 build</u>
+                                <i
+                                    data-dl-icon-2
+                                    class="fa-brands fa-linux"
+                                    aria-hidden="true"
+                                ></i>
+                                Download
+                                <span class="cl-btn-chip" data-dl-arch-2
+                                    >x64 · .rpm</span
+                                >
+                            </a>
+                            <a
+                                class="cl-btn cl-btn-ghost"
+                                href="https://github.com/ansxuman/Clauge"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                <i
+                                    class="fa-brands fa-github"
+                                    aria-hidden="true"
+                                ></i>
+                                Star on GitHub
                             </a>
                         </div>
+                        <a
+                            class="intel-link cl-hero-aside"
+                            id="dl-alt"
+                            data-os-arch="mac-intel"
+                            href="https://github.com/ansxuman/Clauge/releases/latest"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <span data-dl-alt-label
+                                >On Intel? <u>Get the Intel build</u></span
+                            >
+                        </a>
+                        <span
+                            class="intel-link arm-alt cl-hero-aside"
+                            id="dl-alt-arm"
+                            style="display: none"
+                        >
+                            On ARM?
+                            <a
+                                class="arm-chip"
+                                data-os-arch="linux-arm-deb"
+                                href="https://github.com/ansxuman/Clauge/releases/latest"
+                                target="_blank"
+                                rel="noopener"
+                                >.deb</a
+                            >
+                            <a
+                                class="arm-chip"
+                                data-os-arch="linux-arm-rpm"
+                                href="https://github.com/ansxuman/Clauge/releases/latest"
+                                target="_blank"
+                                rel="noopener"
+                                >.rpm</a
+                            >
+                        </span>
+                        <a
+                            class="intel-link cl-hero-aside"
+                            id="dl-alt-win-arm"
+                            data-os-arch="win-arm"
+                            href="https://github.com/ansxuman/Clauge/releases/latest"
+                            target="_blank"
+                            rel="noopener"
+                            style="display: none"
+                        >
+                            On Windows on ARM? <u>Get the ARM64 build</u>
+                        </a>
                     </div>
                 </div>
             </section>
         </main>
 
-        <footer id="site-footer"></footer>
+        <footer class="cl-footer" id="site-footer"></footer>
 
+        <script src="config.js"></script>
         <script src="app.js" defer></script>
     </body>
 </html>
