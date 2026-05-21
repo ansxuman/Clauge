@@ -579,11 +579,68 @@ fn pg_row_to_json(row: &sqlx::postgres::PgRow) -> Vec<serde_json::Value> {
                     .ok().flatten()
                     .map(|v| serde_json::Value::String(v))
                     .unwrap_or(serde_json::Value::Null),
-                // Arrays — try as text representation
-                t if t.starts_with('_') => row.try_get::<Option<String>, _>(idx)
-                    .ok().flatten()
-                    .map(|v| serde_json::Value::String(v))
-                    .unwrap_or(serde_json::Value::Null),
+                // Arrays. Dispatch by element type (the part after the
+                // leading '_' in the Postgres type name) and decode via
+                // sqlx's native Vec<T> impl, then serialize as a JSON
+                // array. The previous "try as Option<String>" catch-all
+                // failed for every array column — sqlx's wire format
+                // for arrays isn't TEXT — so cells silently rendered as
+                // NULL even when the row had values.
+                t if t.starts_with('_') => {
+                    // Each arm: try_get as Vec<T>, map elements to JSON,
+                    // wrap in Value::Array. Mirrors the scalar branches
+                    // above 1:1 for which T to use per element type.
+                    macro_rules! arr {
+                        ($T:ty, $conv:expr) => {
+                            row.try_get::<Option<Vec<$T>>, _>(idx)
+                                .ok()
+                                .flatten()
+                                .map(|v| serde_json::Value::Array(
+                                    v.into_iter().map($conv).collect()
+                                ))
+                                .unwrap_or(serde_json::Value::Null)
+                        };
+                    }
+                    match &t[1..] {
+                        "BOOL"      => arr!(bool, serde_json::Value::Bool),
+                        "INT2"      => arr!(i16, |n| serde_json::json!(n)),
+                        "INT4" | "OID" => arr!(i32, |n| serde_json::json!(n)),
+                        "INT8"      => arr!(i64, |n| serde_json::json!(n)),
+                        "FLOAT4"    => arr!(f32, |n| serde_json::json!(n)),
+                        "FLOAT8"    => arr!(f64, |n| serde_json::json!(n)),
+                        "NUMERIC" | "DECIMAL" => arr!(rust_decimal::Decimal,
+                            |d: rust_decimal::Decimal| serde_json::Value::String(d.to_string())),
+                        "TEXT" | "VARCHAR" | "BPCHAR" | "NAME" | "CHAR" | "CITEXT" =>
+                            arr!(String, serde_json::Value::String),
+                        "UUID"      => arr!(uuid::Uuid,
+                            |u: uuid::Uuid| serde_json::Value::String(u.to_string())),
+                        "DATE"      => arr!(chrono::NaiveDate,
+                            |d: chrono::NaiveDate| serde_json::Value::String(d.to_string())),
+                        "TIME"      => arr!(chrono::NaiveTime,
+                            |t: chrono::NaiveTime| serde_json::Value::String(t.to_string())),
+                        "TIMESTAMP" => arr!(chrono::NaiveDateTime,
+                            |t: chrono::NaiveDateTime| serde_json::Value::String(t.to_string())),
+                        "TIMESTAMPTZ" => arr!(chrono::DateTime<chrono::Utc>,
+                            |t: chrono::DateTime<chrono::Utc>| serde_json::Value::String(t.to_rfc3339())),
+                        "JSON" | "JSONB" => arr!(serde_json::Value, |v| v),
+                        "BYTEA"     => arr!(Vec<u8>, |b: Vec<u8>| {
+                            let hex: String = b.iter().map(|c| format!("{:02x}", c)).collect();
+                            serde_json::Value::String(format!("\\x{}", hex))
+                        }),
+                        // _inet, _cidr, _macaddr, _interval, _money, _bit,
+                        // _varbit, _xml, _timetz, geometric arrays, ranges —
+                        // sqlx doesn't ship a built-in Vec<T> for these.
+                        // Try Vec<String> in case the driver hands us a
+                        // usable text rep; otherwise NULL. Better than the
+                        // previous catch-all which dropped every array.
+                        _ => row.try_get::<Option<Vec<String>>, _>(idx)
+                            .ok().flatten()
+                            .map(|v| serde_json::Value::Array(
+                                v.into_iter().map(serde_json::Value::String).collect()
+                            ))
+                            .unwrap_or(serde_json::Value::Null),
+                    }
+                },
                 // Fallback: try common types in order
                 _ => {
                     // Try String first

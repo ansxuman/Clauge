@@ -97,9 +97,16 @@ export function friendlyError(err: unknown): string {
     return 'Incomplete query — check for missing keywords or semicolons';
   }
 
-  // MongoDB errors — detect by error patterns (Rust driver doesn't always include "mongo")
+  // MongoDB errors — detect by error patterns (Rust driver doesn't always include "mongo").
+  // The driver's raw "Command failed: Error code N (CodeName): ..." shape can omit the
+  // mongo brand entirely; key on the code+CodeName signature so listDatabases /
+  // listCollections / find auth failures never fall through to the raw-dump fallback.
   if (msg.includes('MongoServerError') || msg.includes('mongo') || msg.includes('MongoDB')
-      || msg.includes('$clusterTime') || msg.includes('$db') || msg.includes('not authorized on')) {
+      || msg.includes('$clusterTime') || msg.includes('$db') || msg.includes('not authorized on')
+      || msg.includes('listDatabases') || msg.includes('listCollections')
+      || msg.includes('requires authentication')
+      || /Error code 1[38]\b/.test(msg)         // 13 = Unauthorized, 18 = AuthenticationFailed
+      || (msg.includes('Command failed') && msg.includes('Error code'))) {
     msg = msg.replace(/MongoServerError:\s*/, '');
     // Auth / permission failures
     if (msg.includes('not authorized') || msg.includes('auth') || msg.includes('Authentication')

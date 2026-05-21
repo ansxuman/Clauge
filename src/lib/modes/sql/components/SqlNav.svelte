@@ -153,13 +153,73 @@
   let tableCache = $state<Map<string, TableInfo[]>>(new Map());
   let columnCache = $state<Map<string, ColumnInfo[]>>(new Map());
 
+  // Search — Mongo Compass-style recursive match. A connection is shown
+  // if its name/driver matches OR any of its (already-loaded) databases,
+  // schemas, or tables match. The match drives auto-expand in the
+  // template too — see the `searchForce*` derivations on the render
+  // path. Visibility is computed against the existing cache, not an
+  // eager backend fetch, so a user-typed query can only see matches in
+  // levels the user has previously expanded (or that loaded at connect
+  // time). Expanding a database loads its tables; the search picks them
+  // up on the next keystroke.
+  const searchLower = $derived(searchQuery.toLowerCase());
+  let collapsedDuringSearch = $state<Set<string>>(new Set());
+  let prevSearch = $state('');
+  $effect(() => {
+    if (searchQuery !== prevSearch) {
+      // Switching query (including clearing it) drops manual collapse
+      // overrides so the next search starts from a clean "show everything
+      // matching" state.
+      collapsedDuringSearch = new Set();
+      prevSearch = searchQuery;
+    }
+  });
+
+  function tableMatchesSearch(name: string): boolean {
+    if (!searchQuery) return true;
+    return name.toLowerCase().includes(searchLower);
+  }
+  function schemaMatchesSearch(name: string): boolean {
+    if (!searchQuery) return true;
+    return name.toLowerCase().includes(searchLower);
+  }
+  function dbMatchesSearch(db: string): boolean {
+    if (!searchQuery) return true;
+    return db.toLowerCase().includes(searchLower);
+  }
+  function schemaHasMatchingTables(connId: string, db: string, schema: string): boolean {
+    if (!searchQuery) return false;
+    const tables = tableCache.get(`${connId}:${db}:${schema}`) ?? [];
+    return tables.some(t => t.name.toLowerCase().includes(searchLower));
+  }
+  function dbHasMatchingChildren(connId: string, db: string, driver: string): boolean {
+    if (!searchQuery) return false;
+    const dbKey = `${connId}:${db}`;
+    if (hasSchemaLayer(driver)) {
+      const schemas = schemaCache.get(dbKey) ?? [];
+      for (const s of schemas) {
+        if (s.toLowerCase().includes(searchLower)) return true;
+        if (schemaHasMatchingTables(connId, db, s)) return true;
+      }
+      return false;
+    }
+    const tables = tableCache.get(dbKey) ?? [];
+    return tables.some(t => t.name.toLowerCase().includes(searchLower));
+  }
+  function connMatchesSearch(conn: SqlConnection): boolean {
+    if (!searchQuery) return true;
+    if (conn.name.toLowerCase().includes(searchLower)) return true;
+    if (conn.driver.toLowerCase().includes(searchLower)) return true;
+    const dbs = $connectionDatabases.get(conn.id) ?? [];
+    for (const db of dbs) {
+      if (db.toLowerCase().includes(searchLower)) return true;
+      if (dbHasMatchingChildren(conn.id, db, conn.driver)) return true;
+    }
+    return false;
+  }
+
   const filteredConnections = $derived(
-    searchQuery
-      ? $connections.filter(c =>
-          c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.driver.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      : $connections
+    searchQuery ? $connections.filter(connMatchesSearch) : $connections
   );
 
   export function showAddConnection() {
@@ -203,6 +263,14 @@
       } catch (e: any) {
         showToast(friendlyError(e), 'error');
       }
+    } else if (searchQuery && connMatchesSearch(conn)) {
+      // Search is forcing this branch open via searchForceConn. Toggle the
+      // collapse override so the user can hide a matched subtree without
+      // clearing the query.
+      const key = `conn:${conn.id}`;
+      const next = new Set(collapsedDuringSearch);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      collapsedDuringSearch = next;
     } else {
       if ($expandedConnectionId === conn.id) {
         expandedConnectionId.set(null);
@@ -245,6 +313,18 @@
   async function handleClickDatabase(connId: string, db: string) {
     activeConnectionId.set(connId);
     const key = `${connId}:${db}`;
+    const conn = get(connections).find(c => c.id === connId);
+
+    // Search is forcing this DB's subtree open via searchForceDb. Toggle the
+    // collapse override (instead of the underlying expandedDbs state) so the
+    // user can hide a matched subtree without clearing the query.
+    if (searchQuery && conn && (dbMatchesSearch(db) || dbHasMatchingChildren(connId, db, conn.driver))) {
+      const ck = `db:${key}`;
+      const next = new Set(collapsedDuringSearch);
+      if (next.has(ck)) next.delete(ck); else next.add(ck);
+      collapsedDuringSearch = next;
+      return;
+    }
 
     if (expandedDbs.has(key)) {
       expandedDbs = new Set([...expandedDbs].filter(k => k !== key));
@@ -253,7 +333,6 @@
 
     expandedDbs = new Set([...expandedDbs, key]);
 
-    const conn = get(connections).find(c => c.id === connId);
     if (!hasSchemaLayer(conn?.driver ?? '')) {
       // Engines without a schema layer: load tables directly into tableCache
       // under the db key, skipping the (synthetic) schema level entirely.
@@ -333,6 +412,15 @@
 
   async function handleClickSchema(connId: string, db: string, schema: string) {
     const key = `${connId}:${db}:${schema}`;
+
+    // Search-mode collapse override (same pattern as connection / database).
+    if (searchQuery && (schemaMatchesSearch(schema) || schemaHasMatchingTables(connId, db, schema))) {
+      const ck = `schema:${key}`;
+      const next = new Set(collapsedDuringSearch);
+      if (next.has(ck)) next.delete(ck); else next.add(ck);
+      collapsedDuringSearch = next;
+      return;
+    }
 
     if (expandedSchemas.has(key)) {
       expandedSchemas = new Set([...expandedSchemas].filter(k => k !== key));
@@ -727,6 +815,8 @@ ORDER BY ordinal_position;`);
     <div class="tree-loading" style="padding-left:38px">No tables</div>
   {:else}
     {#each tables as table (table.name)}
+      {@const tableVisible = !searchQuery || tableMatchesSearch(table.name)}
+      {#if tableVisible}
       {@const tableKey = `${connId}:${db}:${schema}:${table.name}`}
       {@const isTableExpanded = expandedTables.has(tableKey)}
       {@const columns = columnCache.get(tableKey) ?? []}
@@ -778,6 +868,7 @@ ORDER BY ordinal_position;`);
           {/each}
         {/if}
       {/if}
+      {/if}
     {/each}
   {/if}
 {/snippet}
@@ -798,6 +889,8 @@ ORDER BY ordinal_position;`);
     {#each filteredConnections as conn (conn.id)}
       {@const isConnected = $connectedIds.has(conn.id)}
       {@const isExpanded = $expandedConnectionId === conn.id && isConnected}
+      {@const searchForceConn = !!searchQuery && isConnected && connMatchesSearch(conn) && !collapsedDuringSearch.has(`conn:${conn.id}`)}
+      {@const showConnChildren = isExpanded || searchForceConn}
       {@const databases = $connectionDatabases.get(conn.id) ?? []}
       {@const connState = $sqlConnectionStates.get(conn.id) ?? 'idle'}
       {@const isConnecting = connState === 'connecting'}
@@ -851,27 +944,31 @@ ORDER BY ordinal_position;`);
           >
             {@html icons.ellipsisV}
           </button>
-          <svg class="ncoll-arr" class:open={isExpanded} viewBox="0 0 24 24">
+          <svg class="ncoll-arr" class:open={showConnChildren} viewBox="0 0 24 24">
             <path d="M9 18l6-6-6-6" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </div>
 
       <!-- Database Tree -->
-      {#if isExpanded && databases.length > 0}
+      {#if showConnChildren && databases.length > 0}
         {#each databases as db}
           {@const dbKey = `${conn.id}:${db}`}
+          {@const dbVisible = !searchQuery || dbMatchesSearch(db) || dbHasMatchingChildren(conn.id, db, conn.driver)}
+          {#if dbVisible}
           {@const isDbExpanded = expandedDbs.has(dbKey)}
+          {@const searchForceDb = !!searchQuery && (dbMatchesSearch(db) || dbHasMatchingChildren(conn.id, db, conn.driver)) && !collapsedDuringSearch.has(`db:${dbKey}`)}
+          {@const showDbChildren = isDbExpanded || searchForceDb}
           {@const schemas = schemaCache.get(dbKey) ?? []}
           {@const isLoadingSchema = loadingSchemas.has(dbKey)}
 
           <button
             class="tree-item tree-db"
-            class:expanded={isDbExpanded}
+            class:expanded={showDbChildren}
             onclick={() => handleClickDatabase(conn.id, db)}
             ondblclick={() => handleDatabaseDblClick(conn.id, db)}
             oncontextmenu={(e) => showDbMenu(e, conn.id, db)}
           >
-            <svg class="tree-chevron-sm" class:open={isDbExpanded} viewBox="0 0 24 24">
+            <svg class="tree-chevron-sm" class:open={showDbChildren} viewBox="0 0 24 24">
               <path d="M9 18l6-6-6-6"/>
             </svg>
             <svg class="tree-icon tree-icon-db" viewBox="0 0 24 24">
@@ -886,23 +983,27 @@ ORDER BY ordinal_position;`);
             </span>
           </button>
 
-          {#if isDbExpanded}
+          {#if showDbChildren}
             {#if hasSchemaLayer(conn.driver)}
               {#if isLoadingSchema}
                 <div class="tree-loading" style="padding-left:28px">Loading schemas...</div>
               {:else}
                 {#each schemas as schema}
                   {@const schemaKey = `${conn.id}:${db}:${schema}`}
+                  {@const schemaVisible = !searchQuery || schemaMatchesSearch(schema) || schemaHasMatchingTables(conn.id, db, schema)}
+                  {#if schemaVisible}
                   {@const isSchemaExpanded = expandedSchemas.has(schemaKey)}
+                  {@const searchForceSchema = !!searchQuery && (schemaMatchesSearch(schema) || schemaHasMatchingTables(conn.id, db, schema)) && !collapsedDuringSearch.has(`schema:${schemaKey}`)}
+                  {@const showSchemaChildren = isSchemaExpanded || searchForceSchema}
                   {@const sTables = tableCache.get(schemaKey) ?? []}
                   {@const sLoadingTbl = loadingTables.has(schemaKey)}
 
                   <button
                     class="tree-item tree-schema"
-                    class:expanded={isSchemaExpanded}
+                    class:expanded={showSchemaChildren}
                     onclick={() => handleClickSchema(conn.id, db, schema)}
                   >
-                    <svg class="tree-chevron-sm" class:open={isSchemaExpanded} viewBox="0 0 24 24">
+                    <svg class="tree-chevron-sm" class:open={showSchemaChildren} viewBox="0 0 24 24">
                       <path d="M9 18l6-6-6-6"/>
                     </svg>
                     <svg class="tree-icon tree-icon-schema" viewBox="0 0 24 24">
@@ -911,8 +1012,9 @@ ORDER BY ordinal_position;`);
                     <span class="tree-label">{schema}</span>
                   </button>
 
-                  {#if isSchemaExpanded}
+                  {#if showSchemaChildren}
                     {@render renderTables(sTables, schema, db, conn.id, sLoadingTbl)}
+                  {/if}
                   {/if}
                 {/each}
               {/if}
@@ -921,6 +1023,7 @@ ORDER BY ordinal_position;`);
               {@const dbLoadingTbl = loadingTables.has(dbKey)}
               {@render renderTables(dbTables, '', db, conn.id, dbLoadingTbl)}
             {/if}
+          {/if}
           {/if}
         {/each}
       {/if}

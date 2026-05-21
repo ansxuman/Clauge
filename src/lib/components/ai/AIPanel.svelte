@@ -271,7 +271,15 @@
 
   // The active provider — Clauge AI (managed) or any BYOK provider id from
   // the PROVIDERS catalogue. Stored in flat settings under `ai_provider`.
-  let activeProvider = $derived<string>($settings['ai_provider'] || 'claude');
+  // Default matches AIConfigSelector and sendMessage: Pro users land on
+  // 'clauge' (managed, no key needed) when they've never picked a
+  // provider explicitly; free users land on 'claude' (BYOK). Without
+  // this Pro-aware default, a Pro user with no saved ai_provider and
+  // no BYOK key sees the "Configure in Settings" gate even though
+  // their credits would route fine through Clauge AI.
+  let activeProvider = $derived<string>(
+    $settings['ai_provider'] || ($cloudPlan === 'pro' ? 'clauge' : 'claude')
+  );
 
   // Panel is usable when:
   //   - Clauge AI is active and user is Pro (managed → no key needed), or

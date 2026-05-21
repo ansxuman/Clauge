@@ -30,7 +30,6 @@
     agentUpdateSessionId,
     agentUpdateLastUsed,
     agentDiscoverSessions,
-    agentResolveResumeId,
     agentIsGitRepo,
     agentCreateWorktree,
     agentUpdateWorktree,
@@ -402,16 +401,6 @@
     });
 
     t.onData((data) => {
-      // Only count REAL user typing as exit intent. xterm fires onData for protocol
-      // replies too — focus reports (\x1b[I/\x1b[O), Device Attributes responses
-      // (\x1b[?1;2c), Cmd+L (\x0c), etc. — none of which represent the user typing
-      // an exit command. Restrict to printable chars or Enter, with no escape seq.
-      const isUserTyping = !/\x1b/.test(data) && /[\x20-\x7e\r\n]/.test(data);
-      if (isUserTyping) {
-        const e = get(agentTerminalMap).get(sessionId);
-        if (e) (e as any)._lastExitIntent = Date.now();
-      }
-
       const tIds = get(agentTerminalIds);
       const termId = tIds.get(sessionId);
       if (termId) {
@@ -701,6 +690,16 @@
   // Global generation was wrong — it blocked writes from other sessions' tabs.
   const _spawnGenerations = new Map<string, number>();
 
+  // Per-cwd capture lock. New-session spawns at the SAME spawnPath
+  // serialize against an in-flight capture so the capture-poll for an
+  // earlier sibling can't accidentally claim a later sibling's jsonl
+  // (the rapid-double-launch race on shared cwds — non-git folders,
+  // or git repos where worktree creation failed). Each entry resolves
+  // when that spawn's capture-poll persists claudeSessionId (or after
+  // a safety timeout if the spawn dies before capture). Per-session
+  // worktrees give unique spawnPaths so this is a no-op for them.
+  const _pendingCaptureByPath = new Map<string, Promise<void>>();
+
   // User-initiated re-spawn for an exited session. Disposes the preserved
   // scrollback xterm and starts a fresh claude PTY via the normal spawn path.
   async function startNewForActiveSession() {
@@ -816,10 +815,17 @@
     entry = createTermEntry(session.id);
     showTermEntry(entry);
 
+    // Hoisted outside the try so the catch can release the per-cwd
+    // capture lock on spawn failure. Reassigned inside the try with
+    // the real values once spawnPath / captureDone are known.
+    let spawnPath: string = session.worktreePath || session.projectPath;
+    let captureResolver: () => void = () => {};
+    let captureDone: Promise<void> | null = null;
+
     try {
       await agentUpdateLastUsed(session.id);
 
-      let spawnPath = session.worktreePath || session.projectPath;
+      // (spawnPath is hoisted above so the catch block can use it)
 
       // Inject attached contexts into the file this CLI actually reads
       // — CLAUDE.md for Claude, AGENTS.md for Codex / OpenCode.
@@ -865,13 +871,45 @@
         }
       }
 
-      // Get existing session IDs BEFORE spawning. We exclude ALL ids
-      // already claimed by any other Clauge session in the store (not
-      // just the on-disk snapshot) so that — even when two sessions
-      // somehow end up in the same encoded Claude directory
-      // (non-git projects, legacy worktrees from before the UUID-in-
-      // branch fix, etc.) — the capture poll below can't ever claim a
-      // session id that's already owned by a sibling. Defense in depth.
+      // Per-cwd capture lock — register first (synchronously, so a
+      // concurrent third spawn sees us as its predecessor rather than
+      // chaining behind whoever WE waited on), then await any prior
+      // pending capture. Only runs for brand-new sessions (no stored
+      // claudeSessionId); resume paths don't compete for a new jsonl.
+      // captureResolver / captureDone are declared in the outer scope
+      // so the catch block can release on spawn failure.
+      let priorCapture: Promise<void> | undefined;
+      if (!session.claudeSessionId) {
+        priorCapture = _pendingCaptureByPath.get(spawnPath);
+        captureDone = new Promise<void>((r) => { captureResolver = r; });
+        _pendingCaptureByPath.set(spawnPath, captureDone);
+        // Safety release — if our own capture never fires (broken PTY,
+        // killed early, capture-poll exhausts all attempts) siblings
+        // shouldn't wait forever. AGENT_SESSION_CAPTURE_INTERVAL_MS *
+        // 10 + slack = ~35s upper bound for a legit capture; round up.
+        setTimeout(() => {
+          if (_pendingCaptureByPath.get(spawnPath) === captureDone) {
+            _pendingCaptureByPath.delete(spawnPath);
+          }
+          captureResolver();
+        }, 40_000);
+      }
+      if (priorCapture) {
+        // Cap the wait at 10s — if the prior spawn is genuinely slow we
+        // accept a small re-introduction of the race rather than block
+        // the user's click for the full safety-timeout. In practice
+        // capture-poll fires within 3-6s on a healthy machine.
+        await Promise.race([
+          priorCapture.catch(() => {}),
+          new Promise<void>((r) => setTimeout(r, 10_000)),
+        ]);
+      }
+
+      // Get existing session IDs BEFORE spawning. Snapshot is taken
+      // AFTER the per-cwd lock so it includes any jsonl the previous
+      // sibling's capture-poll wrote during our wait. The
+      // sibling-claim union still adds defense for the case where
+      // capture-poll fired after disk write but before we resnapshot.
       let existingSessionIds: string[] = [];
       if (!session.claudeSessionId) {
         try {
@@ -983,90 +1021,19 @@
         // Check for action-required prompts and notify
         handleTerminalOutput(payload.data);
 
-        // Session exit detection — buffer last 500 chars
+        // Accumulate raw output into a rolling 500-char buffer. Used at
+        // PTY-close time to extract the "claude --resume <id>" token as
+        // a fallback resume-id capture when the post-spawn poll didn't
+        // get to discover the .jsonl file. The previous regex-based
+        // "session ended" / farewell detection ran here too, but was
+        // unreliable (matched on any in-response mention of the phrase)
+        // and shipped a misleading banner — removed entirely. PTY-close
+        // (payload.exit === true) and write-failure (line ~418) remain
+        // as the only authoritative exit signals.
         if (!entry!._exitBuffer) entry!._exitBuffer = '';
         try {
-          const text = atob(payload.data);
-          entry!._exitBuffer += text;
+          entry!._exitBuffer += atob(payload.data);
           if (entry!._exitBuffer.length > 500) entry!._exitBuffer = entry!._exitBuffer.slice(-500);
-          // Strip ANSI codes
-          const clean = entry!._exitBuffer
-            .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
-            .replace(/\x1b\][^\x07]*\x07/g, '');
-
-          // Only trigger exit detection if user RECENTLY typed /exit (within 10s).
-          // Window resizes / PTY redraws can flood the buffer with conversation history
-          // that contains farewell messages or "Resume this session with:" text from
-          // prior interactions — those would falsely trigger exit on resize otherwise.
-          const lastExitIntent = (entry as any)?._lastExitIntent || 0;
-          const recentExitIntent = lastExitIntent && (Date.now() - lastExitIntent) < 10000;
-          // Note: "Resume this session with:" and "claude --resume <id>" are NOT exit
-          // patterns anymore — Claude Code v2 prints them in the startup banner too.
-          // Real exits are caught via PTY-close (I/O error in agentWriteToTerminal)
-          // and these explicit farewell patterns.
-          const matched_ended = /session has ended|Exiting Claude/i.test(clean);
-          const matched_farewell = /(Goodbye!|Bye!|See ya!|Catch you later!|Take care!|Until next time!)\s*$/i.test(clean);
-          const exitMatched = recentExitIntent && (matched_ended || matched_farewell);
-          if (matched_ended || matched_farewell) {
-            console.log(`[TERM-DBG] regex-match session=${sessionId.slice(0,8)} ended=${matched_ended} farewell=${matched_farewell} recentIntent=${recentExitIntent} intentAge=${lastExitIntent ? Date.now() - lastExitIntent : 'never'}ms tail=${JSON.stringify(clean.slice(-200))}`);
-          }
-          if (exitMatched) {
-            console.log(`[TERM] EXIT DETECTED for session ${sessionId}, gen=${myGeneration}`);
-            agentTerminalIds.update(m => { m.delete(sessionId); return new Map(m); });
-            const tMapNow = get(agentTerminalMap);
-            const exitedEntry = tMapNow.get(sessionId);
-            // Preserve the xterm entry so reopening the session shows the prior
-            // scrollback instead of auto-spawning a fresh claude. _suppressExit
-            // is set by reset/relaunch handlers which dispose the entry themselves.
-            if (entry) entry._exitBuffer = '';
-            // Capture session ID if not already set (for future --resume)
-            const resumeMatch = clean.match(/claude --resume ([a-f0-9-]+)/);
-            if (resumeMatch && !session.claudeSessionId) {
-              const extractedSessionId = resumeMatch[1];
-              agentUpdateSessionId(session.id, extractedSessionId).catch(() => {});
-              session.claudeSessionId = extractedSessionId;
-            }
-            agentSessionActivity.update(m => { m.set(sessionId, 'done'); return new Map(m); });
-            if (!_suppressExit) {
-              agentSessionExited.update(m => { m.set(sessionId, true); return new Map(m); });
-            } else if (exitedEntry) {
-              try { exitedEntry.container.remove(); } catch (_) {}
-              try { exitedEntry.term.dispose(); } catch (_) {}
-              agentTerminalMap.update(m => { m.delete(sessionId); return new Map(m); });
-            }
-
-            // Only clear activeTermEntry if THIS session's entry was the active one.
-            // Otherwise we lose the reference to the actually-displayed session
-            // and the next showTermEntry won't hide its container — cross-session leak.
-            if (activeTermEntry === exitedEntry) activeTermEntry = null;
-            if (currentSessionId === sessionId) currentSessionId = null;
-
-            // Synchronous tab-aware switching
-            if (!_suppressExit) {
-              const allTabs = get(tabsStore);
-              const exitedTab = allTabs.find(t => t.mode === 'agent' && t.key === sessionId);
-              if (exitedTab) {
-                const remainingAgentTabs = allTabs.filter(t => t.mode === 'agent' && t.id !== exitedTab.id);
-                closeTab(exitedTab.id);
-                if (remainingAgentTabs.length > 0) {
-                  const nextTab = remainingAgentTabs[remainingAgentTabs.length - 1];
-                  activateTab(nextTab.id);
-                  if (nextTab.key) {
-                    const sessions = get(agentSessions);
-                    const nextSession = sessions.find(s => s.id === nextTab.key);
-                    if (nextSession) activeAgentSession.set(nextSession);
-                  }
-                } else {
-                  activeAgentSession.set(null);
-                }
-              } else {
-                const currentActive = get(activeAgentSession);
-                if (currentActive?.id === sessionId) activeAgentSession.set(null);
-              }
-            }
-            _suppressExit = false;
-            return; // Stop processing — terminal is dead
-          }
         } catch (_) {}
 
         // Track activity — only mark 'running' if sustained output (not just echo/redraw)
@@ -1123,6 +1090,13 @@
                 session.claudeSessionId = newSession.sessionId;
                 await loadAgentSessions();
                 clearInterval(captureInterval);
+                // Release the per-cwd capture lock so any pending
+                // sibling spawn can proceed and re-snapshot the disk
+                // (which now includes our jsonl).
+                if (captureDone && _pendingCaptureByPath.get(spawnPath) === captureDone) {
+                  _pendingCaptureByPath.delete(spawnPath);
+                }
+                captureResolver();
 
                 // Start context usage polling now that we have a session ID
                 if (contextUsageInterval) clearInterval(contextUsageInterval);
@@ -1164,41 +1138,19 @@
         }
       }
 
-      // Resume-id rehydrate for non-Claude providers. Claude captures
-      // its session id from the PTY banner ("claude --resume <id>") via
-      // extract_resume_id_from_output and persists it as claudeSessionId.
-      // Codex / OpenCode don't print a deterministic marker, so on the
-      // first spawn we have no id. Before any subsequent spawn, query
-      // the CLI's own session store (codex jsonl tree, opencode SQLite)
-      // for the newest matching session and persist its id — that's
-      // the one the user was just on. First-ever spawn: returns null,
-      // fresh session starts as expected. Reset session sets a one-shot
-      // skip flag we honour + clear here so a reset doesn't loop back
-      // to the just-killed session.
+      // Resume contract: the row's own claude_session_id IS the source
+      // of truth. Set → resume that conversation. Null → spawn fresh,
+      // let the capture-poll below claim the new jsonl and persist its
+      // id. We deliberately do NOT reach to disk to "rehydrate" a
+      // missing id by guessing from orphan jsonls at this cwd —
+      // sibling sessions on non-git folders, freshly-cloud-restored
+      // rows, and leftover jsonls from previously-deleted sessions
+      // all share that cwd and were getting silently adopted, surfacing
+      // a deleted (or sibling) conversation under a brand-new session.
+      // Genuine crash-recovery (row lost its id, jsonl still on disk)
+      // is now driven explicitly by the user via the Custom-purpose
+      // "Resume existing session" picker in NewSessionModal.
       let resumeId = session.claudeSessionId || undefined;
-      // Rehydrate the resume id from disk when the DB row lost it
-      // (e.g. app crash/update before PTY capture, or the row was
-      // imported from another machine). Applies to every provider,
-      // including Claude — without this, a missing claudeSessionId
-      // means clicking the existing session silently starts fresh.
-      if (!resumeId) {
-        const skipKey = `agent_skip_rehydrate.${session.id}`;
-        const skip = await getSetting(skipKey).catch(() => null);
-        if (skip === '1') {
-          await setSetting(skipKey, '').catch(() => {});
-        } else {
-          try {
-            const found = await agentResolveResumeId(spawnPath, session.provider || 'claude');
-            if (found) {
-              resumeId = found;
-              await agentUpdateSessionId(session.id, found);
-              session.claudeSessionId = found;
-            }
-          } catch (e) {
-            console.warn('[TERM] resume-id rehydrate failed', e);
-          }
-        }
-      }
 
       spawning = true;
       const termId = await agentSpawnTerminal({
@@ -1242,6 +1194,12 @@
       refreshAgentGitStatus();
     } catch (e) {
       entry.term.write(`\r\nFailed to spawn terminal: ${e}\r\n`);
+      // Release the per-cwd lock on failure so siblings aren't blocked
+      // by a spawn that died before its capture-poll could fire.
+      if (captureDone && _pendingCaptureByPath.get(spawnPath) === captureDone) {
+        _pendingCaptureByPath.delete(spawnPath);
+      }
+      captureResolver();
     } finally {
       _spawnLock = false;
     }
@@ -1357,19 +1315,11 @@
     const shellId = sIds.get(session.id);
     if (shellId) agentKillTerminal(shellId).catch(() => {});
 
-    // Clear session ID
+    // Clear session ID. With the disk-rehydrate path removed, the next
+    // spawn sees `claudeSessionId=null` and goes straight to a fresh
+    // CLI session — no skip-flag dance needed.
     agentUpdateSessionId(session.id, '').catch(() => {});
     session.claudeSessionId = null;
-    // For non-Claude providers, the spawn path "rehydrates" the resume
-    // id from the CLI's own session store when claudeSessionId is
-    // empty (so reopening from the side panel resumes the prior chat).
-    // Reset means "start fresh" — set a one-shot flag the next spawn
-    // checks and clears, so the rehydrate is skipped exactly once.
-    // The next spawn after that captures the brand-new CLI session id
-    // and resume works normally again.
-    if (session.provider && session.provider !== 'claude') {
-      setSetting(`agent_skip_rehydrate.${session.id}`, '1').catch(() => {});
-    }
 
     // Remove from maps
     agentTerminalIds.update(m => { m.delete(session.id); return new Map(m); });

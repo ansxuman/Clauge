@@ -437,7 +437,6 @@
     }
 
     const tabId = activeSqlTab.id;
-    const queryId = makeQueryId();
     const entries: SqlResultEntry[] = queries.map((q) => ({
       label: makeResultLabel(q),
       query: q,
@@ -445,8 +444,15 @@
       error: null,
     }));
 
+    // Initial inFlight uses the first statement's subId — matching the
+    // id we'll send to Rust on the first iteration. Per-statement
+    // updates below keep inFlight.queryId aligned with whichever
+    // statement is currently running, so the Cancel button always
+    // targets the live InFlight entry in the Rust map (which is keyed
+    // by the subId, not by any batch-wide id).
+    const firstSubId = makeQueryId();
     setSqlTabData(tabId, {
-      inFlight: { queryId, startedAt: Date.now() },
+      inFlight: { queryId: firstSubId, startedAt: Date.now() },
       result: null,
       error: null,
       results: entries,
@@ -455,11 +461,14 @@
 
     let successCount = 0;
     let errorCount = 0;
+    let cancelled = false;
     for (let i = 0; i < queries.length; i++) {
+      const subId = i === 0 ? firstSubId : makeQueryId();
+      if (i > 0) {
+        setSqlTabData(tabId, { inFlight: { queryId: subId, startedAt: Date.now() } });
+      }
       entries[i].startedAt = Date.now();
       try {
-        // Each statement gets its own queryId so cancel works mid-batch.
-        const subId = makeQueryId();
         const result = await sqlExecuteQuery(
           binding.connectionId,
           binding.database,
@@ -469,8 +478,16 @@
         entries[i].result = result;
         successCount++;
       } catch (e: any) {
-        entries[i].error = e?.toString?.() ?? String(e);
+        const msg = e?.toString?.() ?? String(e);
+        entries[i].error = msg;
         errorCount++;
+        // The Rust select! returns "Query cancelled" when the user
+        // hits Cancel mid-batch. Stop the loop so the next statement
+        // doesn't kick off automatically against the user's intent.
+        if (/cancelled/i.test(msg)) {
+          cancelled = true;
+          break;
+        }
       }
       setSqlTabData(tabId, { results: [...entries], activeResultIdx: i });
     }
@@ -484,7 +501,9 @@
       activeResultIdx: entries.length - 1,
     });
 
-    if (errorCount === 0) {
+    if (cancelled) {
+      showToast(`Cancelled — ${successCount} ran before stop`, 'info');
+    } else if (errorCount === 0) {
       showToast(`${successCount} queries completed`, 'success');
     } else {
       showToast(

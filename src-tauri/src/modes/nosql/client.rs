@@ -372,6 +372,42 @@ pub async fn nosql_connect(
                     friendly_mongo_error(&raw)
                         .unwrap_or_else(|| format!("MongoDB ping failed: {}", raw))
                 })?;
+            // Real-auth probe. `ping` does NOT require auth on MongoDB, so
+            // a successful ping against an auth-enabled cluster is a false
+            // positive — the connection appears "connected" but every read
+            // command fails. Try `listDatabases` to surface that at connect
+            // time. If it fails with an auth error AND the user didn't
+            // scope this connection to a specific database, reject so no
+            // "Connected" toast fires for a connection that can't be used.
+            // If a database IS configured, allow the connect (Atlas-style
+            // restricted users that can only see one database).
+            if let Err(e) = client.list_database_names().await {
+                let raw = e.to_string();
+                let lower = raw.to_lowercase();
+                let auth_failure = lower.contains("requires authentication")
+                    || lower.contains("unauthorized")
+                    || lower.contains("authentication failed")
+                    || lower.contains("not authorized")
+                    || lower.contains("authenticationfailed");
+                let scoped = config.database.as_deref().map(|d| !d.is_empty()).unwrap_or(false);
+                if auth_failure && !scoped {
+                    return Err(
+                        "MongoDB requires authentication — add a username and password \
+                         to the connection, or scope it to a specific database."
+                            .to_string(),
+                    );
+                }
+                if !auth_failure {
+                    return Err(format!("MongoDB connect failed: {}", raw));
+                }
+                // Scoped + auth failure on listDatabases: log and proceed.
+                // The user explicitly limited this connection's scope.
+                log::warn!(
+                    "MongoDB connection scoped to a single database — listDatabases \
+                     not permitted: {}",
+                    raw
+                );
+            }
             NoSqlPool::Mongo(client)
         }
         "redis" => {

@@ -167,6 +167,22 @@
   class:overlay={!navPinned && $navOpen}
   onmouseleave={handleMouseLeavePanel}
 >
+  {#snippet searchBar()}
+    <div class="nav-search-wrap nav-search-inline">
+      <svg class="nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input
+        type="text"
+        class="nav-search-input"
+        placeholder={searchPlaceholders[$mode] ?? 'Search…'}
+        value={searchQuery}
+        oninput={(e) => setSearch((e.target as HTMLInputElement).value)}
+      />
+    </div>
+  {/snippet}
+
   {#if $mode === 'sql' || $mode === 'nosql' || $mode === 'ssh' || $mode === 'explorer'}
     {@const ctaLabel = $mode === 'ssh' ? 'New SSH Profile' : 'New Connection'}
     {@const sectionLabel = $mode === 'ssh' ? 'PROFILES' : 'CONNECTIONS'}
@@ -184,6 +200,7 @@
           </svg>
         </button>
       </div>
+      {@render searchBar()}
       <div class="ah-divider"></div>
       <div class="ah-section">{sectionLabel}</div>
     </div>
@@ -212,6 +229,7 @@
           <span class="ah-card-label">Import / Export</span>
         </button>
       </div>
+      {@render searchBar()}
       <div class="ah-divider"></div>
       <div class="ah-section">COLLECTIONS</div>
     </div>
@@ -246,6 +264,7 @@
           </span>
         </button>
       </div>
+      {@render searchBar()}
       <div class="ah-divider"></div>
       <div class="ah-section">WORKSPACES</div>
     </div>
@@ -274,6 +293,7 @@
           <span class="ah-card-label">Plugins</span>
         </button>
       </div>
+      {@render searchBar()}
       <div class="ah-divider"></div>
       <div class="ah-section">SESSIONS</div>
     </div>
@@ -387,6 +407,9 @@
     display: flex;
     align-items: center;
   }
+  /* Inline variant for custom headers (.nav-header-agent uses column flex,
+     so the default `flex: 1` would make the search input grow vertically). */
+  .nav-search-inline { flex: initial; width: 100%; }
   .nav-search-icon {
     position: absolute;
     left: 9px;
