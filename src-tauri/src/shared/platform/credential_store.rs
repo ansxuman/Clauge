@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 
 /// Cross-platform secret store used to back SSH profile credentials
-/// (passwords + key passphrases).
+/// (passwords + key passphrases), Explorer per-connection secrets, and
+/// Cloud auth tokens.
 ///
 /// Per-OS dispatch:
 /// - **macOS**: shell-out to `/usr/bin/security`. The system `security`
@@ -9,9 +10,12 @@ use async_trait::async_trait;
 ///   trigger the "X wants to use confidential information" prompt that
 ///   Security.framework calls from a non-system binary would. Better UX
 ///   for signed app builds where re-signing changes the binary identity.
-/// - **Windows / Linux**: the `keyring` crate (Credential Manager /
-///   Secret Service over D-Bus). No shell-out equivalent worth duplicating
-///   on those OSes.
+/// - **Windows**: the `keyring` crate, Windows Credential Manager backend.
+///   No interactive prompts; secrets are bound to the Windows user account.
+/// - **Linux**: encrypted file at `$XDG_DATA_HOME/clauge/credentials.bin`
+///   (AES-256-GCM, key derived from `/etc/machine-id` via HKDF-SHA256).
+///   Secret Service / libsecret is intentionally not used — see
+///   `linux_file_store.rs` for the rationale.
 #[async_trait]
 pub trait CredentialStore: Send + Sync {
     async fn store(&self, key: &str, value: &str) -> Result<(), String>;
@@ -115,19 +119,19 @@ impl CredentialStore for MacosKeychainStore {
     }
 }
 
-// ─── Windows / Linux: keyring crate ─────────────────────────────────────────
+// ─── Windows: keyring crate (Windows Credential Manager) ────────────────────
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 pub struct KeyringStore;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 impl KeyringStore {
     fn entry(key: &str) -> Result<keyring::Entry, String> {
         keyring::Entry::new(SERVICE_NAME, key).map_err(|e| format!("keyring entry: {}", e))
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 #[async_trait]
 impl CredentialStore for KeyringStore {
     async fn store(&self, key: &str, value: &str) -> Result<(), String> {
@@ -173,18 +177,24 @@ pub fn credential_store() -> impl CredentialStore {
     MacosKeychainStore
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 pub fn credential_store() -> impl CredentialStore {
     KeyringStore
+}
+
+#[cfg(target_os = "linux")]
+pub fn credential_store() -> impl CredentialStore {
+    super::linux_file_store::LinuxFileStore::new()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // Round-trip the platform-default store. Skipped on Linux CI runners
-    // because they're typically headless and lack the D-Bus session that
-    // the Secret Service backend needs.
+    // Round-trip the platform-default store. Skipped on Linux because the
+    // factory writes to the real $XDG_DATA_HOME/clauge/ and would clobber
+    // the developer's credentials. Linux backend has its own isolated tests
+    // in `linux_file_store.rs`.
     #[cfg(not(target_os = "linux"))]
     #[tokio::test]
     async fn round_trip() {

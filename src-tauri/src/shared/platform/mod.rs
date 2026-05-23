@@ -7,5 +7,7 @@
 
 pub mod credential_store;
 pub mod install_type;
+#[cfg(target_os = "linux")]
+pub mod linux_file_store;
 pub mod path;
 pub mod shell;

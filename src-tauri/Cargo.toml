@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "3.0.0-alpha.19"
+version = "3.0.0-alpha.20"
 description = "Clauge — An AI-powered cross-platform desktop super-app for developers"
 authors = ["Anshuman <support@clauge.in>"]
 license = "LicenseRef-PolyForm-Noncommercial-1.0.0"
@@ -83,12 +83,21 @@ azure_core = "0.21"
 suppaftp = { version = "8", features = ["tokio"] }
 axum = { version = "0.8.4", default-features = false, features = ["tokio", "http1", "json"] }
 toml_edit = "0.25.5"
-# Credential store for Windows + Linux (Win Credential Manager / libsecret).
-# macOS uses a separate shell-out path to /usr/bin/security in
-# shared/platform/credential_store.rs — keeps Keychain access prompts to a
-# minimum since /usr/bin/security is implicitly trusted by macOS.
-[target.'cfg(not(target_os = "macos"))'.dependencies]
-keyring = { version = "3", features = ["windows-native", "sync-secret-service"] }
+# Credential store — per-OS dispatch in shared/platform/credential_store.rs:
+#   macOS   → shell-out to /usr/bin/security (implicitly trusted by Keychain,
+#             avoids re-signing prompts).
+#   Windows → `keyring` crate, Windows Credential Manager backend.
+#   Linux   → encrypted file at $XDG_DATA_HOME/clauge/credentials.bin
+#             (AES-256-GCM, key derived from /etc/machine-id via HKDF-SHA256).
+#             Secret Service / libsecret is intentionally NOT used: gnome-keyring
+#             pops a system "unlock with login password" dialog whenever the
+#             user's keyring password drifts from their login password, and a
+#             cancelled prompt makes every store/get fail with "no result found".
+#             That broke Cloud sign-in (silent sign-out on every restart) and
+#             dormant-broke SSH/Explorer password persistence too.
+[target.'cfg(target_os = "linux")'.dependencies]
+aes-gcm = "0.10"
+hkdf = "0.12"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.26"
@@ -96,6 +105,7 @@ objc = "0.2"
 window-vibrancy = "0.7"
 
 [target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
 window-vibrancy = "0.7"
 # Match the windows-rs major Tauri 2.10 pulls in to avoid shipping two
 # copies of the crate. HWND is the same shape in both, so the cast in
