@@ -383,3 +383,148 @@ describe("cancelPolarSubscriptionIfNeeded (delete-account Polar revoke)", () => 
     );
   });
 });
+
+// CRITICAL silent-under-charge fix: deleting a Pro account must ALSO delete
+// the Polar Customer record. Without this, Polar's customer survives with a
+// stale `external_id` pointing at the deleted D1 row; on the next signup +
+// purchase with the same email, Polar reuses the orphan customer and the
+// resulting `order.paid` webhook resolves to a user_id that no longer exists,
+// so `handleLifetimeOrderPaid` silently no-ops and the new paying user stays
+// on free tier. These tests cover every branch of deletePolarCustomerIfNeeded
+// (success, idempotent 404, abort on 403/422/5xx/network, skip when no
+// customer_id) without making real HTTP calls.
+describe("deletePolarCustomerIfNeeded (delete-account Polar customer cleanup)", () => {
+  function mockFetch(responses) {
+    const calls = [];
+    let i = 0;
+    const fn = async (url, init) => {
+      calls.push({ url, init });
+      const r = responses[i++] ?? { status: 500, body: "no canned response" };
+      return {
+        ok: r.status >= 200 && r.status < 300,
+        status: r.status,
+        text: async () => r.body ?? "",
+      };
+    };
+    fn.calls = calls;
+    return fn;
+  }
+
+  const polarEnv = {
+    POLAR_API_KEY: "fake_polar_key",
+    POLAR_API_BASE: "https://api.polar.sh",
+  };
+
+  it("free user (no polar_customer_id) — skipped, no HTTP call", async () => {
+    const { deletePolarCustomerIfNeeded } = await import("../src/auth.js");
+    const fetchImpl = mockFetch([]);
+    const result = await deletePolarCustomerIfNeeded(
+      polarEnv,
+      { polar_customer_id: null },
+      fetchImpl,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.skipped).toBe("no-customer");
+    expect(fetchImpl.calls).toHaveLength(0);
+  });
+
+  it("active customer — hits Polar DELETE with Bearer auth, returns 204", async () => {
+    const { deletePolarCustomerIfNeeded } = await import("../src/auth.js");
+    const fetchImpl = mockFetch([{ status: 204, body: "" }]);
+    const result = await deletePolarCustomerIfNeeded(
+      polarEnv,
+      { polar_customer_id: "cus_3d1ec5c9" },
+      fetchImpl,
+    );
+    expect(result.ok).toBe(true);
+    expect(fetchImpl.calls).toHaveLength(1);
+    expect(fetchImpl.calls[0].url).toBe(
+      "https://api.polar.sh/v1/customers/cus_3d1ec5c9",
+    );
+    expect(fetchImpl.calls[0].init.method).toBe("DELETE");
+    expect(fetchImpl.calls[0].init.headers.authorization).toBe(
+      "Bearer fake_polar_key",
+    );
+  });
+
+  it("Polar 404 — idempotent success (already deleted out-of-band)", async () => {
+    const { deletePolarCustomerIfNeeded } = await import("../src/auth.js");
+    const fetchImpl = mockFetch([{ status: 404, body: '{"error":"not_found"}' }]);
+    const result = await deletePolarCustomerIfNeeded(
+      polarEnv,
+      { polar_customer_id: "cus_gone" },
+      fetchImpl,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.skipped).toBe("polar-404");
+  });
+
+  it("Polar 422 (validation) — blocks deletion so user can retry", async () => {
+    const { deletePolarCustomerIfNeeded } = await import("../src/auth.js");
+    const fetchImpl = mockFetch([
+      { status: 422, body: '{"error":"validation"}' },
+    ]);
+    const result = await deletePolarCustomerIfNeeded(
+      polarEnv,
+      { polar_customer_id: "cus_x" },
+      fetchImpl,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(422);
+    expect(result.error).toContain("422");
+  });
+
+  it("Polar 403 (insufficient scope) — blocks deletion, surfaces error", async () => {
+    const { deletePolarCustomerIfNeeded } = await import("../src/auth.js");
+    const fetchImpl = mockFetch([
+      { status: 403, body: '{"error":"insufficient_scope"}' },
+    ]);
+    const result = await deletePolarCustomerIfNeeded(
+      polarEnv,
+      { polar_customer_id: "cus_x" },
+      fetchImpl,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(403);
+  });
+
+  it("Polar 500 (outage) — blocks deletion so user can retry later", async () => {
+    const { deletePolarCustomerIfNeeded } = await import("../src/auth.js");
+    const fetchImpl = mockFetch([{ status: 500, body: "internal error" }]);
+    const result = await deletePolarCustomerIfNeeded(
+      polarEnv,
+      { polar_customer_id: "cus_x" },
+      fetchImpl,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe(500);
+  });
+
+  it("network error — blocks deletion with network: prefix in error", async () => {
+    const { deletePolarCustomerIfNeeded } = await import("../src/auth.js");
+    const fetchImpl = async () => {
+      throw new Error("ETIMEDOUT");
+    };
+    const result = await deletePolarCustomerIfNeeded(
+      polarEnv,
+      { polar_customer_id: "cus_x" },
+      fetchImpl,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("network:");
+    expect(result.error).toContain("ETIMEDOUT");
+  });
+
+  it("respects POLAR_API_BASE override (sandbox)", async () => {
+    const { deletePolarCustomerIfNeeded } = await import("../src/auth.js");
+    const fetchImpl = mockFetch([{ status: 204, body: "" }]);
+    await deletePolarCustomerIfNeeded(
+      { POLAR_API_KEY: "k", POLAR_API_BASE: "https://sandbox-api.polar.sh" },
+      { polar_customer_id: "cus_sandbox" },
+      fetchImpl,
+    );
+    expect(fetchImpl.calls[0].url).toBe(
+      "https://sandbox-api.polar.sh/v1/customers/cus_sandbox",
+    );
+  });
+});

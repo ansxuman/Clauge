@@ -251,17 +251,67 @@ export async function cancelPolarSubscriptionIfNeeded(env, user, fetchImpl = fet
   };
 }
 
+/**
+ * Delete the caller's Polar Customer record AFTER any subscription has been
+ * cancelled, BEFORE deleting the D1 user row. Without this, Polar's customer
+ * record survives our user delete with a stale `external_id` pointing at the
+ * deleted D1 row. The next time the same email signs up + checks out, Polar
+ * matches by email and REUSES the orphan customer (external_id still=N), so
+ * the `order.paid` webhook arrives with `external_customer_id=N` — pointing
+ * at a user that no longer exists. `handleLifetimeOrderPaid` does a silent
+ * `if (!current) return;` and the new paying user never gets upgraded to Pro.
+ * Silent under-charge, mirror of the silent over-charge we fixed when we
+ * added `cancelPolarSubscriptionIfNeeded`.
+ *
+ *   - No `polar_customer_id`: nothing to delete; skip.
+ *   - 204: success, proceed.
+ *   - 404: already gone (deleted out-of-band); idempotent success.
+ *   - 403/422/5xx/network: ABORT — do NOT delete the D1 user row, surface
+ *     the error so ops can retry or clean up Polar manually first.
+ *
+ * `fetchImpl` is injectable for test mocking. Returns the same shape as
+ * `cancelPolarSubscriptionIfNeeded`.
+ */
+export async function deletePolarCustomerIfNeeded(env, user, fetchImpl = fetch) {
+  if (!user) return { ok: true, skipped: 'no-user' };
+  if (!user.polar_customer_id) return { ok: true, skipped: 'no-customer' };
+
+  const apiBase = env.POLAR_API_BASE ?? 'https://api.polar.sh';
+  const url = `${apiBase}/v1/customers/${user.polar_customer_id}`;
+
+  let resp;
+  try {
+    resp = await fetchImpl(url, {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${env.POLAR_API_KEY}` },
+    });
+  } catch (e) {
+    return { ok: false, error: `network: ${(e && e.message) || String(e)}` };
+  }
+
+  // 204 (No Content) is the documented success response.
+  if (resp.ok || resp.status === 204) return { ok: true };
+  if (resp.status === 404) return { ok: true, skipped: 'polar-404' };
+
+  const detail = await resp.text().catch(() => '');
+  return {
+    ok: false,
+    status: resp.status,
+    error: `Polar HTTP ${resp.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
+  };
+}
+
 /** DELETE /api/auth/me  Headers: X-Confirm: <slug>  → 200 on success */
 export async function handleDeleteAccount(request, env) {
   const ctx = await authenticate(request, env);
   if (!ctx) return err(env, 401, 'Not authenticated');
   const confirm = request.headers.get('X-Confirm') || '';
 
-  // Fetch the columns we need both for the slug check AND the Polar
-  // cancellation logic. `getUserById` doesn't return billing fields, so
-  // we do an explicit SELECT here.
+  // Fetch every column the cleanup chain needs (slug check, sub cancel,
+  // customer delete) in one query. `getUserById` doesn't include billing
+  // fields, so we go direct.
   const user = await env.CLAUGE_DB.prepare(
-    `SELECT user_id, slug, is_lifetime, polar_subscription_id, subscription_status
+    `SELECT user_id, slug, is_lifetime, polar_subscription_id, polar_customer_id, subscription_status
        FROM users WHERE user_id = ?`
   ).bind(ctx.userId).first();
   if (!user) return err(env, 404, 'User not found');
@@ -282,6 +332,22 @@ export async function handleDeleteAccount(request, env) {
       `Could not cancel your Polar subscription (${cancelResult.error}). ` +
       `Your account was NOT deleted. Please try again, or cancel manually ` +
       `from "Manage subscription" first, then retry the delete.`,
+    );
+  }
+
+  // Then delete the Polar Customer so it can't be reused (with a stale
+  // external_id) on a future signup with the same email. Same abort-on-
+  // failure semantics as the subscription cancel above. See the
+  // `deletePolarCustomerIfNeeded` doc for the orphan-customer scenario
+  // this prevents.
+  const customerResult = await deletePolarCustomerIfNeeded(env, user);
+  if (!customerResult.ok) {
+    return err(
+      env,
+      502,
+      `Could not delete your Polar customer record (${customerResult.error}). ` +
+      `Your account was NOT deleted. Please try again — the subscription was ` +
+      `already cancelled, so retrying is safe and idempotent.`,
     );
   }
 
