@@ -2,8 +2,8 @@
   import { onMount, onDestroy } from 'svelte';
   import { EditorView, keymap, placeholder as cmPlaceholder, lineNumbers } from '@codemirror/view';
   import { EditorState, Compartment } from '@codemirror/state';
-  import { sql, PostgreSQL, MySQL, SQLite } from '@codemirror/lang-sql';
-  import { autocompletion } from '@codemirror/autocomplete';
+  import { sql, PostgreSQL, MySQL, SQLite, keywordCompletionSource, schemaCompletionSource } from '@codemirror/lang-sql';
+  import { autocompletion, type Completion, type CompletionContext, type CompletionResult, type CompletionSource } from '@codemirror/autocomplete';
   import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark';
   import { syntaxHighlighting } from '@codemirror/language';
   import { defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
@@ -124,6 +124,207 @@
     (parserProfileFor($activeConnection?.driver ?? '') === 'PostgreSQL' ? 'public' : undefined)
   );
 
+  /** Tables and aliases in scope for column completion. `refs` are the
+   *  table identifiers referenced by FROM/JOIN/UPDATE/INTO clauses (may
+   *  be schema-qualified). `aliases` maps an alias to the table it
+   *  refers to — `FROM users u` produces `u → users`. */
+  interface FromScope {
+    refs: string[];
+    aliases: Map<string, string>;
+  }
+
+  /** Walk the statement that contains the cursor and extract the FROM /
+   *  JOIN / UPDATE / INTO table refs. Char-by-char walking so we don't
+   *  match FROM-like text inside string literals, comments, or
+   *  dollar-quoted blocks. */
+  function analyzeFromScope(buffer: string, cursorPos: number): FromScope {
+    const stmts = splitSqlStatementsWithPositions(buffer);
+    let target = stmts.find((s) => cursorPos >= s.from && cursorPos <= s.to + 1);
+    if (!target) {
+      for (let i = stmts.length - 1; i >= 0; i--) {
+        if (stmts[i].to < cursorPos) { target = stmts[i]; break; }
+      }
+    }
+    if (!target) return { refs: [], aliases: new Map() };
+
+    const text = target.text;
+    const refs = new Set<string>();
+    const aliases = new Map<string, string>();
+    const KW_RE = /^(?:FROM|JOIN|UPDATE|INTO)\b/i;
+    // Words that follow a table ref but are never aliases. Without this,
+    // `FROM users WHERE x=1` would map `WHERE` as an alias of `users`.
+    const NOT_AN_ALIAS = /^(?:WHERE|GROUP|ORDER|HAVING|LIMIT|JOIN|LEFT|RIGHT|INNER|OUTER|CROSS|FULL|ON|USING|UNION|INTERSECT|EXCEPT|FOR|FETCH|LATERAL|NATURAL|SET|VALUES|RETURNING|WINDOW|OFFSET)$/i;
+
+    let i = 0;
+    const len = text.length;
+    while (i < len) {
+      const ch = text[i];
+      const next = i + 1 < len ? text[i + 1] : '';
+
+      // Skip the same noise the splitter does: -- comments, /* */ comments,
+      // single/double/back-quoted strings, dollar-quoted blocks.
+      if (ch === '-' && next === '-') {
+        const eol = text.indexOf('\n', i);
+        i = eol === -1 ? len : eol + 1;
+        continue;
+      }
+      if (ch === '/' && next === '*') {
+        const end = text.indexOf('*/', i + 2);
+        i = end === -1 ? len : end + 2;
+        continue;
+      }
+      if (ch === "'") {
+        i++;
+        while (i < len) {
+          if (text[i] === "'" && i + 1 < len && text[i + 1] === "'") { i += 2; }
+          else if (text[i] === "'") { i++; break; }
+          else { i++; }
+        }
+        continue;
+      }
+      if (ch === '$') {
+        const tagEnd = text.indexOf('$', i + 1);
+        if (tagEnd !== -1) {
+          const tag = text.slice(i, tagEnd + 1);
+          const tagContent = tag.slice(1, -1);
+          if (tagContent === '' || /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tagContent)) {
+            const closeIdx = text.indexOf(tag, tagEnd + 1);
+            if (closeIdx !== -1) { i = closeIdx + tag.length; continue; }
+          }
+        }
+        i++;
+        continue;
+      }
+
+      // Keyword detection at word boundary.
+      const isWordChar = /[A-Za-z_]/.test(ch);
+      const prevCh = i > 0 ? text[i - 1] : ' ';
+      const atWordStart = !/[A-Za-z_0-9]/.test(prevCh) && isWordChar;
+      if (atWordStart) {
+        const kw = text.slice(i).match(KW_RE);
+        if (kw) {
+          let j = i + kw[0].length;
+          while (j < len && /\s/.test(text[j])) j++;
+          // Identifier — supports `name`, `schema.name`, "quoted", `backticked`.
+          const tableRef = readIdentifier(text, j);
+          if (tableRef) {
+            refs.add(tableRef.name);
+            j = tableRef.endPos;
+            while (j < len && /\s/.test(text[j])) j++;
+            // Optional alias: `AS x` or just `x`.
+            const asMatch = text.slice(j).match(/^AS\b/i);
+            if (asMatch) {
+              j += asMatch[0].length;
+              while (j < len && /\s/.test(text[j])) j++;
+            }
+            const aliasMatch = text.slice(j).match(/^[A-Za-z_]\w*/);
+            if (aliasMatch && !NOT_AN_ALIAS.test(aliasMatch[0])) {
+              aliases.set(aliasMatch[0], tableRef.name);
+              j += aliasMatch[0].length;
+            }
+            i = j;
+            continue;
+          }
+        }
+      }
+      i++;
+    }
+
+    return { refs: Array.from(refs), aliases };
+  }
+
+  /** Read a (possibly schema-qualified, possibly quoted) identifier
+   *  starting at `start` in `text`. Returns the bare identifier name
+   *  (quotes stripped) and the position immediately after it. */
+  function readIdentifier(text: string, start: number): { name: string; endPos: number } | null {
+    function readPart(pos: number): { name: string; endPos: number } | null {
+      if (pos >= text.length) return null;
+      const c = text[pos];
+      if (c === '"' || c === '`') {
+        const close = text.indexOf(c, pos + 1);
+        if (close === -1) return null;
+        return { name: text.slice(pos + 1, close), endPos: close + 1 };
+      }
+      const m = text.slice(pos).match(/^[A-Za-z_]\w*/);
+      if (!m) return null;
+      return { name: m[0], endPos: pos + m[0].length };
+    }
+    const first = readPart(start);
+    if (!first) return null;
+    if (text[first.endPos] !== '.') return first;
+    const second = readPart(first.endPos + 1);
+    if (!second) return first;
+    return { name: `${first.name}.${second.name}`, endPos: second.endPos };
+  }
+
+  /** Column completion source. Surfaces columns of tables in scope at
+   *  the cursor's statement. Two modes:
+   *  - Unqualified prefix → columns from every FROM/JOIN'd table.
+   *  - After `<alias>.` → columns of the table the alias refers to. */
+  function buildColumnSource(currentColumnMap: Record<string, string[]>): CompletionSource {
+    return (context: CompletionContext): CompletionResult | null => {
+      const word = context.matchBefore(/[A-Za-z_][A-Za-z0-9_]*/);
+      if (!word || (word.from === word.to && !context.explicit)) return null;
+      const charBefore = word.from > 0
+        ? context.state.doc.sliceString(word.from - 1, word.from)
+        : '';
+
+      const buffer = context.state.doc.toString();
+      const scope = analyzeFromScope(buffer, context.pos);
+
+      // Qualified: `<prefix>.<word>`. If `<prefix>` is an alias we know,
+      // surface that table's columns. Direct table-name lookups fall
+      // through to the schema source so we don't double-emit.
+      if (charBefore === '.') {
+        const prefixMatch = context.state.doc
+          .sliceString(0, word.from - 1)
+          .match(/([A-Za-z_]\w*)$/);
+        if (!prefixMatch) return null;
+        const aliased = scope.aliases.get(prefixMatch[1]);
+        if (!aliased) return null;
+        const bare = aliased.split('.').pop() ?? aliased;
+        const cols = currentColumnMap[aliased] ?? currentColumnMap[bare];
+        if (!cols) return null;
+        return {
+          from: word.from,
+          options: cols.map((c) => ({
+            label: c,
+            type: 'property',
+            detail: aliased,
+            boost: 10,
+          })),
+          validFor: /^[A-Za-z_][A-Za-z0-9_]*$/,
+        };
+      }
+
+      if (scope.refs.length === 0) return null;
+      const options: Completion[] = [];
+      const seen = new Set<string>();
+      for (const ref of scope.refs) {
+        const bare = ref.split('.').pop() ?? ref;
+        const cols = currentColumnMap[ref] ?? currentColumnMap[bare];
+        if (!cols) continue;
+        for (const col of cols) {
+          const key = `${col}|${ref}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          options.push({
+            label: col,
+            type: 'property',
+            detail: ref,
+            boost: 5,
+          });
+        }
+      }
+      if (options.length === 0) return null;
+      return {
+        from: word.from,
+        options,
+        validFor: /^[A-Za-z_][A-Za-z0-9_]*$/,
+      };
+    };
+  }
+
   // Reconfigure SQL extension when tables, columns, or dialect changes.
   //
   // CRITICAL: read every reactive dep BEFORE the editorView guard.
@@ -138,13 +339,26 @@
     const columnsDep = columnMap;
     const dialectDep = dialect;
     const defaultSchemaDep = defaultSchemaForDialect;
-    void tablesDep; void columnsDep;
+    void tablesDep;
     if (!editorView) return;
     const schema = buildSchema();
+    const sqlConfig = { dialect: dialectDep, schema, defaultSchema: defaultSchemaDep, upperCaseKeywords: true };
     editorView.dispatch({
-      effects: sqlCompartment.reconfigure(
-        sql({ dialect: dialectDep, schema, defaultSchema: defaultSchemaDep, upperCaseKeywords: true })
-      ),
+      effects: sqlCompartment.reconfigure([
+        sql(sqlConfig),
+        // Sources are listed in priority order. Column source first so
+        // contextual column hits surface above generic keyword matches
+        // when both match a prefix.
+        autocompletion({
+          activateOnTyping: true,
+          maxRenderedOptions: 25,
+          override: [
+            buildColumnSource(columnsDep),
+            schemaCompletionSource(sqlConfig),
+            keywordCompletionSource(dialectDep, true),
+          ],
+        }),
+      ]),
     });
   });
 
@@ -280,19 +494,33 @@
           indentWithTab,
         ]),
         // Initial config uses the real dialect + schema available at
-        // mount. The effect above will reconfigure once the async
-        // table/column fetches complete; this just avoids starting with
-        // the wrong dialect's keywords before that catches up.
-        sqlCompartment.of(sql({
-          dialect,
-          schema: buildSchema(),
-          defaultSchema: defaultSchemaForDialect,
-          upperCaseKeywords: true,
-        })),
-        // Cap the autocomplete dropdown — on a database with hundreds of
-        // tables the default unlimited list buries the relevant matches
-        // under a sea of SQL keywords and unrelated identifiers.
-        autocompletion({ activateOnTyping: true, maxRenderedOptions: 25 }),
+        // mount. The effect above reconfigures the whole compartment
+        // (sql() + autocompletion with our custom sources) once the
+        // async table/column fetches complete; this just avoids
+        // starting with the wrong dialect's keywords before that
+        // catches up.
+        sqlCompartment.of([
+          sql({
+            dialect,
+            schema: buildSchema(),
+            defaultSchema: defaultSchemaForDialect,
+            upperCaseKeywords: true,
+          }),
+          autocompletion({
+            activateOnTyping: true,
+            maxRenderedOptions: 25,
+            override: [
+              buildColumnSource(columnMap),
+              schemaCompletionSource({
+                dialect,
+                schema: buildSchema(),
+                defaultSchema: defaultSchemaForDialect,
+                upperCaseKeywords: true,
+              }),
+              keywordCompletionSource(dialect, true),
+            ],
+          }),
+        ]),
         // Find/Replace panel: Cmd/Ctrl+F to open, Cmd/Ctrl+G next,
         // Shift+Cmd/Ctrl+G prev, Cmd/Ctrl+H or Alt+Cmd/Ctrl+F for replace.
         search({ top: true }),
