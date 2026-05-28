@@ -669,6 +669,15 @@
     // Re-export for template usage (Svelte each blocks resolve from script scope).
     const ACCENT_COLORS = ACCENT_PALETTE;
     const TERMINAL_FONTS = TERMINAL_FONT_FAMILY_PRESETS;
+    // Unique group labels in their first-appearance order — drives the
+    // <optgroup> rendering in the picker without hardcoding the list here.
+    const terminalFontGroups: string[] = Array.from(
+        new Set(
+            TERMINAL_FONT_FAMILY_PRESETS.map((f) => f.group).filter(
+                (g): g is string => typeof g === "string",
+            ),
+        ),
+    );
 
     const THEME_DESCRIPTIONS: Record<string, string> = {
         "dark-glass": "Translucent with native blur",
@@ -2261,10 +2270,21 @@
                                 handleTerminalFontChange(
                                     e.currentTarget.value,
                                 )}
-                            style="max-width: 320px;"
+                            style="max-width: 360px;"
                         >
-                            {#each TERMINAL_FONTS as font}
+                            <!-- Ungrouped entry (Default). Grouped entries
+                                 render below under their <optgroup>. -->
+                            {#each TERMINAL_FONTS.filter((f) => !f.group) as font}
                                 <option value={font.id}>{font.label}</option>
+                            {/each}
+                            {#each terminalFontGroups as groupName}
+                                <optgroup label={groupName}>
+                                    {#each TERMINAL_FONTS.filter((f) => f.group === groupName) as font}
+                                        <option value={font.id}
+                                            >{font.label}</option
+                                        >
+                                    {/each}
+                                </optgroup>
                             {/each}
                             {#if terminalFontSelectId === "__custom__"}
                                 <option value="__custom__"
@@ -2274,9 +2294,15 @@
                         </select>
                         <p
                             style="font-family: {terminalFontFamily ||
-                                'var(--mono)'}; font-size: 12.5px; color: var(--t3); margin: 10px 0 0;"
+                                'var(--mono)'}; font-size: 12.5px; color: var(--t3); margin: 10px 0 2px;"
                         >
                             The quick brown fox jumps over the lazy dog · 0123456789
+                        </p>
+                        <p
+                            style="font-family: {terminalFontFamily ||
+                                'var(--mono)'}; font-size: 12.5px; color: var(--t3); margin: 0;"
+                        >
+                            繁體中文預覽 · 永和的青空 · 0123456789
                         </p>
                     </div>
                 {:else if activeTab === "ai"}

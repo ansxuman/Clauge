@@ -22,26 +22,66 @@ export const DEFAULT_TERMINAL_FONT_FAMILY =
  * terminal renders even when the named face isn't installed. `id` is the
  * stable key persisted in settings; an empty `id` means "use the default
  * stack" and is what fresh installs see.
+ *
+ * Presets are split into groups so users on macOS/Windows/Linux can scan to
+ * the section that's actually shipped on their OS — picking a font that
+ * isn't installed silently falls back to the next stack entry and looks
+ * indistinguishable from the default, which is a UX trap worth avoiding.
+ *
+ * CJK glyphs in xterm.js fall back to whatever the WebView's font matcher
+ * picks (PingFang on macOS, Microsoft YaHei on Windows, Noto CJK on most
+ * Linux distros). The CJK group lets users pair an explicit CJK face with
+ * a western monospace so column alignment for half-width / full-width
+ * characters stays predictable.
  */
 export interface TerminalFontPreset {
   id: string;
   label: string;
   value: string;
+  /**
+   * Optional grouping label. The picker renders presets in document order
+   * under `<optgroup>`s matching the `group` field. Omit to keep a preset
+   * ungrouped (only the empty-id Default entry does this).
+   */
+  group?: string;
 }
 
 export const TERMINAL_FONT_FAMILY_PRESETS: readonly TerminalFontPreset[] = [
   { id: '', label: 'Default (JetBrains Mono stack)', value: DEFAULT_TERMINAL_FONT_FAMILY },
-  { id: 'jetbrains-mono', label: 'JetBrains Mono', value: '"JetBrains Mono", monospace' },
-  { id: 'fira-code', label: 'Fira Code', value: '"Fira Code", monospace' },
-  { id: 'cascadia-code', label: 'Cascadia Code', value: '"Cascadia Code", monospace' },
-  { id: 'sf-mono', label: 'SF Mono', value: '"SF Mono", monospace' },
-  { id: 'menlo', label: 'Menlo', value: 'Menlo, monospace' },
-  { id: 'monaco', label: 'Monaco', value: 'Monaco, monospace' },
-  { id: 'consolas', label: 'Consolas', value: 'Consolas, monospace' },
-  { id: 'courier-new', label: 'Courier New', value: '"Courier New", monospace' },
-  { id: 'ibm-plex-mono', label: 'IBM Plex Mono', value: '"IBM Plex Mono", monospace' },
-  { id: 'source-code-pro', label: 'Source Code Pro', value: '"Source Code Pro", monospace' },
-  { id: 'system-monospace', label: 'System monospace', value: 'monospace' },
+
+  // System-installed on macOS — picking any of these on macOS will render
+  // the actual face, not the monospace fallback.
+  { id: 'sf-mono', label: 'SF Mono', value: '"SF Mono", monospace', group: 'macOS' },
+  { id: 'menlo', label: 'Menlo', value: 'Menlo, monospace', group: 'macOS' },
+  { id: 'monaco', label: 'Monaco', value: 'Monaco, monospace', group: 'macOS' },
+  { id: 'courier-new', label: 'Courier New', value: '"Courier New", monospace', group: 'macOS' },
+
+  // System-installed on Windows.
+  { id: 'consolas', label: 'Consolas', value: 'Consolas, monospace', group: 'Windows' },
+  { id: 'cascadia-code', label: 'Cascadia Code', value: '"Cascadia Code", "Cascadia Mono", monospace', group: 'Windows' },
+  { id: 'lucida-console', label: 'Lucida Console', value: '"Lucida Console", monospace', group: 'Windows' },
+
+  // CJK-aware stacks — pair a western monospace with a CJK face so
+  // half-width / full-width cell metrics stay consistent. PingFang TC
+  // / SC is the macOS system CJK font; Microsoft JhengHei / YaHei is
+  // the Windows equivalent; Noto Sans Mono CJK is the cross-platform
+  // free option (bundled with most Linux distros).
+  { id: 'pingfang-tc', label: 'PingFang TC + Menlo (繁中)', value: 'Menlo, "PingFang TC", monospace', group: 'CJK (中日韓)' },
+  { id: 'pingfang-sc', label: 'PingFang SC + Menlo (简中)', value: 'Menlo, "PingFang SC", monospace', group: 'CJK (中日韓)' },
+  { id: 'msjhenghei', label: 'Microsoft JhengHei + Consolas (繁中)', value: 'Consolas, "Microsoft JhengHei", monospace', group: 'CJK (中日韓)' },
+  { id: 'msyahei', label: 'Microsoft YaHei + Consolas (简中)', value: 'Consolas, "Microsoft YaHei", monospace', group: 'CJK (中日韓)' },
+  { id: 'noto-sans-mono-cjk', label: 'Noto Sans Mono CJK', value: '"Noto Sans Mono CJK TC", "Noto Sans Mono CJK", monospace', group: 'CJK (中日韓)' },
+  { id: 'source-han-mono', label: 'Source Han Mono', value: '"Source Han Mono", monospace', group: 'CJK (中日韓)' },
+
+  // Popular developer fonts that aren't system-installed anywhere — users
+  // who deliberately install these get the named face; everyone else
+  // falls back to monospace and should pick from the platform groups
+  // above instead.
+  { id: 'jetbrains-mono', label: 'JetBrains Mono (install required)', value: '"JetBrains Mono", monospace', group: 'Programming fonts' },
+  { id: 'fira-code', label: 'Fira Code (install required)', value: '"Fira Code", monospace', group: 'Programming fonts' },
+  { id: 'ibm-plex-mono', label: 'IBM Plex Mono (install required)', value: '"IBM Plex Mono", monospace', group: 'Programming fonts' },
+  { id: 'source-code-pro', label: 'Source Code Pro (install required)', value: '"Source Code Pro", monospace', group: 'Programming fonts' },
+  { id: 'system-monospace', label: 'System monospace', value: 'monospace', group: 'Programming fonts' },
 ] as const;
 
 /**
