@@ -35,7 +35,15 @@ pub async fn stream_openai(
     // session doesn't surface as a user-facing "sign in again" error.
     // `None` for BYOK providers (no refresh path).
     auth_state: Option<&AuthState>,
+    // Runtime overrides for the request URL and model id. Used by the
+    // `local` provider, whose endpoint + model live in user settings rather
+    // than the static registry. `None` falls back to `config.api_url` /
+    // `config.model_id`.
+    url_override: Option<&str>,
+    model_override: Option<&str>,
 ) -> Result<(), String> {
+    let api_url: &str = url_override.unwrap_or(config.api_url);
+    let model_id: &str = model_override.unwrap_or(config.model_id);
     let mut api_key = api_key.to_string();
     // We only attempt the Clauge AI refresh+retry dance once per chat to
     // avoid loops: if refresh succeeds but the new token also 401s,
@@ -126,7 +134,7 @@ pub async fn stream_openai(
 
     loop {
         let mut body = serde_json::json!({
-            "model": config.model_id,
+            "model": model_id,
             "max_tokens": if needs_tools { config.max_output_tokens } else { no_tool_max_tokens },
             "stream": true,
             "temperature": config.default_temperature,
@@ -178,10 +186,10 @@ pub async fn stream_openai(
             }
         }
 
-        log::info!("[AI OpenAI] POST {} model={}", config.api_url, config.model_id);
+        log::info!("[AI OpenAI] POST {} model={}", api_url, model_id);
 
         let response = client
-            .post(config.api_url)
+            .post(api_url)
             .headers(headers)
             .json(&body)
             .send()

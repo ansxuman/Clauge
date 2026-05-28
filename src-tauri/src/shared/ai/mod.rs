@@ -40,6 +40,18 @@ fn resolve_config(
     cfg.ok_or_else(|| format!("No registered model for provider: {}", provider_slug))
 }
 
+/// Read a settings value, returning `None` for missing keys, DB errors, or
+/// blank strings. Used to fetch the `local` provider's runtime endpoint/model
+/// overrides.
+async fn local_setting(pool: &SqlitePool, key: &str) -> Option<String> {
+    crate::shared::repos::settings::get_by_key(pool, key)
+        .await
+        .ok()
+        .flatten()
+        .map(|s| s.value)
+        .filter(|v| !v.trim().is_empty())
+}
+
 /// Helper to test an OpenAI-compatible API key (Groq, Mistral, etc.)
 async fn test_openai_key(
     pool: &SqlitePool,
@@ -149,12 +161,55 @@ async fn test_anthropic_key(
     }
 }
 
+/// Health-check a local OpenAI-compatible server (Ollama, LM Studio, …) by
+/// GETting its `/v1/models` listing. Friendlier than a dummy-key chat call:
+/// it needs no key and confirms the server is reachable. Reads the endpoint
+/// from the `ai_local_base_url` setting, falling back to the registry default.
+async fn test_local_endpoint(pool: &SqlitePool, api_key: &str) -> Result<String, String> {
+    let base = local_setting(pool, "ai_local_base_url")
+        .await
+        .unwrap_or_else(|| "http://localhost:11434/v1/chat/completions".to_string());
+    // Derive the models-listing URL from whatever form the user entered.
+    let models_url = if let Some(root) = base.split("/chat/completions").next() {
+        format!("{}/models", root.trim_end_matches('/'))
+    } else {
+        format!("{}/models", base.trim_end_matches('/'))
+    };
+
+    let client = crate::shared::http::build_app_http_client(pool).await?;
+    let mut req = client.get(&models_url);
+    if !api_key.trim().is_empty() {
+        req = req.header(
+            "Authorization",
+            HeaderValue::from_str(&format!("Bearer {}", api_key)).map_err(|e| e.to_string())?,
+        );
+    }
+
+    let response = req
+        .send()
+        .await
+        .map_err(|e| format!("Could not reach local server at {} — is it running? ({})", models_url, e))?;
+
+    if response.status().is_success() {
+        Ok("Connected to local server".to_string())
+    } else {
+        Err(format!(
+            "Local server responded with HTTP {} — check the base URL",
+            response.status().as_u16()
+        ))
+    }
+}
+
 #[tauri::command]
 pub async fn test_ai_key(
     pool: State<'_, SqlitePool>,
     api_key: String,
     provider: String,
 ) -> Result<String, String> {
+    if provider == "local" {
+        return test_local_endpoint(pool.inner(), &api_key).await;
+    }
+
     let config = resolve_config(&provider, None)?;
 
     if let Some(prefix) = config.key_prefix {
@@ -224,6 +279,17 @@ pub async fn ai_chat(
         }
     };
 
+    // The `local` provider stores its endpoint + model in user settings
+    // (they vary per machine), overriding the registry placeholders.
+    let (url_override, model_override) = if provider == "local" {
+        (
+            local_setting(pool.inner(), "ai_local_base_url").await,
+            local_setting(pool.inner(), "ai_local_model").await,
+        )
+    } else {
+        (None, None)
+    };
+
     match config.api_kind {
         ApiKind::AnthropicMessages => {
             clients::anthropic::stream_anthropic(
@@ -237,6 +303,7 @@ pub async fn ai_chat(
                 &client, &app, pool.inner(), &api_key, conversation_msgs,
                 &context, &session_id, &system_prompt, &tools, config, &sql_mgr, &nosql_mgr,
                 &extra_headers, auth_for_stream,
+                url_override.as_deref(), model_override.as_deref(),
             )
             .await
         }

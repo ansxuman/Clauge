@@ -595,6 +595,10 @@
     });
     let aiProvider = $state<string>("claude");
     let aiApiKey = $state("");
+    // Local (OpenAI-compatible) provider config — endpoint + model live in
+    // their own settings keys since they vary per machine.
+    let aiLocalBaseUrl = $state("http://localhost:11434/v1/chat/completions");
+    let aiLocalModel = $state("");
     let showAiKey = $state(false);
     let aiTestStatus = $state<"idle" | "testing" | "success" | "error">("idle");
     let aiTestMessage = $state("");
@@ -612,13 +616,17 @@
             FALLBACK_PROVIDER_CONFIG,
     );
     let aiHasKey = $derived(!!$settings[`ai_api_key_${aiProvider}`]?.trim());
+    let aiIsLocal = $derived(aiProvider === "local");
+    let aiLocalConfigured = $derived(!!$settings["ai_local_base_url"]?.trim());
 
     // Every provider that has a saved API key — feeds the "Configured
     // providers" list under the Configuration sub-tab so the user always
     // sees what they've set up.
     let configuredProviders = $derived(
-        AI_PROVIDER_REGISTRY.filter(
-            (p) => !!$settings[p.keySettingName]?.trim(),
+        AI_PROVIDER_REGISTRY.filter((p) =>
+            p.providerId === "local"
+                ? !!$settings["ai_local_base_url"]?.trim()
+                : !!$settings[p.keySettingName]?.trim(),
         ),
     );
 
@@ -949,6 +957,10 @@
         aiProvider = s["ai_provider"] || "claude";
         // Load key for current provider (fallback to legacy ai_api_key for claude)
         aiApiKey = s[`ai_api_key_${aiProvider}`] || "";
+        aiLocalBaseUrl =
+            s["ai_local_base_url"] ||
+            "http://localhost:11434/v1/chat/completions";
+        aiLocalModel = s["ai_local_model"] || "";
         try {
             aiUsageStats = await getAiUsageStats();
             aiProviderStats = await getAiProviderStats();
@@ -991,8 +1003,42 @@
         // Load the key for this provider
         const s = $settings;
         aiApiKey = s[`ai_api_key_${provider}`] || "";
+        aiLocalBaseUrl =
+            s["ai_local_base_url"] ||
+            "http://localhost:11434/v1/chat/completions";
+        aiLocalModel = s["ai_local_model"] || "";
         aiTestStatus = "idle";
         aiTestMessage = "";
+    }
+
+    // Save + health-check the local (OpenAI-compatible) endpoint. No API key
+    // is required (Ollama/LM Studio accept none); the optional key is stored
+    // under `ai_api_key_local` and sent as a Bearer token when present.
+    async function handleSaveLocal() {
+        const base = aiLocalBaseUrl.trim();
+        const model = aiLocalModel.trim();
+        if (!base || !model) {
+            showToast("Enter both a base URL and a model name", "error");
+            return;
+        }
+        aiTestStatus = "testing";
+        aiTestMessage = "";
+        try {
+            // Persist first so the backend health check reads the new URL.
+            await handleSettingChange("ai_local_base_url", base);
+            await handleSettingChange("ai_local_model", model);
+            await handleSettingChange("ai_api_key_local", aiApiKey.trim());
+            const msg = await testAiKey(aiApiKey.trim(), "local");
+            aiTestStatus = "success";
+            aiTestMessage = msg;
+            await handleSettingChange("ai_provider", "local");
+            showToast("Local model connected and saved", "success");
+        } catch (e: any) {
+            aiTestStatus = "error";
+            aiTestMessage =
+                typeof e === "string" ? e : e.message || "Connection failed";
+            showToast("Could not connect to local server — not saved", "error");
+        }
     }
 
     async function handleRemoveAiKey() {
@@ -2631,7 +2677,10 @@
                                                     >Model</label
                                                 >
                                                 <span class="ai-model-tag"
-                                                    >{currentProviderConfig.modelLabel}</span
+                                                    >{aiIsLocal
+                                                        ? aiLocalModel ||
+                                                          "(set below)"
+                                                        : currentProviderConfig.modelLabel}</span
                                                 >
                                             </div>
                                         </div>
@@ -2639,10 +2688,43 @@
                                         <!-- Divider -->
                                         <div class="ai-cfg-divider"></div>
 
+                                        {#if aiIsLocal}
+                                            <!-- Local (OpenAI-compatible) endpoint + model -->
+                                            <div class="ai-cfg-section">
+                                                <label class="ai-cfg-label"
+                                                    >Base URL</label
+                                                >
+                                                <input
+                                                    class="ai-cfg-input"
+                                                    type="text"
+                                                    placeholder="http://localhost:11434/v1/chat/completions"
+                                                    bind:value={aiLocalBaseUrl}
+                                                />
+                                                <p class="ai-cfg-hint">
+                                                    OpenAI-compatible endpoint —
+                                                    Ollama, LM Studio,
+                                                    llama.cpp, or vLLM.
+                                                </p>
+                                            </div>
+                                            <div class="ai-cfg-section">
+                                                <label class="ai-cfg-label"
+                                                    >Model</label
+                                                >
+                                                <input
+                                                    class="ai-cfg-input"
+                                                    type="text"
+                                                    placeholder="e.g. qwen2.5-coder:7b"
+                                                    bind:value={aiLocalModel}
+                                                />
+                                            </div>
+                                        {/if}
+
                                         <!-- API Key -->
                                         <div class="ai-cfg-section">
                                             <label class="ai-cfg-label"
-                                                >API Key</label
+                                                >{aiIsLocal
+                                                    ? "API Key (optional)"
+                                                    : "API Key"}</label
                                             >
                                             <div class="ai-key-input-wrap">
                                                 <input
@@ -2746,26 +2828,70 @@
                                             {/if}
 
                                             <div class="ai-key-actions">
-                                                <button
-                                                    class="ai-action-btn primary"
-                                                    onclick={() =>
-                                                        handleSaveAiKey()}
-                                                    disabled={!aiApiKey.trim() ||
-                                                        aiTestStatus ===
-                                                            "testing"}
-                                                >
-                                                    {#if aiTestStatus === "testing"}
-                                                        Verifying...
-                                                    {:else}
-                                                        Save & Verify
-                                                    {/if}
-                                                </button>
-                                                {#if aiHasKey}
+                                                {#if aiIsLocal}
                                                     <button
-                                                        class="ai-action-btn danger"
-                                                        onclick={handleRemoveAiKey}
-                                                        >Remove Key</button
+                                                        class="ai-action-btn primary"
+                                                        onclick={() =>
+                                                            handleSaveLocal()}
+                                                        disabled={!aiLocalBaseUrl.trim() ||
+                                                            !aiLocalModel.trim() ||
+                                                            aiTestStatus ===
+                                                                "testing"}
                                                     >
+                                                        {#if aiTestStatus === "testing"}
+                                                            Connecting...
+                                                        {:else}
+                                                            Save & Connect
+                                                        {/if}
+                                                    </button>
+                                                    {#if aiLocalConfigured}
+                                                        <button
+                                                            class="ai-action-btn danger"
+                                                            onclick={async () => {
+                                                                await handleSettingChange(
+                                                                    "ai_local_base_url",
+                                                                    "",
+                                                                );
+                                                                await handleSettingChange(
+                                                                    "ai_local_model",
+                                                                    "",
+                                                                );
+                                                                await handleSettingChange(
+                                                                    "ai_api_key_local",
+                                                                    "",
+                                                                );
+                                                                aiApiKey = "";
+                                                                aiTestStatus =
+                                                                    "idle";
+                                                                showToast(
+                                                                    "Local model config removed",
+                                                                    "success",
+                                                                );
+                                                            }}>Remove</button
+                                                        >
+                                                    {/if}
+                                                {:else}
+                                                    <button
+                                                        class="ai-action-btn primary"
+                                                        onclick={() =>
+                                                            handleSaveAiKey()}
+                                                        disabled={!aiApiKey.trim() ||
+                                                            aiTestStatus ===
+                                                                "testing"}
+                                                    >
+                                                        {#if aiTestStatus === "testing"}
+                                                            Verifying...
+                                                        {:else}
+                                                            Save & Verify
+                                                        {/if}
+                                                    </button>
+                                                    {#if aiHasKey}
+                                                        <button
+                                                            class="ai-action-btn danger"
+                                                            onclick={handleRemoveAiKey}
+                                                            >Remove Key</button
+                                                        >
+                                                    {/if}
                                                 {/if}
                                             </div>
                                         </div>
@@ -2826,7 +2952,7 @@
                                                     Free LLM APIs
                                                 </a>
                                             </div>
-                                            {#if aiHasKey}
+                                            {#if aiIsLocal ? aiLocalConfigured : aiHasKey}
                                                 <span class="ai-status-badge">
                                                     <span class="ai-status-dot"
                                                     ></span>
@@ -2916,22 +3042,54 @@
                                                                 >
                                                             {/if}
                                                         </span>
-                                                        <span
-                                                            class="cfg-prov-key"
-                                                            title="Key ends in {tail}"
-                                                        >
-                                                            ••••••••{tail}
-                                                        </span>
+                                                        {#if p.providerId === "local"}
+                                                            <span
+                                                                class="cfg-prov-key"
+                                                                title={$settings[
+                                                                    "ai_local_base_url"
+                                                                ]}
+                                                            >
+                                                                {$settings[
+                                                                    "ai_local_model"
+                                                                ] ||
+                                                                    "local model"}
+                                                            </span>
+                                                        {:else}
+                                                            <span
+                                                                class="cfg-prov-key"
+                                                                title="Key ends in {tail}"
+                                                            >
+                                                                ••••••••{tail}
+                                                            </span>
+                                                        {/if}
                                                     </div>
                                                     <button
                                                         class="cfg-prov-del"
                                                         title="Remove saved key for {p.providerLabel}"
                                                         onclick={(e) => {
                                                             e.stopPropagation();
-                                                            handleSettingChange(
-                                                                p.keySettingName,
-                                                                "",
-                                                            );
+                                                            if (
+                                                                p.providerId ===
+                                                                "local"
+                                                            ) {
+                                                                handleSettingChange(
+                                                                    "ai_local_base_url",
+                                                                    "",
+                                                                );
+                                                                handleSettingChange(
+                                                                    "ai_local_model",
+                                                                    "",
+                                                                );
+                                                                handleSettingChange(
+                                                                    "ai_api_key_local",
+                                                                    "",
+                                                                );
+                                                            } else {
+                                                                handleSettingChange(
+                                                                    p.keySettingName,
+                                                                    "",
+                                                                );
+                                                            }
                                                             if (
                                                                 p.providerId ===
                                                                 aiProvider
@@ -6012,5 +6170,11 @@
     }
     .byok-btn-link:hover {
         text-decoration: underline;
+    }
+    .ai-cfg-hint {
+        margin: 6px 0 0;
+        font-size: 11px;
+        line-height: 1.4;
+        color: var(--t3, #888);
     }
 </style>

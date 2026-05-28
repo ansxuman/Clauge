@@ -287,7 +287,9 @@
   let hasApiKey = $derived(
     activeProvider === 'clauge'
       ? $cloudPlan === 'pro'
-      : !!$settings[`ai_api_key_${activeProvider}`]?.trim()
+      : activeProvider === 'local'
+        ? !!$settings['ai_local_base_url']?.trim()
+        : !!$settings[`ai_api_key_${activeProvider}`]?.trim()
   );
 
   const modeColors: Record<AppMode, string> = {
@@ -612,7 +614,10 @@
       gemini: 'gemini-3.1-flash-lite',
       clauge: 'clauge-managed',
     };
-    const modelId = MODEL_MAP[provider] || 'claude-haiku-4-5-20251001';
+    const modelId =
+      provider === 'local'
+        ? $settings['ai_local_model'] || 'local'
+        : MODEL_MAP[provider] || 'claude-haiku-4-5-20251001';
 
     cleanup?.();
     const currentMode = get(mode);

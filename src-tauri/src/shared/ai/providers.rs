@@ -37,6 +37,13 @@ pub enum ProviderId {
     /// path so the worker can validate against the right JWKS.
     #[serde(rename = "clauge")]
     Clauge,
+    /// Local / self-hosted OpenAI-compatible endpoint (Ollama, LM Studio,
+    /// llama.cpp, vLLM, …). Unlike every other provider, the base URL and
+    /// model id are not fixed — they live in the `ai_local_base_url` and
+    /// `ai_local_model` settings and override the registry defaults at call
+    /// time. No API key is required (Ollama/LM Studio accept none).
+    #[serde(rename = "local")]
+    Local,
 }
 
 impl ProviderId {
@@ -53,6 +60,7 @@ impl ProviderId {
             ProviderId::OpenAI => "openai_direct",
             ProviderId::Gemini => "gemini",
             ProviderId::Clauge => "clauge",
+            ProviderId::Local => "local",
         }
     }
 
@@ -68,6 +76,7 @@ impl ProviderId {
             "openai_direct" => Some(ProviderId::OpenAI),
             "gemini" => Some(ProviderId::Gemini),
             "clauge" => Some(ProviderId::Clauge),
+            "local" => Some(ProviderId::Local),
             _ => None,
         }
     }
@@ -270,6 +279,28 @@ const REGISTRY: &[ProviderConfig] = &[
         anthropic_version: None,
         key_prefix: None,
     },
+    // Local / self-hosted OpenAI-compatible endpoint. `api_url` and
+    // `model_id` here are only fallbacks — `ai_chat`/`test_ai_key` override
+    // them with the `ai_local_base_url` / `ai_local_model` settings so the
+    // user can point at any Ollama / LM Studio / llama.cpp / vLLM server.
+    // No key required, mirroring the keyless `Clauge` entry.
+    ProviderConfig {
+        provider_id: ProviderId::Local,
+        model_id: "",
+        display_name: "Local Model",
+        api_url: "http://localhost:11434/v1/chat/completions",
+        api_kind: ApiKind::OpenAICompat,
+        max_input_tokens: 128_000,
+        max_output_tokens: 4096,
+        default_temperature: 0.1,
+        supports_caching: false,
+        supports_parallel_tools: true,
+        supports_thinking: false,
+        daily_token_budget: None,
+        key_setting_name: "",
+        anthropic_version: None,
+        key_prefix: None,
+    },
 ];
 
 /// Look up an exact (provider, model) pair.
@@ -331,7 +362,7 @@ mod tests {
 
     #[test]
     fn registry_has_expected_pairs() {
-        // Behaviour parity guard: the audit catalogued 8 providers.
-        assert_eq!(list_all_providers().len(), 8);
+        // Behaviour parity guard: 9 original providers + Local.
+        assert_eq!(list_all_providers().len(), 10);
     }
 }

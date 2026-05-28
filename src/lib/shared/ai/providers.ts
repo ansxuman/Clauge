@@ -14,7 +14,8 @@ export type ProviderId =
   | 'nvidia'
   | 'openrouter'
   | 'openai_direct'
-  | 'gemini';
+  | 'gemini'
+  | 'local';
 
 export type ApiKind = 'anthropicMessages' | 'openAICompat';
 
@@ -207,6 +208,29 @@ export const PROVIDERS: ProviderConfig[] = [
     keyPrefix: null,
     keyPlaceholder: 'API key...',
     keyUrl: 'https://aistudio.google.com/apikey',
+  },
+  {
+    // Local / self-hosted OpenAI-compatible server. apiUrl + modelId are
+    // user-configurable (settings keys `ai_local_base_url` / `ai_local_model`)
+    // — the values here are only UI defaults. No API key required.
+    providerId: 'local',
+    modelId: '',
+    displayName: 'Local Model',
+    providerLabel: 'Local (OpenAI-compatible)',
+    modelLabel: 'Local',
+    apiUrl: 'http://localhost:11434/v1/chat/completions',
+    apiKind: 'openAICompat',
+    maxInputTokens: 128_000,
+    maxOutputTokens: 4096,
+    defaultTemperature: 0.1,
+    supportsCaching: false,
+    supportsParallelTools: true,
+    supportsThinking: false,
+    dailyTokenBudget: null,
+    keySettingName: '',
+    keyPrefix: null,
+    keyPlaceholder: 'Optional — leave blank for Ollama',
+    keyUrl: 'https://ollama.com',
   },
 ];
 
