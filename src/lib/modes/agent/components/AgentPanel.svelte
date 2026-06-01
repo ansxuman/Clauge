@@ -90,7 +90,7 @@
     //     correct visibility class.
     if (terminalEl) {
       const activeId = session.id;
-      for (const [sid, sentry] of $agentTerminalMap) {
+      for (const [sid, sentry] of get(agentTerminalMap)) {
         const c = sentry?.container;
         if (!c) continue;
         if (c.parentElement !== terminalEl) terminalEl.appendChild(c);
@@ -102,7 +102,7 @@
     // (2) Same for shells.
     if (shellEl) {
       const activeId = session.id;
-      for (const [sid, sentry] of $agentShellMap) {
+      for (const [sid, sentry] of get(agentShellMap)) {
         const c = sentry?.container;
         if (!c) continue;
         if (c.parentElement !== shellEl) shellEl.appendChild(c);
@@ -114,9 +114,9 @@
     // (3) Fit the active terminal + shell so dimensions are correct after
     //     a potential Canvas round-trip. ResizeObserver handles subsequent
     //     layout changes.
-    const activeEntry = $agentTerminalMap.get(session.id);
+    const activeEntry = get(agentTerminalMap).get(session.id);
     try { activeEntry?.fitAddon?.fit(); } catch { /* Layout not ready yet; ResizeObserver will fit shortly. */ }
-    const activeShellEntry = $agentShellMap.get(session.id);
+    const activeShellEntry = get(agentShellMap).get(session.id);
     try { activeShellEntry?.fitAddon?.fit(); } catch { /* Layout not ready yet; ResizeObserver will fit shortly. */ }
   });
 
