@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import {
     loadCanvas,
     flushViewportNow,
@@ -13,20 +14,18 @@
   import { sshTerminalAdapter } from '$lib/modes/ssh/canvas-adapter';
   import { shellTerminalAdapter } from '$lib/modes/canvas/adapters/shellTerminalAdapter';
   import { loadCanvasSettings } from '$lib/modes/canvas/stores/canvasSettingsStore';
+  import { canvasEnabled } from '$lib/modes/canvas/stores/canvasEnabled';
   import CanvasViewport from './CanvasViewport.svelte';
+  import CanvasIntro from './CanvasIntro.svelte';
 
   // Phase 2 stub: hardcoded workspace id so the surface mounts. Phase 4
   // wires this to the real active-workspace store.
   const ACTIVE_WORKSPACE_ID = '__phase2_stub__';
 
-  // Clear stale registrations (e.g. HMR) before registering real adapters.
-  canvasAdapterRegistry.clear();
-  canvasAdapterRegistry.register(agentTerminalAdapter);
-  canvasAdapterRegistry.register(sshTerminalAdapter);
-  canvasAdapterRegistry.register(shellTerminalAdapter);
-
   let resolveTimer: ReturnType<typeof setTimeout> | null = null;
   let unsubscribes: Array<() => void> = [];
+  let adapterUnsubscribes: Array<() => void> = [];
+  let initialized = false;
 
   async function resolveTilesNow() {
     if (resolveTimer) {
@@ -53,7 +52,16 @@
     }, 150);
   }
 
-  onMount(async () => {
+  async function initCanvas() {
+    if (initialized) return;
+    initialized = true;
+
+    // Clear stale registrations (e.g. HMR) before registering real adapters.
+    canvasAdapterRegistry.clear();
+    canvasAdapterRegistry.register(agentTerminalAdapter);
+    canvasAdapterRegistry.register(sshTerminalAdapter);
+    canvasAdapterRegistry.register(shellTerminalAdapter);
+
     setActiveWorkspace(ACTIVE_WORKSPACE_ID);
     await loadCanvasSettings();
     const v = await canvasGetViewport(ACTIVE_WORKSPACE_ID);
@@ -63,32 +71,54 @@
     await resolveTilesNow();
 
     // Subscribe each adapter so newly-opened or newly-closed tabs trigger
-    // a debounced re-resolve. Without this, a new shell spawn doesn't
-    // appear and a closed agent session doesn't disappear until the user
-    // leaves and re-enters Canvas mode.
-    unsubscribes.push(
+    // a debounced re-resolve.
+    adapterUnsubscribes.push(
       agentTerminalAdapter.subscribe(ACTIVE_WORKSPACE_ID, scheduleResolve),
       sshTerminalAdapter.subscribe(ACTIVE_WORKSPACE_ID, scheduleResolve),
       shellTerminalAdapter.subscribe(ACTIVE_WORKSPACE_ID, scheduleResolve),
     );
-  });
+  }
 
-  onDestroy(() => {
+  function teardownCanvas() {
     if (resolveTimer) {
       clearTimeout(resolveTimer);
       resolveTimer = null;
     }
-    for (const u of unsubscribes) u();
-    unsubscribes = [];
-    // Svelte does not await async onDestroy callbacks; fire-and-forget
-    // the flushes. Phase 2 has no real persistent state at risk yet.
+    for (const u of adapterUnsubscribes) u();
+    adapterUnsubscribes = [];
+    canvasAdapterRegistry.clear();
+    initialized = false;
     void flushViewportNow();
     void flushDirtyTilesNow();
+  }
+
+  onMount(() => {
+    // Subscribe to canvasEnabled so we react to settings changes while
+    // this panel is mounted (e.g., user enables Canvas from Settings while
+    // already on the Canvas sidebar tab).
+    const unsub = canvasEnabled.subscribe((enabled) => {
+      if (enabled) {
+        void initCanvas();
+      } else {
+        teardownCanvas();
+      }
+    });
+    unsubscribes.push(unsub);
+  });
+
+  onDestroy(() => {
+    for (const u of unsubscribes) u();
+    unsubscribes = [];
+    teardownCanvas();
   });
 </script>
 
 <div class="cv-panel">
-  <CanvasViewport />
+  {#if $canvasEnabled}
+    <CanvasViewport />
+  {:else}
+    <CanvasIntro />
+  {/if}
 </div>
 
 <style>

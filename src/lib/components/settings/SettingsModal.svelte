@@ -93,6 +93,10 @@
         type ProviderId,
     } from "$lib/shared/ai/providers";
     import { isMac, mod } from "$lib/utils/platform";
+    import {
+        canvasEnabled,
+        setCanvasEnabled,
+    } from "$lib/modes/canvas/stores/canvasEnabled";
 
     // 'general' is app-wide (currently: Proxy — applies to REST + AI + GitHub
     // + Updater + ClickHouse). 'rest' holds REST-only knobs (timeout, redirects,
@@ -105,6 +109,7 @@
         | "ai"
         | "rest"
         | "agent"
+        | "canvas"
         | "workspace"
         | "sql"
         | "nosql"
@@ -159,7 +164,8 @@
         } else if (key === "agent:plugins") {
             activeTab = "agent";
             agentSubTab = "plugins";
-        } else if (key === "workspace") activeTab = "workspace";
+        } else if (key === "canvas") activeTab = "canvas";
+        else if (key === "workspace") activeTab = "workspace";
         else if (key === "sql") activeTab = "sql";
         else if (key === "nosql") activeTab = "nosql";
         else if (key === "explorer") activeTab = "explorer";
@@ -735,6 +741,12 @@
             key: "agent",
             label: "Agent",
             icon: '<path d="M12 3l1.6 4.8L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.2L12 3z"/><path d="M18.5 14l.9 2.6 2.6.9-2.6.9-.9 2.6-.9-2.6-2.6-.9 2.6-.9.9-2.6z"/>',
+        },
+        {
+            kind: "tab",
+            key: "canvas",
+            label: "Canvas",
+            icon: '<path d="M3 7V3h4M21 7V3h-4M3 17v4h4M21 17v4h-4"/><rect x="7" y="7" width="10" height="10" rx="1.5"/>',
         },
         {
             kind: "tab",
@@ -4883,6 +4895,50 @@
                                 {/if}
                             {/if}
                         </div>
+                    </div>
+                {:else if activeTab === "canvas"}
+                    <div class="stg-card-stack">
+                        <section class="stg-card">
+                            <header class="stg-card-hd">
+                                <span class="stg-card-icon" aria-hidden="true">
+                                    <svg
+                                        viewBox="0 0 24 24"
+                                        width="14"
+                                        height="14"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    ><path d="M3 7V3h4M21 7V3h-4M3 17v4h4M21 17v4h-4"/><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg
+                                    >
+                                </span>
+                                <div class="stg-card-titles">
+                                    <h3 class="stg-card-title">Canvas (experimental)</h3>
+                                    <p class="stg-card-sub">
+                                        Spatial workspace that shows every open terminal as a
+                                        window on an infinite pan/zoom canvas. Supports Agent
+                                        terminals, SSH terminals, and quick shells.
+                                    </p>
+                                </div>
+                            </header>
+                            <div class="stg-card-body">
+                                <div class="stg-card-row">
+                                    <label class="stg-card-row-label">Enable Canvas mode</label>
+                                    <label class="stg-toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={$canvasEnabled}
+                                            onchange={(e) =>
+                                                setCanvasEnabled(
+                                                    (e.target as HTMLInputElement).checked,
+                                                )}
+                                        />
+                                        <span class="stg-toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
                     </div>
                 {:else if activeTab === "shortcuts"}
                     <div class="stg-section">
