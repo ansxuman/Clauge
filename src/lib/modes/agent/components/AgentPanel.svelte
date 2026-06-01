@@ -72,49 +72,30 @@
   let shellEl: HTMLDivElement;
   let wrapperEl: HTMLDivElement;
 
-  // Reparent guard: after a Canvas round-trip, CanvasTile.detachAgentTerminal
-  // leaves session containers parentless. Re-home them back to their canonical
-  // slots so the existing showTermEntry / showShellEntry flow takes over
-  // visibility management. We do NOT toggle agent-term-hidden here — that
-  // class is owned exclusively by showTermEntry / showShellEntry, which also
-  // maintain the activeTermEntry / activeShellEntry pointers. Dual authority
-  // over the class caused tab-switch races (stale pointer on next switch).
   $effect(() => {
     if ($mode !== 'agent') return;
     const session = $activeAgentSession;
     if (!session?.id) return;
 
-    // Re-home any orphaned session containers back to their canonical slot.
-    // After a Canvas round-trip, CanvasTile.detachAgentTerminal leaves
-    // containers parentless. Putting them back here lets the existing
-    // showTermEntry / showShellEntry flow take over visibility management.
-    // We do NOT toggle the `agent-term-hidden` class here — that's owned
-    // by showTermEntry / showShellEntry which also maintain activeTermEntry
-    // and activeShellEntry pointers. Dual authority caused tab-switch races.
-    if (terminalEl) {
-      for (const [, sentry] of get(agentTerminalMap)) {
-        const c = sentry?.container;
-        if (c && c.parentElement !== terminalEl) {
-          terminalEl.appendChild(c);
-        }
+    // Active session's container may be orphaned (e.g., after a Canvas
+    // round-trip parked it in a canvas tile slot). Put it back in terminalEl
+    // and let showTermEntry handle visibility. We do NOT iterate the entire
+    // map or touch any classes — showTermEntry is the sole authority.
+    const entry = get(agentTerminalMap).get(session.id);
+    if (entry && terminalEl) {
+      if (entry.container.parentElement !== terminalEl) {
+        terminalEl.appendChild(entry.container);
       }
-    }
-    if (shellEl) {
-      for (const [, sentry] of get(agentShellMap)) {
-        const c = sentry?.container;
-        if (c && c.parentElement !== shellEl) {
-          shellEl.appendChild(c);
-        }
-      }
+      showTermEntry(entry);
     }
 
-    // Refresh activeTermEntry / activeShellEntry pointers after re-home.
-    // Safe even if showTermEntry was just called via the activeAgentSession
-    // subscriber — it's idempotent for the same entry.
-    const activeEntry = get(agentTerminalMap).get(session.id);
-    if (activeEntry) showTermEntry(activeEntry);
-    const activeShellEntry = get(agentShellMap).get(session.id);
-    if (activeShellEntry) showShellEntry(activeShellEntry);
+    const shellEntry = get(agentShellMap).get(session.id);
+    if (shellEntry && shellEl) {
+      if (shellEntry.container.parentElement !== shellEl) {
+        shellEl.appendChild(shellEntry.container);
+      }
+      showShellEntry(shellEntry);
+    }
   });
 
   // Active terminal entry refs
