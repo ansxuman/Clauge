@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { viewport } from '$lib/modes/canvas/stores/canvasStore';
+  import { viewport, tilesSortedByZ } from '$lib/modes/canvas/stores/canvasStore';
+  import CanvasTile from './CanvasTile.svelte';
 
   let worldEl: HTMLDivElement | undefined = $state();
 
@@ -17,7 +18,9 @@
 </script>
 
 <div bind:this={worldEl} class="cv-world">
-  <!-- Phase 3 will fill tiles here -->
+  {#each $tilesSortedByZ as tile (tile.tabId)}
+    <CanvasTile {tile} />
+  {/each}
 </div>
 
 <style>
