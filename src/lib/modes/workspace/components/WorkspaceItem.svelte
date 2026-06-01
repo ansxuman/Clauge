@@ -32,7 +32,7 @@
   import ConfirmDialog from '$lib/shared/primitives/ConfirmDialog.svelte';
   import InlineInput from '$lib/components/nav/InlineInput.svelte';
   import { tabs as sharedTabs, addTab, activateTab, updateTab, closeTab } from '$lib/shared/stores/tabs';
-  import { mode } from '$lib/stores/app';
+  import { setMode } from '$lib/stores/app';
   import { WORKSPACE_EVENT } from '$lib/shared/constants/events';
 
   interface Props {
@@ -82,7 +82,7 @@
     const existing = get(sharedTabs).find(t => t.mode === 'workspace' && t.key === key);
     if (existing) activateTab(existing.id);
     else addTab(n.title || 'Untitled', 'workspace', key, 'var(--acc)');
-    mode.set('workspace');
+    void setMode('workspace');
   }
 
   function openBoard(b: WorkspaceBoard) {
@@ -91,7 +91,7 @@
     const existing = get(sharedTabs).find(t => t.mode === 'workspace' && t.key === key);
     if (existing) activateTab(existing.id);
     else addTab(b.name, 'workspace', key, 'var(--acc)');
-    mode.set('workspace');
+    void setMode('workspace');
   }
 
   function handleAddBtn(e: MouseEvent) {

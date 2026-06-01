@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import type { CanvasTabAdapter } from '$lib/modes/canvas/adapter';
 import type { TabKind } from '$lib/modes/canvas/commands';
-import { mode } from '$lib/stores/app';
+import { setMode } from '$lib/stores/app';
 
 const STUB_KIND: TabKind = 'agent_terminal';
 
@@ -57,6 +57,6 @@ export const stubBlockAdapter: CanvasTabAdapter = {
   },
 
   openInHomeMode() {
-    mode.set('agent');
+    void setMode('agent');
   },
 };

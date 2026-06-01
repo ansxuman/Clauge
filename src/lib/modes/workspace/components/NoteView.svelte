@@ -11,7 +11,7 @@
   import { showToast } from '$lib/shared/primitives/toast';
   import { errorToast, friendlyError } from '$lib/utils/errors';
   import { agentSessions, activeAgentSession } from '$lib/modes/agent/stores';
-  import { mode } from '$lib/stores/app';
+  import { setMode } from '$lib/stores/app';
   import { activateTabAcrossMode } from '$lib/utils/tabActivation';
   import { tabs as sharedTabs, addTab, activateTab, updateTab } from '$lib/shared/stores/tabs';
   import { getPurposeColor } from '$lib/modes/agent/ai/prompt';
@@ -169,7 +169,7 @@
       const tab = addTab(linkedSession.title, 'agent', linkedSession.id, getPurposeColor(linkedSession.purpose));
       activateTab(tab.id);
       activeAgentSession.set(linkedSession);
-      mode.set('agent');
+      void setMode('agent');
     }
   }
 

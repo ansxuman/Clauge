@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import type { AIMessage } from '$lib/types/ai';
 import { STORAGE_KEYS } from '$lib/shared/constants/storage';
 
@@ -76,6 +76,29 @@ export function countAllChatMessages(): number {
   let n = 0;
   for (const k in h) n += h[k]?.length ?? 0;
   return n;
+}
+
+/**
+ * Switch the active mode safely. When leaving Canvas, flushes pending
+ * viewport and tile-geometry writes BEFORE the Canvas panel unmounts so
+ * the last drag/zoom is persisted.
+ *
+ * Callers should use `await setMode(...)` in async contexts. In sync
+ * handlers (e.g. button click in Sidebar), use `void setMode(...)`.
+ */
+export async function setMode(next: AppMode): Promise<void> {
+  const prev = get(mode);
+  if (prev === next) return;
+  if (prev === 'canvas') {
+    try {
+      const { flushViewportNow, flushDirtyTilesNow } = await import('$lib/modes/canvas/stores/canvasStore');
+      await flushViewportNow();
+      await flushDirtyTilesNow();
+    } catch {
+      // Network/IPC errors from the flush should not block mode switch.
+    }
+  }
+  mode.set(next);
 }
 
 /** Approx. byte size of the AI chat localStorage payload (JSON length). */

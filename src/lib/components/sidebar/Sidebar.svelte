@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { mode, navOpen, aiPanelOpen, activeModal } from '$lib/stores/app';
+  import { mode, navOpen, aiPanelOpen, activeModal, setMode as appSetMode } from '$lib/stores/app';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { isMac, isLinux } from '$lib/utils/platform';
   import { cloudConnected, cloudConflicts, syncing, setSyncing, setDisconnected, showSyncRestorePrompt, markSynced } from '$lib/stores/cloud';
@@ -67,7 +67,7 @@
       return;
     }
     if (m !== 'history') previousMode = m;
-    mode.set(m);
+    void appSetMode(m);
     navOpen.set(true);
     realignActiveTabToMode(m);
   }
@@ -100,14 +100,14 @@
 
   function toggleHistory() {
     if ($mode === 'history' && $navOpen) {
-      mode.set(previousMode);
+      void appSetMode(previousMode);
       navOpen.set(false);
       realignActiveTabToMode(previousMode);
       return;
     }
     if ($mode !== 'history') {
       previousMode = $mode as any;
-      mode.set('history');
+      void appSetMode('history');
     }
     navOpen.set(true);
   }

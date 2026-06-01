@@ -10,7 +10,7 @@
   import { describeActor, formatAttribution } from '../attribution';
   import { tabs as sharedTabs, addTab, activateTab } from '$lib/shared/stores/tabs';
   import { activeWorkspaceId, markInboxRead } from '../stores';
-  import { mode } from '$lib/stores/app';
+  import { setMode } from '$lib/stores/app';
 
   let items = $state<InboxItem[]>([]);
   let loading = $state(true);
@@ -44,7 +44,7 @@
     const existing = get(sharedTabs).find(t => t.mode === 'workspace' && t.key === key);
     if (existing) activateTab(existing.id);
     else addTab(label, 'workspace', key, dot);
-    mode.set('workspace');
+    void setMode('workspace');
   }
 
   function relTime(iso: string): string {

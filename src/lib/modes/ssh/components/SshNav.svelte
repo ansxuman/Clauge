@@ -13,7 +13,7 @@
   import ConfirmDialog from '$lib/shared/primitives/ConfirmDialog.svelte';
   import type { SshProfile } from '../types';
   import { SSH_EVENT } from '$lib/shared/constants/events';
-  import { mode } from '$lib/stores/app';
+  import { setMode } from '$lib/stores/app';
   import { tabs as tabsStore2, addTab, activateTab } from '$lib/shared/stores/tabs';
   import { explorerConnections, explorerConnStates, loadExplorerConnections } from '$lib/modes/explorer/stores';
   import { newExplorerTabKey } from '$lib/modes/explorer/tabkey';
@@ -153,7 +153,7 @@
         await loadExplorerConnections();
       }
       // Switch to Explorer mode + open a tab on this connection.
-      mode.set('explorer');
+      await setMode('explorer');
       const allTabs = get(tabsStore2);
       const existing = allTabs.find(
         (t) => t.mode === 'explorer' && t.key && t.key.startsWith(`${conn!.id}#`),

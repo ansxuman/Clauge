@@ -10,7 +10,7 @@
     setBinding, getSqlTabData, sqlConnectionConfigVersion,
   } from '../stores';
   import { addTab } from '$lib/shared/stores/tabs';
-  import { mode } from '$lib/stores/app';
+  import { mode, setMode } from '$lib/stores/app';
   import { sqlListSchemas, sqlDescribeTable, sqlExecuteQuery, sqlCreateDatabase } from '../commands';
 
   // Postgres is the only supported engine with a real "schema" layer below
@@ -494,7 +494,7 @@
       setBinding(targetTab.id, connId, db);
     }
     activeConnectionId.set(connId);
-    if (get(mode) !== 'sql') mode.set('sql');
+    if (get(mode) !== 'sql') void setMode('sql');
   }
 
   // Trigger the "+" button flow from a database double-click in the sidebar.

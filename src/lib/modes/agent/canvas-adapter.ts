@@ -1,7 +1,7 @@
 import type { CanvasTabAdapter } from '$lib/modes/canvas/adapter';
 import { get } from 'svelte/store';
 import { agentTerminalMap, activeAgentSession, agentSessions } from '$lib/modes/agent/stores';
-import { mode } from '$lib/stores/app';
+import { mode, setMode } from '$lib/stores/app';
 import {
   attachAgentTerminal,
   detachAgentTerminal,
@@ -40,6 +40,6 @@ export const agentTerminalAdapter: CanvasTabAdapter = {
     const sessions = get(agentSessions);
     const s = sessions.find((x) => x.id === tabId) ?? null;
     activeAgentSession.set(s);
-    mode.set('agent');
+    void setMode('agent');
   },
 };

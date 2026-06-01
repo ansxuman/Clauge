@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { navOpen, aiPanelOpen, aiPanelOpenPerMode, mode } from '$lib/stores/app';
+  import { navOpen, aiPanelOpen, aiPanelOpenPerMode, mode, setMode } from '$lib/stores/app';
   import { tabs, activeTabId, addTab, closeTab, activateTab, getDraft, markClean, clearDraft } from '$lib/shared/stores/tabs';
   import { activeRequestId, loadRequest, clearActiveRequest, commitRequest } from '$lib/modes/rest/stores';
   import { sqlIsConnected, activeConnection, disconnectFromDb, initSqlTab, clearSqlTabData, setSqlTabData, sqlScripts, saveSqlScript, updateSqlScript, deleteSqlScript, getSqlTabData, activeConnectionId, selectedDatabase, connectToDatabase, sqlPendingChanges, connectToDb, connectedIds, connections, loadConnections } from '$lib/modes/sql/stores';
@@ -379,7 +379,7 @@
     // Create the tab; activeTabId flips inside addTab.
     const tab = addTab(script.name, 'sql', script.id, 'var(--sql)');
     showSqlScriptModal = false;
-    mode.set('sql');
+    await setMode('sql');
 
     // Resolve binding:
     //   - If the script's saved connection still exists, bind to its
