@@ -25,6 +25,7 @@
   import { newSshTabKey, profileIdFromTabKey } from '../tabkey';
   import { getTerminalTheme } from '$lib/utils/theme';
   import { appearance } from '$lib/stores/settings';
+  import { mode } from '$lib/stores/app';
   import { showToast } from '$lib/shared/primitives/toast';
   import { base64ToBytes, deferUntilFrame, loadWebGLAddon } from '$lib/shared/primitives/terminal-utils';
   import { resolveSshCapture, rejectAllSshCaptures, type SshCaptureRequest } from '../ai/execute';
@@ -33,6 +34,26 @@
   import { RESIZE_DEBOUNCE_MS, SSH_CAPTURE_TIMEOUT_MS } from '$lib/shared/constants/timings';
 
   let terminalEl: HTMLDivElement;
+
+  // Reparent guard: if the mode becomes 'ssh' and the active tab's xterm
+  // container has been moved elsewhere (e.g., into a Canvas tile), pull it
+  // back into terminalEl. Without this, switching Canvas → SSH leaves the
+  // panel blank because nothing returns the DOM to terminalEl.
+  $effect(() => {
+    if ($mode !== 'ssh') return;
+    const tabKey = currentTabKey;
+    if (!tabKey || !terminalEl) return;
+    const entry = $sshTerminalMap.get(tabKey);
+    if (!entry?.container) return;
+    if (entry.container.parentElement !== terminalEl) {
+      terminalEl.appendChild(entry.container);
+      try {
+        entry.fitAddon?.fit();
+      } catch {
+        // Layout not ready yet; ResizeObserver will fit shortly.
+      }
+    }
+  });
 
   // Per-tab xterm entry. Keyed by tab.key (== profile.id-based key).
   type TermEntry = {

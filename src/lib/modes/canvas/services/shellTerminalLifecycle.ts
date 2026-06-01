@@ -10,6 +10,7 @@ import {
   shellTerminals,
   type ShellTerminalEntry,
 } from '$lib/modes/canvas/stores/shellTerminalsStore';
+import { agentWriteToTerminal } from '$lib/modes/agent/commands';
 
 /**
  * Spawn a new Canvas shell terminal. Adds a placeholder entry to the store
@@ -77,6 +78,17 @@ export function attachShellTerminal(id: string, slot: HTMLElement): void {
     slot.appendChild(container);
     term.open(container);
     fitAddon.fit();
+
+    // Wire keystrokes from xterm to the PTY.
+    term.onData((data) => {
+      const e = get(shellTerminals).get(id);
+      if (e?.terminalId) {
+        agentWriteToTerminal(e.terminalId, data).catch((err) => {
+          console.error('[canvas] shell terminal write failed:', err);
+        });
+      }
+    });
+
     shellTerminals.update((m) => {
       const next = new Map(m);
       const cur = next.get(id);

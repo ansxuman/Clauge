@@ -52,6 +52,7 @@
   import { refreshAgentGitStatus, refreshAgentContextUsage, loadAgentSessions, agentGitBranchName, agentGitFiles, agentGitAhead, agentGitBehind } from '../stores';
   import { getTerminalTheme } from '$lib/utils/theme';
   import { appearance } from '$lib/stores/settings';
+  import { mode } from '$lib/stores/app';
   import { base64ToBytes, deferUntilFrame, loadWebGLAddon } from '$lib/shared/primitives/terminal-utils';
   import { getPurposePrompt } from '../ai/prompt';
   import { AGENT_EVENT } from '$lib/shared/constants/events';
@@ -70,6 +71,38 @@
   let terminalEl: HTMLDivElement;
   let shellEl: HTMLDivElement;
   let wrapperEl: HTMLDivElement;
+
+  // Reparent guard: if the mode becomes 'agent' and the active session's
+  // xterm container has been moved elsewhere (e.g., into a Canvas tile),
+  // pull it back into terminalEl. Without this, switching Canvas → Agent
+  // leaves the panel blank because nothing returns the DOM to terminalEl.
+  $effect(() => {
+    if ($mode !== 'agent') return;
+    const session = $activeAgentSession;
+    if (!session?.id) return;
+    const entry = $agentTerminalMap.get(session.id);
+    if (!entry?.container || !terminalEl) return;
+    if (entry.container.parentElement !== terminalEl) {
+      terminalEl.appendChild(entry.container);
+      try {
+        entry.fitAddon?.fit();
+      } catch {
+        // Layout not ready yet; ResizeObserver will fit shortly.
+      }
+    }
+    // Also re-attach shell container if open.
+    if ($agentShellOpen) {
+      const sEntry = $agentShellMap.get(session.id);
+      if (sEntry?.container && shellEl && sEntry.container.parentElement !== shellEl) {
+        shellEl.appendChild(sEntry.container);
+        try {
+          sEntry.fitAddon?.fit();
+        } catch {
+          // Layout not ready yet; ResizeObserver will fit shortly.
+        }
+      }
+    }
+  });
 
   // Active terminal entry refs
   let activeTermEntry: { term: Terminal; fitAddon: FitAddon; searchAddon: SearchAddon; container: HTMLDivElement; terminalId: string | null; _exitBuffer?: string } | null = null;
