@@ -7,6 +7,7 @@ import {
   detachAgentTerminal,
   listOpenAgentTerminals,
 } from '$lib/modes/canvas/services/agentTerminalReparent';
+import { tabs } from '$lib/shared/stores/tabs';
 
 export const agentTerminalAdapter: CanvasTabAdapter = {
   tabKind: 'agent_terminal',
@@ -41,5 +42,14 @@ export const agentTerminalAdapter: CanvasTabAdapter = {
     const s = sessions.find((x) => x.id === tabId) ?? null;
     activeAgentSession.set(s);
     void setMode('agent');
+  },
+
+  closeTab(tabId) {
+    const allTabs = get(tabs);
+    const topbarTab = allTabs.find((t) => t.mode === 'agent' && t.key === tabId);
+    if (!topbarTab) return;
+    window.dispatchEvent(
+      new CustomEvent('canvas:request-tab-close', { detail: { tabId: topbarTab.id } }),
+    );
   },
 };

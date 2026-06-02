@@ -57,4 +57,13 @@ export const sshTerminalAdapter: CanvasTabAdapter = {
 
     void setMode('ssh');
   },
+
+  closeTab(tabId) {
+    const allTabs = get(tabs);
+    const topbarTab = allTabs.find((t) => t.mode === 'ssh' && t.key === tabId);
+    if (!topbarTab) return;
+    window.dispatchEvent(
+      new CustomEvent('canvas:request-tab-close', { detail: { tabId: topbarTab.id } }),
+    );
+  },
 };

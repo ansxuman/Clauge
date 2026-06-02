@@ -513,13 +513,22 @@
     handleAddTab();
   }
 
+  const onCanvasCloseRequest = (e: Event) => {
+    const tabId = (e as CustomEvent<{ tabId: number }>).detail?.tabId;
+    if (typeof tabId !== 'number') return;
+    const synthetic = new MouseEvent('click');
+    handleTabClose(synthetic, tabId);
+  };
+
   onMount(() => {
     window.addEventListener(APP_EVENT.TAB_CLOSE_PROMPT, handleTabClosePromptEvent);
     window.addEventListener(APP_EVENT.NEW_TAB, handleNewTabShortcut);
+    window.addEventListener('canvas:request-tab-close', onCanvasCloseRequest);
   });
   onDestroy(() => {
     window.removeEventListener(APP_EVENT.TAB_CLOSE_PROMPT, handleTabClosePromptEvent);
     window.removeEventListener(APP_EVENT.NEW_TAB, handleNewTabShortcut);
+    window.removeEventListener('canvas:request-tab-close', onCanvasCloseRequest);
   });
 </script>
 
