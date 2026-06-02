@@ -11,6 +11,8 @@ import {
   type ShellTerminalEntry,
 } from '$lib/modes/canvas/stores/shellTerminalsStore';
 import { agentWriteToTerminal } from '$lib/modes/agent/commands';
+import { getTerminalTheme } from '$lib/utils/theme';
+import { appearance } from '$lib/stores/settings';
 
 /**
  * Spawn a new Canvas shell terminal. Adds a placeholder entry to the store
@@ -66,9 +68,17 @@ export function attachShellTerminal(id: string, slot: HTMLElement): void {
   if (!entry.internal) {
     const term = new Terminal({
       cursorBlink: true,
-      fontFamily: 'ui-monospace, monospace',
+      fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", "Menlo", monospace',
       fontSize: 13,
-      theme: { background: '#0d0a22' },
+      theme: getTerminalTheme(get(appearance).theme, get(appearance).accentColor),
+      allowTransparency: true,
+      scrollback: 10000,
+      lineHeight: 1.35,
+      smoothScrollDuration: 100,
+      rescaleOverlappingGlyphs: true,
+      cursorStyle: 'bar',
+      cursorInactiveStyle: 'outline',
+      rightClickSelectsWord: true,
     });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);

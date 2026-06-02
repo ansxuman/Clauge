@@ -1,7 +1,11 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import type { CanvasTile as Tile } from '$lib/modes/canvas/commands';
   import { canvasAdapterRegistry } from '$lib/modes/canvas/adapter-registry';
+  import { agentTerminalMap } from '$lib/modes/agent/stores';
+  import { sshTerminalMap } from '$lib/modes/ssh/stores';
+  import { shellTerminals } from '$lib/modes/canvas/stores/shellTerminalsStore';
 
   let { tile }: { tile: Tile } = $props();
 
@@ -10,6 +14,9 @@
 
   // Hardcoded Phase 2 workspace stub — Phase 5 wires real workspace.
   const WORKSPACE_ID = '__phase2_stub__';
+
+  let resizeObserver: ResizeObserver | null = null;
+  let fitTimer: ReturnType<typeof setTimeout> | null = null;
 
   onMount(() => {
     const adapter = canvasAdapterRegistry.get(tile.tabKind);
@@ -21,9 +28,41 @@
       const r = adapter.render?.(tile.tabId, slotEl, { workspaceId: WORKSPACE_ID });
       destroyFn = r?.destroy ?? null;
     }
+
+    if (slotEl) {
+      resizeObserver = new ResizeObserver(() => {
+        if (fitTimer !== null) clearTimeout(fitTimer);
+        fitTimer = setTimeout(() => {
+          fitTimer = null;
+          const kind = tile.tabKind;
+          let fitAddon: { fit: () => void } | undefined;
+          if (kind === 'agent_terminal') {
+            fitAddon = get(agentTerminalMap).get(tile.tabId)?.fitAddon;
+          } else if (kind === 'ssh_terminal') {
+            fitAddon = get(sshTerminalMap).get(tile.tabId)?.fitAddon;
+          } else if (kind === 'shell_terminal') {
+            fitAddon = get(shellTerminals).get(tile.tabId)?.internal?.fitAddon;
+          }
+          try {
+            fitAddon?.fit();
+          } catch {
+            // Slot may not have measurable dimensions yet; next observer tick will fit.
+          }
+        }, 60);
+      });
+      resizeObserver.observe(slotEl);
+    }
   });
 
   onDestroy(() => {
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+      resizeObserver = null;
+    }
+    if (fitTimer !== null) {
+      clearTimeout(fitTimer);
+      fitTimer = null;
+    }
     const adapter = canvasAdapterRegistry.get(tile.tabKind);
     if (adapter?.mountStrategy === 'reparent' && slotEl) {
       adapter.detach?.(tile.tabId, slotEl);
