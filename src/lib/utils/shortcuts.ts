@@ -169,7 +169,8 @@ function handleKeydown(e: KeyboardEvent) {
   // a system prompt + tools for it (REST / SQL / NoSQL / SSH /
   // Explorer). Workspace and agent both render the panel as an empty
   // useless chat, so the shortcut is a no-op there. Agent mode keeps
-  // its own special meaning: toggle the shell panel.
+  // its own special meaning: toggle the shell panel. Canvas mode hides
+  // the AI panel UI entirely, so the shortcut is a no-op there too.
   if (meta && e.key === 'l' && !e.shiftKey) {
     const currentMode = get(mode);
     if (currentMode === 'agent') {
@@ -183,7 +184,7 @@ function handleKeydown(e: KeyboardEvent) {
       e.preventDefault();
       return;
     }
-    if (currentMode === 'workspace' || currentMode === 'history') {
+    if (currentMode === 'workspace' || currentMode === 'history' || currentMode === 'canvas') {
       e.preventDefault();
       return;
     }
