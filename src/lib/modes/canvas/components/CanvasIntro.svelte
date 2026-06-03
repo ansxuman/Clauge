@@ -16,9 +16,9 @@
     </div>
     <h2 class="cv-intro-title">Atlas mode</h2>
     <p class="cv-intro-desc">
-      Spread every open tab — Agent and SSH terminals, quick shells, REST requests, SQL editors, Mongo and Redis queries,
-      Explorer file browsers, Workspace notes and boards — across an infinite spatial workspace. Drag windows around,
-      zoom in and out, snap to neighbors, and stop alt-tabbing.
+      Spread every open tab from Agent, SSH, REST, SQL, NoSQL, Explorer, and Workspace — plus Atlas-spawned shells —
+      across an infinite spatial workspace. Drag windows around, zoom in and out, snap to neighbors, and stop
+      alt-tabbing.
     </p>
     <ul class="cv-intro-list">
       <li>See every session, query, and document at once</li>

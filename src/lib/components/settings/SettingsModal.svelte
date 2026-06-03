@@ -4917,11 +4917,10 @@
                                     <h3 class="stg-card-title">Atlas (experimental)</h3>
                                     <p class="stg-card-sub">
                                         Spatial workspace that shows every open tab as a window
-                                        on an infinite pan/zoom canvas. Supports Agent and SSH
-                                        terminals, quick shells, REST requests, SQL editors,
-                                        Mongo and Redis queries, Explorer file browsers, and
-                                        Workspace notes + boards — drag, resize, and snap them
-                                        side by side.
+                                        on an infinite pan/zoom canvas. Supports Agent, SSH,
+                                        REST, SQL, NoSQL, Explorer, and Workspace tabs — plus
+                                        Atlas-spawned shells — to drag, resize, and snap side
+                                        by side.
                                     </p>
                                 </div>
                             </header>
