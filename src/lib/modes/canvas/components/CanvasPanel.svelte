@@ -28,6 +28,8 @@
     workspaceBoardAdapter,
   } from '$lib/modes/workspace/canvas-adapter';
   import { canvasEnabled } from '$lib/modes/canvas/stores/canvasEnabled';
+  import { startRenderScaleSync } from '$lib/modes/canvas/services/xtermRenderScale';
+  import { mode } from '$lib/stores/app';
   import CanvasViewport from './CanvasViewport.svelte';
   import CanvasIntro from './CanvasIntro.svelte';
   import ConfirmDialog from '$lib/shared/primitives/ConfirmDialog.svelte';
@@ -39,6 +41,7 @@
   let resolveTimer: ReturnType<typeof setTimeout> | null = null;
   let unsubscribes: Array<() => void> = [];
   let adapterUnsubscribes: Array<() => void> = [];
+  let stopRenderScaleSync: (() => void) | null = null;
   let initialized = false;
 
   let showShellCloseConfirm = $state(false);
@@ -132,10 +135,22 @@
     }
     for (const u of adapterUnsubscribes) u();
     adapterUnsubscribes = [];
+    stopRenderScaleSyncIfActive();
     canvasAdapterRegistry.clear();
     initialized = false;
     void flushViewportNow();
     void flushDirtyTilesNow();
+  }
+
+  function startRenderScaleSyncIfNeeded() {
+    if (stopRenderScaleSync) return;
+    stopRenderScaleSync = startRenderScaleSync();
+  }
+
+  function stopRenderScaleSyncIfActive() {
+    if (!stopRenderScaleSync) return;
+    stopRenderScaleSync();
+    stopRenderScaleSync = null;
   }
 
   onMount(() => {
@@ -150,6 +165,15 @@
       }
     });
     unsubscribes.push(unsub);
+
+    const unsubMode = mode.subscribe((m) => {
+      if (m === 'canvas' && get(canvasEnabled)) {
+        startRenderScaleSyncIfNeeded();
+      } else {
+        stopRenderScaleSyncIfActive();
+      }
+    });
+    unsubscribes.push(unsubMode);
 
     const onShellCloseRequest = (e: Event) => {
       const tabId = (e as CustomEvent<{ tabId: string }>).detail?.tabId;
