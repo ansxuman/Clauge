@@ -29,6 +29,7 @@
   } from '../stores';
   import { tabs, activeTabId, addTab } from '$lib/shared/stores/tabs';
   import { sqlExecuteQuery, sqlExecuteBatch, sqlDescribeTable, sqlCurrentSchema } from '../commands';
+  import { destroySqlEditor, listOpenSqlEditors } from '../services/sqlEditorReparent';
   import type { TableInfo, SqlResultEntry, ColumnInfo, SqlQueryResult, Binding } from '../types';
   import { descriptorFor } from '../dialects';
   import { showToast } from '$lib/shared/primitives/toast';
@@ -337,33 +338,58 @@
   });
 
   // --- Query change autosave -----------------------------------------------
+  //
+  // The CodeMirror EditorView is owned by the singleton reparent
+  // registry and writes every doc change directly to sqlTabState. We
+  // watch `currentQuery` here and debounce a backend save when the
+  // active tab has a persisted script key. Skipping the very first
+  // value avoids re-saving the loaded text right after the tab is
+  // populated.
 
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastSavedQuery: string | null = null;
+  let lastSavedTabId: number | null = null;
 
-  function handleQueryChange(q: string) {
-    if (!activeSqlTab) return;
-    setSqlTabData(activeSqlTab.id, { query: q });
-
-    if (activeSqlTab.key) {
-      if (saveTimer) clearTimeout(saveTimer);
-      const scriptId = activeSqlTab.key;
-      const label = activeSqlTab.label;
-      // Autosave the CURRENT binding alongside name+query. Both fields
-      // update atomically via COALESCE on the backend, so the script's
-      // `(connection_id, database_name)` pair can never end up
-      // mismatched — they always move together. Picking a different
-      // DB from the pill, then typing, persists the new target.
-      const bConn = binding?.connectionId;
-      const bDb = binding?.database;
-      saveTimer = setTimeout(async () => {
-        try {
-          await updateSqlScript(scriptId, label, q, bDb, bConn);
-        } catch {
-          /* silent — retry on close */
-        }
-      }, 1500);
+  $effect(() => {
+    const q = currentQuery;
+    const tab = activeSqlTab;
+    if (!tab) {
+      lastSavedQuery = null;
+      lastSavedTabId = null;
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      return;
     }
-  }
+    if (lastSavedTabId !== tab.id) {
+      lastSavedTabId = tab.id;
+      lastSavedQuery = q;
+      return;
+    }
+    if (q === lastSavedQuery) return;
+    lastSavedQuery = q;
+    if (!tab.key) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    const scriptId = tab.key;
+    const label = tab.label;
+    const bConn = binding?.connectionId;
+    const bDb = binding?.database;
+    saveTimer = setTimeout(async () => {
+      try {
+        await updateSqlScript(scriptId, label, q, bDb, bConn);
+      } catch {
+        /* silent — retry on close */
+      }
+    }, 1500);
+  });
+
+  // Tear down singleton EditorViews for SQL tabs that no longer exist
+  // in the shared tabs store. Without this, closing a SQL tab leaks
+  // its CodeMirror instance and DOM container.
+  $effect(() => {
+    const ids = new Set($tabs.filter((t) => t.mode === 'sql').map((t) => t.id));
+    for (const id of listOpenSqlEditors()) {
+      if (!ids.has(id)) destroySqlEditor(id);
+    }
+  });
 
   // --- LIMIT injection + result-label helpers (preserved) ------------------
 
@@ -829,24 +855,23 @@
     {/if}
 
     <!-- Top: Query Editor -->
-    <!-- Keyed by tab id so each tab owns its CodeMirror EditorView (and
-         therefore its own undo history). Sharing one editor across tabs
-         leaked cmd+z across tab boundaries. -->
+    <!-- The EditorView lives in the singleton reparent registry, keyed
+         by tab id. The registry surfaces one EditorView per tab so undo
+         history, cursor, and selection survive tab switches and Atlas
+         canvas tile reparent. -->
     <div class="sql-editor" style="height:{editorHeight}%">
-      {#key activeSqlTab?.id}
-        <QueryEditor
-          bind:this={queryEditorRef}
-          query={currentQuery}
-          tables={tableList}
-          {columnMap}
-          schemaLoading={isSchemaLoading}
-          defaultSchema={binding ? $defaultSchemas.get(`${binding.connectionId}:${binding.database}`) : undefined}
-          disabled={!!inFlight || isConnecting}
-          onexecute={handleExecute}
-          onexecutemulti={handleExecuteMulti}
-          onquerychange={handleQueryChange}
-        />
-      {/key}
+      <QueryEditor
+        bind:this={queryEditorRef}
+        tabId={activeSqlTab!.id}
+        query={currentQuery}
+        tables={tableList}
+        {columnMap}
+        schemaLoading={isSchemaLoading}
+        defaultSchema={binding ? $defaultSchemas.get(`${binding.connectionId}:${binding.database}`) : undefined}
+        disabled={!!inFlight || isConnecting}
+        onexecute={handleExecute}
+        onexecutemulti={handleExecuteMulti}
+      />
     </div>
 
     <!-- Draggable divider -->
