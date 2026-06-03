@@ -4916,9 +4916,12 @@
                                 <div class="stg-card-titles">
                                     <h3 class="stg-card-title">Atlas (experimental)</h3>
                                     <p class="stg-card-sub">
-                                        Spatial workspace that shows every open terminal as a
-                                        window on an infinite pan/zoom canvas. Supports Agent
-                                        terminals, SSH terminals, and quick shells.
+                                        Spatial workspace that shows every open tab as a window
+                                        on an infinite pan/zoom canvas. Supports Agent and SSH
+                                        terminals, quick shells, REST requests, SQL editors,
+                                        Mongo and Redis queries, Explorer file browsers, and
+                                        Workspace notes + boards — drag, resize, and snap them
+                                        side by side.
                                     </p>
                                 </div>
                             </header>

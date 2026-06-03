@@ -16,14 +16,15 @@
     </div>
     <h2 class="cv-intro-title">Atlas mode</h2>
     <p class="cv-intro-desc">
-      Spread all your open terminals — Agent sessions, SSH connections, quick shells — across an infinite spatial workspace.
-      Drag windows around, zoom in and out, snap to neighbors, and stop alt-tabbing.
+      Spread every open tab — Agent and SSH terminals, quick shells, REST requests, SQL editors, Mongo and Redis queries,
+      Explorer file browsers, Workspace notes and boards — across an infinite spatial workspace. Drag windows around,
+      zoom in and out, snap to neighbors, and stop alt-tabbing.
     </p>
     <ul class="cv-intro-list">
-      <li>See every terminal session at once</li>
+      <li>See every session, query, and document at once</li>
       <li>Drag and resize windows like a real workspace</li>
       <li>Spawn shells anywhere with one click</li>
-      <li>State preserved across mode switches</li>
+      <li>Editor state — undo, cursor, scroll — preserved across mode switches</li>
     </ul>
     <button class="cv-intro-cta" onclick={openCanvasSettings}>Open Atlas Settings</button>
     <p class="cv-intro-foot">Atlas is experimental. Enable in Settings → Atlas.</p>

@@ -33,12 +33,13 @@
       </div>
       <div class="cv-empty-title">Atlas is empty</div>
       <div class="cv-empty-sub">
-        Open an Agent session, SSH terminal, or click
+        Open any tab — an Agent or SSH session, a REST request, a SQL or NoSQL query, a file browser, a workspace
+        note or board — or click
         <svg class="cv-empty-inline-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="4 17 10 11 4 5"></polyline>
           <line x1="12" y1="19" x2="20" y2="19"></line>
         </svg>
-        to spawn a shell here. All windows land on this canvas for free-form multitasking.
+        to spawn a shell here. Every window lands on this canvas for free-form multitasking.
       </div>
     </div>
   {/if}
