@@ -13,6 +13,34 @@ use crate::shared::ai::dispatch::{self, ToolContext};
 use crate::shared::ai::types::ChatContext;
 use crate::shared::ai::ProviderConfig;
 
+/// Return a loggable representation of `url` with userinfo and query string
+/// removed. This prevents API keys embedded as query params (or basic-auth
+/// credentials in the authority) from appearing in log files.
+///
+/// Examples:
+///   "http://user:pass@host/path?key=secret" → "http://host/path"
+///   "https://api.example.com/v1?api_key=xyz" → "https://api.example.com/v1"
+///   "http://localhost:11434/v1/chat/completions" → unchanged
+fn redact_url(url: &str) -> String {
+    // Strip query string (may contain API keys as params).
+    let without_query = match url.find('?') {
+        Some(i) => &url[..i],
+        None => url,
+    };
+    // Strip userinfo: "scheme://user:pass@host/…" → "scheme://host/…".
+    // Only inspect the authority (up to the first '/'), so a '@' inside the
+    // path can't be mistaken for a userinfo delimiter.
+    if let Some(scheme_end) = without_query.find("://") {
+        let after_scheme = scheme_end + 3;
+        let rest = &without_query[after_scheme..];
+        let authority_end = rest.find('/').unwrap_or(rest.len());
+        if let Some(at) = rest[..authority_end].find('@') {
+            return format!("{}://{}", &without_query[..scheme_end], &rest[at + 1..]);
+        }
+    }
+    without_query.to_string()
+}
+
 pub async fn stream_openai(
     client: &reqwest::Client,
     app: &AppHandle,
@@ -35,7 +63,15 @@ pub async fn stream_openai(
     // session doesn't surface as a user-facing "sign in again" error.
     // `None` for BYOK providers (no refresh path).
     auth_state: Option<&AuthState>,
+    // Runtime overrides for the request URL and model id. Used by the
+    // `local` provider, whose endpoint + model live in user settings rather
+    // than the static registry. `None` falls back to `config.api_url` /
+    // `config.model_id`.
+    url_override: Option<&str>,
+    model_override: Option<&str>,
 ) -> Result<(), String> {
+    let api_url: &str = url_override.unwrap_or(config.api_url);
+    let model_id: &str = model_override.unwrap_or(config.model_id);
     let mut api_key = api_key.to_string();
     // We only attempt the Clauge AI refresh+retry dance once per chat to
     // avoid loops: if refresh succeeds but the new token also 401s,
@@ -126,7 +162,7 @@ pub async fn stream_openai(
 
     loop {
         let mut body = serde_json::json!({
-            "model": config.model_id,
+            "model": model_id,
             "max_tokens": if needs_tools { config.max_output_tokens } else { no_tool_max_tokens },
             "stream": true,
             "temperature": config.default_temperature,
@@ -178,10 +214,10 @@ pub async fn stream_openai(
             }
         }
 
-        log::info!("[AI OpenAI] POST {} model={}", config.api_url, config.model_id);
+        log::info!("[AI OpenAI] POST {} model={}", redact_url(api_url), model_id);
 
         let response = client
-            .post(config.api_url)
+            .post(api_url)
             .headers(headers)
             .json(&body)
             .send()
@@ -657,4 +693,38 @@ pub async fn stream_openai(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::redact_url;
+
+    #[test]
+    fn strips_query_string() {
+        assert_eq!(
+            redact_url("https://api.example.com/v1?api_key=xyz"),
+            "https://api.example.com/v1"
+        );
+    }
+
+    #[test]
+    fn strips_userinfo() {
+        assert_eq!(
+            redact_url("http://user:pass@host/path?key=secret"),
+            "http://host/path"
+        );
+    }
+
+    #[test]
+    fn leaves_plain_url_unchanged() {
+        let url = "http://localhost:11434/v1/chat/completions";
+        assert_eq!(redact_url(url), url);
+    }
+
+    #[test]
+    fn does_not_treat_at_in_path_as_userinfo() {
+        // '@' in the path must not be mistaken for a userinfo delimiter.
+        let url = "https://host/path@segment";
+        assert_eq!(redact_url(url), url);
+    }
 }

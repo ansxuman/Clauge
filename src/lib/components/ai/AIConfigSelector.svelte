@@ -16,7 +16,11 @@
   // Only show BYOK providers the user has actually configured. Keeps the
   // popover tight; unconfigured noise belongs in Settings, not here.
   const configured = $derived(
-    PROVIDERS.filter((p) => !!$settings[p.keySettingName]?.trim()),
+    PROVIDERS.filter((p) =>
+      p.providerId === 'local'
+        ? !!$settings['ai_local_base_url']?.trim()
+        : !!$settings[p.keySettingName]?.trim(),
+    ),
   );
 
   // Resolve metadata for the currently-selected provider (for the pill label).
@@ -166,7 +170,11 @@
           <span class="acs-row-dot" aria-hidden="true"></span>
           <span class="acs-row-text">
             <span class="acs-row-name">{p.providerLabel}</span>
-            <span class="acs-row-sub">{p.modelLabel}</span>
+            <span class="acs-row-sub"
+              >{p.providerId === 'local'
+                ? $settings['ai_local_model'] || 'Local'
+                : p.modelLabel}</span
+            >
           </span>
           {#if isSel}
             <span class="acs-check" aria-hidden="true">
