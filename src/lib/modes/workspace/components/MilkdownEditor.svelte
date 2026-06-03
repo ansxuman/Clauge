@@ -19,10 +19,16 @@
   let host: HTMLDivElement;
   let mountedNoteId: string | null = null;
   let unsubscribe: (() => void) | null = null;
+  // Rapid noteId swaps can race: an earlier `attachNoteEditor` resolves
+  // after a later `unmount()`/`mount()` has already swapped to a new id.
+  // Capture the token at call time and bail if it's been bumped.
+  let mountToken = 0;
 
   async function mount(id: string) {
     if (!host) return;
+    const myToken = ++mountToken;
     await attachNoteEditor(id, host);
+    if (myToken !== mountToken) return;
     mountedNoteId = id;
     if (onChange) {
       unsubscribe = subscribeNoteMarkdown(id, onChange);
@@ -30,6 +36,7 @@
   }
 
   function unmount() {
+    mountToken++;
     if (unsubscribe) {
       unsubscribe();
       unsubscribe = null;

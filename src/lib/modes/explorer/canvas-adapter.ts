@@ -39,9 +39,11 @@ export const explorerFileBrowserAdapter: CanvasTabAdapter = {
   subscribe(_workspaceId, onChange) {
     const u1 = tabs.subscribe(() => onChange());
     const u2 = explorerConnStates.subscribe(() => onChange());
+    const u3 = explorerConnections.subscribe(() => onChange());
     return () => {
       u1();
       u2();
+      u3();
     };
   },
 

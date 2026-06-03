@@ -217,7 +217,13 @@ export function attachSqlEditor(tabId: number, slot: HTMLElement): void {
   } catch {
     // Slot may not have measurable dimensions yet on first mount.
   }
-  entry.view.focus();
+  // Only auto-focus if nothing else holds focus (body or null). Yanking
+  // focus from another input — sidebar search, modal, another tile —
+  // would surprise the user.
+  const active = document.activeElement;
+  if (!active || active === document.body) {
+    entry.view.focus();
+  }
 }
 
 /**

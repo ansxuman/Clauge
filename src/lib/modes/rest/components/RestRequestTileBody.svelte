@@ -152,7 +152,7 @@
   </div>
 
   <div class="rest-tile-body">
-    {#if loadError}
+    {#if loadError && !saved && !draft}
       <div class="rest-tile-empty">{loadError}</div>
     {:else if activeBottomTab === 'response'}
       {#if loading}

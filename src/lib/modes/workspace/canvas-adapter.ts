@@ -48,7 +48,9 @@ export const workspaceNoteAdapter: CanvasTabAdapter = {
   attach(tabId, slot) {
     const noteId = noteIdFromTabKey(tabId);
     if (!noteId) return;
-    void attachNoteEditor(noteId, slot);
+    attachNoteEditor(noteId, slot).catch((err) => {
+      console.error('[atlas] failed to attach note editor', { noteId, err });
+    });
   },
 
   detach(tabId, slot) {
