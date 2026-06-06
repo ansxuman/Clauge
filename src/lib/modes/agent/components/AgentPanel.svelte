@@ -52,7 +52,7 @@
   import { getTerminalTheme } from '$lib/utils/theme';
   import { appearance } from '$lib/stores/settings';
   import { mode } from '$lib/stores/app';
-  import { base64ToBytes, deferUntilFrame, loadWebGLAddon } from '$lib/shared/primitives/terminal-utils';
+  import { base64ToBytes, deferUntilFrame, loadWebGLAddon, coalesceGrowingImeCommit, type ImeCoalesceState } from '$lib/shared/primitives/terminal-utils';
   import { getPurposePrompt } from '../ai/prompt';
   import { AGENT_EVENT } from '$lib/shared/constants/events';
   import {
@@ -448,7 +448,10 @@
       return true;
     });
 
-    t.onData((data) => {
+    const termImeState: ImeCoalesceState = { last: '', at: 0 };
+    t.onData((rawData: string) => {
+      const data = coalesceGrowingImeCommit(rawData, termImeState);
+      if (!data) return;
       const tIds = get(agentTerminalIds);
       const termId = tIds.get(sessionId);
       if (termId) {
@@ -578,7 +581,10 @@
       shellLoadingSessions = shellLoadingSessions.filter(id => id !== sessionId);
     }, AGENT_SHELL_LOADER_MS);
 
-    t.onData((data) => {
+    const shellImeState: ImeCoalesceState = { last: '', at: 0 };
+    t.onData((rawData: string) => {
+      const data = coalesceGrowingImeCommit(rawData, shellImeState);
+      if (!data) return;
       const sIds = get(agentShellIds);
       const shellId = sIds.get(sessionId);
       if (shellId) {

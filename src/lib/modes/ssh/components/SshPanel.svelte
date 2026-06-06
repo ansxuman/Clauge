@@ -27,7 +27,7 @@
   import { appearance } from '$lib/stores/settings';
   import { mode } from '$lib/stores/app';
   import { showToast } from '$lib/shared/primitives/toast';
-  import { base64ToBytes, deferUntilFrame, loadWebGLAddon } from '$lib/shared/primitives/terminal-utils';
+  import { base64ToBytes, deferUntilFrame, loadWebGLAddon, coalesceGrowingImeCommit, type ImeCoalesceState } from '$lib/shared/primitives/terminal-utils';
   import { resolveSshCapture, rejectAllSshCaptures, type SshCaptureRequest } from '../ai/execute';
   import type { SshProfile, SshTerminalPayload } from '../types';
   import { SSH_EVENT } from '$lib/shared/constants/events';
@@ -282,7 +282,10 @@
       findResultCount = resultCount;
     });
 
-    term.onData((data) => {
+    const imeState: ImeCoalesceState = { last: '', at: 0 };
+    term.onData((rawData: string) => {
+      const data = coalesceGrowingImeCommit(rawData, imeState);
+      if (!data) return;
       const id = entry.terminalId;
       if (!id) return;
       sshWriteToTerminal(id, data).catch(() => {

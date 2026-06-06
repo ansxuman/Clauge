@@ -33,6 +33,49 @@ export function deferUntilFrame(callback: () => void): void {
   requestAnimationFrame(() => requestAnimationFrame(callback));
 }
 
+export type ImeCoalesceState = { last: string; at: number };
+
+const IME_GROWING_COMMIT_WINDOW_MS = 250;
+
+/**
+ * WebKitGTK/Tauri can report CJK IME commits from xterm.js as a growing
+ * composition buffer instead of only the newly committed text. For example,
+ * xterm may emit `onData("你")` and then `onData("你好")`; blindly forwarding
+ * both chunks to the PTY duplicates the old commit in terminal TUIs.
+ *
+ * Keep terminal control/ASCII input untouched. For very recent non-ASCII
+ * chunks, if the current chunk starts with the previous commit, forward only
+ * the suffix. Callers must keep one state object per xterm instance.
+ */
+export function coalesceGrowingImeCommit(data: string, state: ImeCoalesceState): string {
+  const now = Date.now();
+
+  if (!/[^\x00-\x7F]/.test(data)) {
+    // ASCII/control input is not part of the CJK composition stream. Reset on
+    // every ASCII chunk so later Unicode input is never compared against stale
+    // state from a previous word or command.
+    state.last = '';
+    state.at = 0;
+    return data;
+  }
+
+  if (
+    state.last &&
+    now - state.at <= IME_GROWING_COMMIT_WINDOW_MS &&
+    data.length > state.last.length &&
+    data.startsWith(state.last)
+  ) {
+    const suffix = data.slice(state.last.length);
+    state.last = data;
+    state.at = now;
+    return suffix;
+  }
+
+  state.last = data;
+  state.at = now;
+  return data;
+}
+
 // Trade-off: hard cap > per-tile pause. Browsers cap concurrent WebGL contexts
 // at 8–16; the 11th xterm silently fails to render on Atlas tile grids. We cap
 // at 6 live WebGL terminals — overflow falls back to xterm's canvas renderer,
