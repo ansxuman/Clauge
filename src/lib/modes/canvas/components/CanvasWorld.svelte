@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { viewport, tilesSortedByZ } from '$lib/modes/canvas/stores/canvasStore';
+  import { viewport, tilesSortedByZ, regionsSortedByZ } from '$lib/modes/canvas/stores/canvasStore';
   import { mode } from '$lib/stores/app';
   import CanvasTile from './CanvasTile.svelte';
+  import CanvasRegion from './CanvasRegion.svelte';
 
   let worldEl: HTMLDivElement | undefined = $state();
 
@@ -20,6 +21,9 @@
 
 <div bind:this={worldEl} class="cv-world">
   {#if $mode === 'canvas'}
+    {#each $regionsSortedByZ as region (region.regionId)}
+      <CanvasRegion {region} />
+    {/each}
     {#each $tilesSortedByZ as tile (tile.tabId)}
       <CanvasTile {tile} />
     {/each}
