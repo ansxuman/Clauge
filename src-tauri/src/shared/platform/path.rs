@@ -78,8 +78,34 @@ fn resolve_user_path() -> String {
 fn resolve_user_path() -> String {
     // Windows GUI apps inherit the user PATH from the registry-merged
     // environment block, so the parent process variable is already the
-    // correct view of system + user PATH. No shell sourcing required.
-    std::env::var("PATH").unwrap_or_default()
+    // correct view of system + user PATH. That covers most installs.
+    //
+    // The CLI installers we care about often drop binaries into per-tool
+    // user directories that aren't always on the system PATH — Claude
+    // Code's installer uses %USERPROFILE%\.local\bin, OpenCode uses
+    // %USERPROFILE%\.opencode\bin, and npm-global tools live under
+    // %APPDATA%\npm. Append those after the system PATH so detection
+    // still works when the user hasn't manually added them.
+    let mut parts: Vec<String> = Vec::new();
+    if let Ok(inherited) = std::env::var("PATH") {
+        if !inherited.is_empty() {
+            parts.push(inherited);
+        }
+    }
+    if let Some(home) = dirs::home_dir() {
+        let h = home.to_string_lossy().to_string();
+        parts.push(format!(
+            "{h}\\.local\\bin;{h}\\.opencode\\bin;{h}\\.cargo\\bin;{h}\\.bun\\bin;{h}\\.deno\\bin"
+        ));
+    }
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        parts.push(format!("{appdata}\\npm"));
+    }
+    if let Ok(localappdata) = std::env::var("LOCALAPPDATA") {
+        // Some installers (eg. winget shims) land here.
+        parts.push(format!("{localappdata}\\Programs"));
+    }
+    dedupe_path(&parts.join(";"))
 }
 
 fn dedupe_path(p: &str) -> String {

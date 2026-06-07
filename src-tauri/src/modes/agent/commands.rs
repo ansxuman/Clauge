@@ -463,6 +463,18 @@ pub fn agent_check_cli_installed(provider: String) -> bool {
     cli.resolve_binary_path() != cli.binary_name()
 }
 
+/// Batched probe used by the app-boot pre-flight: one Tauri round-trip
+/// instead of four. Returns the installed map keyed by provider id.
+#[tauri::command]
+pub fn agent_check_clis_installed() -> std::collections::HashMap<String, bool> {
+    let mut out = std::collections::HashMap::new();
+    for p in ["claude", "codex", "gemini", "opencode"] {
+        let cli: &dyn CliRunner = runner_for(p);
+        out.insert(p.to_string(), cli.resolve_binary_path() != cli.binary_name());
+    }
+    out
+}
+
 #[tauri::command]
 pub fn agent_get_claude_plan() -> Result<String, String> {
     let output = std::process::Command::new("security")

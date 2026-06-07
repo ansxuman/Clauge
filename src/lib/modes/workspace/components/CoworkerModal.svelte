@@ -21,6 +21,13 @@
   import { errorToast, friendlyError } from '$lib/utils/errors';
   import CoworkerAvatar from './CoworkerAvatar.svelte';
   import { cloudPlan, upgradeModalOpen } from '$lib/stores/cloud';
+  import {
+    providerStatus,
+    providerStatusReady,
+    refreshProviderStatus,
+  } from '$lib/shared/stores/providerStatus';
+  import ProviderNotInstalledModal from '$lib/shared/agent/ProviderNotInstalledModal.svelte';
+  import type { AgentProvider } from '$lib/shared/agent/providers';
 
   interface Props {
     show: boolean;
@@ -41,6 +48,7 @@
   let saving = $state(false);
   let confirmingDelete = $state(false);
   let showProRequired = $state(false);
+  let showProviderNotInstalled = $state(false);
 
   const PROVIDER_OPTIONS = [
     { id: 'claude', label: 'Claude', color: '#d4a96a' },
@@ -117,6 +125,12 @@
         showProRequired = true;
         return;
       }
+    }
+    // Pre-flight: surface the install guide here rather than at first
+    // run when the coworker is actually invoked.
+    if ($providerStatusReady && !$providerStatus[provider as AgentProvider]) {
+      showProviderNotInstalled = true;
+      return;
     }
     saving = true;
     try {
@@ -261,16 +275,33 @@
           <span class="cm-label">Powered by</span>
           <div class="cm-provider-list">
             {#each PROVIDER_OPTIONS as p}
+              {@const missing = $providerStatusReady && !$providerStatus[p.id as AgentProvider]}
               <button
                 class="cm-provider-pill"
                 class:selected={provider === p.id}
+                class:missing
+                title={missing ? `${p.label} not found on PATH` : `Use ${p.label}`}
                 onclick={() => provider = p.id}
                 type="button"
               >
                 <span class="cm-provider-dot" style="background:{p.color}"></span>
                 {p.label}
+                {#if missing}<span class="cm-provider-missing">!</span>{/if}
               </button>
             {/each}
+            <button
+              class="cm-provider-refresh"
+              title="Re-check installed CLIs"
+              type="button"
+              onclick={() => { void refreshProviderStatus(); }}
+            >
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              Re-check
+            </button>
           </div>
         </div>
       </div>
@@ -305,6 +336,11 @@
     </div>
   </div>
 {/if}
+
+<ProviderNotInstalledModal
+  bind:show={showProviderNotInstalled}
+  provider={provider as AgentProvider}
+/>
 
 <style>
   .cm-overlay {
@@ -453,6 +489,38 @@
   .cm-provider-dot {
     width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   }
+  .cm-provider-pill.missing {
+    color: var(--t3);
+    border-style: dashed;
+  }
+  .cm-provider-missing {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--warn, #d97706) 22%, transparent);
+    color: var(--warn, #d97706);
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .cm-provider-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 9px;
+    border: 1px dashed var(--b1);
+    background: transparent;
+    border-radius: 14px;
+    color: var(--t3);
+    font: 10.5px var(--ui);
+    cursor: pointer;
+    transition: color 0.1s, border-color 0.1s;
+  }
+  .cm-provider-refresh:hover { color: var(--t1); border-color: var(--b2); }
 
   .cm-foot {
     display: flex; align-items: center; gap: 8px;

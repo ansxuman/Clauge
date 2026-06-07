@@ -1,12 +1,10 @@
 <script lang="ts">
   import Modal from '$lib/shared/primitives/Modal.svelte';
-  // Note: the not-installed prompt modals (ClaudeNotInstalledModal etc.)
-  // used to be triggered from here pre-create. They now live solely on
-  // the spawn path (AgentPanel) so users see them only when the actual
-  // CLI invocation fails, not when they first build the session row.
   import { agentCreateSession, agentDiscoverSessions, agentListContexts, agentAttachContext, agentUpdateSessionId, agentValidateBinary } from '../commands';
   import type { AgentContext, DiscoveredSession, AgentProvider } from '../types';
   import { AGENT_PROVIDERS } from '../types';
+  import { providerStatus, providerStatusReady, refreshProviderStatus } from '$lib/shared/stores/providerStatus';
+  import ProviderNotInstalledModal from '$lib/shared/agent/ProviderNotInstalledModal.svelte';
 
   // Provider tile icons live in /static. Same brand assets you see in
   // the agent nav session-row, so the New Session picker matches the
@@ -178,15 +176,36 @@
     } catch (_) {}
   }
 
+  let showProviderNotInstalled = $state(false);
+  let rechecking = $state(false);
+
+  async function recheck() {
+    if (rechecking) return;
+    rechecking = true;
+    try {
+      await refreshProviderStatus();
+    } finally {
+      rechecking = false;
+    }
+  }
+
+  const missingCount = $derived(
+    $providerStatusReady
+      ? AGENT_PROVIDERS.filter((p) => !$providerStatus[p.id]).length
+      : 0,
+  );
+
   async function handleCreate() {
     if (!projectPath.trim() || !title.trim() || !purpose) return;
     if (gitEnabled && (!gitName.trim() || !gitEmail.trim())) return;
 
-    // Note: previously gated on `agent_check_cli_installed(provider)` to
-    // surface per-CLI install modals before creating the row. Now we
-    // let creation proceed and rely on the spawn-time check (already
-    // wired in AgentPanel) to surface the install guide. Devs picking
-    // a custom binary path don't need an install probe at all.
+    // Pre-flight: the boot-time probe (providerStatus) tells us instantly
+    // whether the chosen CLI is on PATH. If it's not, show the install
+    // modal here instead of letting the spawn fail later.
+    if ($providerStatusReady && !$providerStatus[provider]) {
+      showProviderNotInstalled = true;
+      return;
+    }
 
     loading = true;
     try {
@@ -273,7 +292,8 @@
           <button
             class="ns-prov-row"
             class:selected={provider === p.id}
-            title={`Use ${p.label}`}
+            class:not-installed={$providerStatusReady && !$providerStatus[p.id]}
+            title={$providerStatusReady && !$providerStatus[p.id] ? `${p.label} not found on PATH` : `Use ${p.label}`}
             onclick={() => { provider = p.id; }}
           >
             <span class="ns-prov-icon">
@@ -283,8 +303,40 @@
               <span class="ns-prov-name">{p.label}</span>
               <span class="ns-prov-vendor">{PROVIDER_VENDOR[p.id]}</span>
             </span>
+            {#if $providerStatusReady && !$providerStatus[p.id]}
+              <span class="ns-prov-missing" title="Not installed">!</span>
+            {/if}
           </button>
         {/each}
+        {#if missingCount > 0}
+          <div class="ns-prov-foot">
+            <span class="ns-prov-foot-text">
+              {missingCount === 1 ? '1 CLI not on PATH' : `${missingCount} CLIs not on PATH`}
+            </span>
+            <button
+              class="ns-prov-foot-link"
+              class:rechecking
+              type="button"
+              disabled={rechecking}
+              title="Re-check installed CLIs"
+              onclick={recheck}
+            >
+              {#if rechecking}
+                <svg class="ns-spin" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                Checking…
+              {:else}
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <polyline points="1 20 1 14 7 14"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+                Re-check
+              {/if}
+            </button>
+          </div>
+        {/if}
       </aside>
 
       <!-- RIGHT PANE — tabs + form -->
@@ -545,6 +597,8 @@
   </div>
 </Modal>
 
+<ProviderNotInstalledModal bind:show={showProviderNotInstalled} {provider} />
+
 <style>
   /* Shell bleeds the Modal primitive's body padding (20px 24px) so the
      two-column layout reaches the card edges and the footer's top
@@ -605,6 +659,67 @@
     width: 3px;
     background: var(--acc);
     border-radius: 2px;
+  }
+  .ns-prov-row.not-installed .ns-prov-name,
+  .ns-prov-row.not-installed .ns-prov-vendor {
+    opacity: 0.55;
+  }
+  .ns-prov-missing {
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--warn, #d97706) 22%, transparent);
+    color: var(--warn, #d97706);
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--ui);
+    line-height: 1;
+  }
+  .ns-prov-foot {
+    margin-top: auto;
+    padding: 10px 8px 4px;
+    border-top: 1px solid var(--b1);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .ns-prov-foot-text {
+    font: 10.5px var(--ui);
+    color: var(--t3);
+    letter-spacing: 0.01em;
+  }
+  .ns-prov-foot-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: var(--acc);
+    font: 11px var(--ui);
+    cursor: pointer;
+    align-self: flex-start;
+    transition: opacity 0.1s;
+  }
+  .ns-prov-foot-link:hover:not(:disabled) {
+    text-decoration: underline;
+  }
+  .ns-prov-foot-link:disabled {
+    cursor: default;
+    opacity: 0.7;
+  }
+  .ns-prov-foot-link.rechecking {
+    color: var(--t3);
+  }
+  .ns-spin {
+    animation: ns-spin 0.8s linear infinite;
+  }
+  @keyframes ns-spin {
+    to { transform: rotate(360deg); }
   }
   .ns-prov-icon {
     flex-shrink: 0;

@@ -479,6 +479,7 @@ pub fn run() {
             modes::agent::commands::agent_get_claude_plan,
             modes::agent::commands::agent_check_claude_installed,
             modes::agent::commands::agent_check_cli_installed,
+            modes::agent::commands::agent_check_clis_installed,
             modes::agent::commands::agent_validate_binary,
             // SSH mode
             modes::ssh::profiles::ssh_list_profiles,

@@ -184,9 +184,15 @@ pub async fn drawer_chat_turn(
     let bin = &argv[0];
     let resolved_bin = crate::shared::platform::path::find_binary(bin);
     let Some(resolved_bin) = resolved_bin else {
+        let install_url = match coworker.provider.as_str() {
+            "claude" => "https://code.claude.com/docs/en/setup",
+            "codex" => "https://developers.openai.com/codex/quickstart",
+            "gemini" => "https://google-gemini.github.io/gemini-cli/docs/get-started/",
+            "opencode" => "https://opencode.ai/docs/cli/",
+            _ => "https://code.claude.com/docs/en/setup",
+        };
         return Ok(soft_err(user_comment, &session.id, format!(
-            "{bin} is not installed or not on PATH. Install it from \
-             https://claude.com/claude-code and retry."
+            "{bin} is not installed or not on PATH. Install it from {install_url} and retry."
         )));
     };
 

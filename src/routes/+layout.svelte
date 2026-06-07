@@ -51,6 +51,7 @@
         collections,
     } from "$lib/modes/rest/stores";
     import { loadEnvironments } from "$lib/modes/rest/stores";
+    import { loadProviderStatus } from "$lib/shared/stores/providerStatus";
     import {
         loadConnections as loadSqlConnections,
         loadSqlScripts,
@@ -787,10 +788,10 @@
             loadWorkspaces(),
             loadMcpStatus(),
             refreshInboxUnread(),
-            // (Pre-warm of agent CLI install probes was removed: the
-            // New Session modal no longer disables provider tiles based
-            // on the result. The spawn-time install check still surfaces
-            // the per-provider install guide on first run.)
+            // Probe which agent CLIs are installed once at boot so the
+            // Agent and Workspace provider pickers can render install
+            // status inline without per-modal round-trips.
+            loadProviderStatus(),
         ]);
 
         applyAppearanceOnStartup();

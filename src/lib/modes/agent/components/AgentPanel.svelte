@@ -42,10 +42,7 @@
     agentCheckClaudeInstalled,
     agentCheckCliInstalled,
   } from '../commands';
-  import ClaudeNotInstalledModal from './ClaudeNotInstalledModal.svelte';
-  import CodexNotInstalledModal from './CodexNotInstalledModal.svelte';
-  import GeminiNotInstalledModal from './GeminiNotInstalledModal.svelte';
-  import OpenCodeNotInstalledModal from './OpenCodeNotInstalledModal.svelte';
+  import ProviderNotInstalledModal from '$lib/shared/agent/ProviderNotInstalledModal.svelte';
   import { showToast } from '$lib/shared/primitives/toast';
   import { errorToast, friendlyError } from '$lib/utils/errors';
   import { refreshAgentGitStatus, refreshAgentContextUsage, loadAgentSessions, agentGitBranchName, agentGitFiles, agentGitAhead, agentGitBehind } from '../stores';
@@ -306,10 +303,8 @@
   // entry (exit event that never arrives) has no collision risk.
   const _suppressedTerminalIds = new Set<string>();
 
-  let showClaudeNotInstalled = $state(false);
-  let showCodexNotInstalled = $state(false);
-  let showGeminiNotInstalled = $state(false);
-  let showOpenCodeNotInstalled = $state(false);
+  let showNotInstalled = $state(false);
+  let notInstalledProvider = $state<'claude' | 'codex' | 'gemini' | 'opencode'>('claude');
 
   // --- Notification system for action-required prompts ---
   let notifyOutputBuffer = '';
@@ -829,10 +824,8 @@
         ? await agentCheckClaudeInstalled()
         : await agentCheckCliInstalled(provider);
       if (!installed) {
-        if (provider === 'claude') showClaudeNotInstalled = true;
-        else if (provider === 'codex') showCodexNotInstalled = true;
-        else if (provider === 'gemini') showGeminiNotInstalled = true;
-        else if (provider === 'opencode') showOpenCodeNotInstalled = true;
+        notInstalledProvider = provider;
+        showNotInstalled = true;
         spawning = false;
         return;
       }
@@ -1631,10 +1624,7 @@
   });
 </script>
 
-<ClaudeNotInstalledModal bind:show={showClaudeNotInstalled} />
-<CodexNotInstalledModal bind:show={showCodexNotInstalled} />
-<GeminiNotInstalledModal bind:show={showGeminiNotInstalled} />
-<OpenCodeNotInstalledModal bind:show={showOpenCodeNotInstalled} />
+<ProviderNotInstalledModal bind:show={showNotInstalled} provider={notInstalledProvider} />
 
 {#if $activeAgentSession}
   <div class="agent-panel" bind:this={wrapperEl}>
