@@ -7,7 +7,7 @@ use sqlx::sqlite::SqlitePool;
 use tauri::State;
 
 use super::db;
-use super::models::{CanvasTile, CanvasViewport, TabRef, TileGeometryUpdate};
+use super::models::{CanvasRegion, CanvasTile, CanvasViewport, TabRef, TileGeometryUpdate};
 
 /// Reconcile canvas_tiles against the frontend-provided open-tab list.
 #[tauri::command]
@@ -75,6 +75,42 @@ pub async fn canvas_get_viewport(
     workspace_id: String,
 ) -> Result<CanvasViewport, String> {
     db::get_viewport(pool.inner(), &workspace_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Read all regions for a workspace.
+#[tauri::command]
+pub async fn canvas_list_regions(
+    pool: State<'_, SqlitePool>,
+    workspace_id: String,
+) -> Result<Vec<CanvasRegion>, String> {
+    db::list_regions(pool.inner(), &workspace_id)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Insert or update a region.
+#[tauri::command]
+pub async fn canvas_upsert_region(
+    pool: State<'_, SqlitePool>,
+    region: CanvasRegion,
+) -> Result<(), String> {
+    db::upsert_region(pool.inner(), &region)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Delete a region. When `delete_children` is true, child tiles are
+/// removed; otherwise their region_id is cleared.
+#[tauri::command]
+pub async fn canvas_delete_region(
+    pool: State<'_, SqlitePool>,
+    workspace_id: String,
+    region_id: String,
+    delete_children: bool,
+) -> Result<(), String> {
+    db::delete_region(pool.inner(), &workspace_id, &region_id, delete_children)
         .await
         .map_err(|e| e.to_string())
 }

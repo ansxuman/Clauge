@@ -10,7 +10,7 @@ import {
   shellTerminals,
   type ShellTerminalEntry,
 } from '$lib/modes/canvas/stores/shellTerminalsStore';
-import { agentWriteToTerminal } from '$lib/modes/agent/commands';
+import { agentWriteToTerminal, agentResizeTerminal } from '$lib/modes/agent/commands';
 import { getTerminalTheme } from '$lib/utils/theme';
 import { appearance } from '$lib/stores/settings';
 
@@ -77,6 +77,16 @@ export async function spawnShellTerminal(workspaceId: string, cwd: string): Prom
     if (cur) next.set(id, { ...cur, terminalId });
     return next;
   });
+  // If the xterm was already created by an attach that beat the spawn,
+  // catch the PTY up to the current cell grid. Without this the PTY
+  // would stay at its 80x24 default because onResize already fired
+  // before terminalId existed.
+  const e = get(shellTerminals).get(id);
+  if (e?.internal) {
+    agentResizeTerminal(terminalId, e.internal.term.cols, e.internal.term.rows).catch((err) => {
+      console.error('[canvas] shell terminal initial resize failed:', err);
+    });
+  }
   return id;
 }
 
@@ -112,6 +122,15 @@ export function attachShellTerminal(id: string, slot: HTMLElement): void {
     slot.appendChild(container);
     term.open(container);
     fitAddon.fit();
+    // Sync PTY to the just-fit dimensions even if onResize didn't fire
+    // (xterm skips the event when proposed cols/rows equal current).
+    const initDims = fitAddon.proposeDimensions();
+    if (initDims) {
+      const live = get(shellTerminals).get(id);
+      if (live?.terminalId) {
+        agentResizeTerminal(live.terminalId, initDims.cols, initDims.rows).catch(() => {});
+      }
+    }
 
     // Wire keystrokes from xterm to the PTY.
     term.onData((data) => {
@@ -119,6 +138,21 @@ export function attachShellTerminal(id: string, slot: HTMLElement): void {
       if (e?.terminalId) {
         agentWriteToTerminal(e.terminalId, data).catch((err) => {
           console.error('[canvas] shell terminal write failed:', err);
+        });
+      }
+    });
+
+    // Mirror the agent terminal pattern: when xterm's cell grid changes
+    // (after fitAddon.fit() runs on tile resize), tell the PTY so the
+    // shell line-wraps at the same column the terminal renders at.
+    // Without this, long inputs wrap inside the shell's stale column
+    // count while xterm shows the actual width — backspace/arrow keys
+    // operate on the wrong cell positions and the line corrupts.
+    term.onResize(({ cols, rows }) => {
+      const e = get(shellTerminals).get(id);
+      if (e?.terminalId) {
+        agentResizeTerminal(e.terminalId, cols, rows).catch((err) => {
+          console.error('[canvas] shell terminal resize failed:', err);
         });
       }
     });
@@ -142,6 +176,12 @@ export function attachShellTerminal(id: string, slot: HTMLElement): void {
     slot.appendChild(entry.internal.container);
     try {
       entry.internal.fitAddon.fit();
+      // Same belt-and-suspenders as the create branch: catch the PTY
+      // up to the (potentially-changed) slot dimensions after a reparent.
+      const dims = entry.internal.fitAddon.proposeDimensions();
+      if (dims && entry.terminalId) {
+        agentResizeTerminal(entry.terminalId, dims.cols, dims.rows).catch(() => {});
+      }
     } catch {
       // First resize tick will fit.
     }

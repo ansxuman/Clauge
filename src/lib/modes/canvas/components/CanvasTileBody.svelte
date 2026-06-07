@@ -3,9 +3,11 @@
   import { get } from 'svelte/store';
   import type { CanvasTile as Tile } from '$lib/modes/canvas/commands';
   import { canvasAdapterRegistry } from '$lib/modes/canvas/adapter-registry';
-  import { agentTerminalMap } from '$lib/modes/agent/stores';
-  import { sshTerminalMap } from '$lib/modes/ssh/stores';
+  import { agentTerminalMap, agentTerminalIds } from '$lib/modes/agent/stores';
+  import { sshTerminalMap, sshTerminalIds } from '$lib/modes/ssh/stores';
   import { shellTerminals } from '$lib/modes/canvas/stores/shellTerminalsStore';
+  import { agentResizeTerminal } from '$lib/modes/agent/commands';
+  import { sshResizeTerminal } from '$lib/modes/ssh/commands';
   import { mode } from '$lib/stores/app';
 
   let { tile }: { tile: Tile } = $props();
@@ -36,16 +38,27 @@
         fitTimer = setTimeout(() => {
           fitTimer = null;
           const kind = tile.tabKind;
-          let fitAddon: { fit: () => void } | undefined;
+          let fitAddon: { fit: () => void; proposeDimensions: () => { cols: number; rows: number } | undefined } | undefined;
+          let resizePty: ((cols: number, rows: number) => void) | undefined;
           if (kind === 'agent_terminal') {
-            fitAddon = get(agentTerminalMap).get(tile.tabId)?.fitAddon;
+            fitAddon = get(agentTerminalMap).get(tile.tabId)?.fitAddon as typeof fitAddon;
+            const termId = get(agentTerminalIds).get(tile.tabId);
+            if (termId) resizePty = (c, r) => { agentResizeTerminal(termId, c, r).catch(() => {}); };
           } else if (kind === 'ssh_terminal') {
-            fitAddon = get(sshTerminalMap).get(tile.tabId)?.fitAddon;
+            fitAddon = get(sshTerminalMap).get(tile.tabId)?.fitAddon as typeof fitAddon;
+            const termId = get(sshTerminalIds).get(tile.tabId);
+            if (termId) resizePty = (c, r) => { sshResizeTerminal(termId, c, r).catch(() => {}); };
           } else if (kind === 'shell_terminal') {
-            fitAddon = get(shellTerminals).get(tile.tabId)?.internal?.fitAddon;
+            // shellTerminalLifecycle wires term.onResize → agentResizeTerminal
+            // already, so we only need to fit() here; don't double-dispatch.
+            fitAddon = get(shellTerminals).get(tile.tabId)?.internal?.fitAddon as typeof fitAddon;
           }
           try {
             fitAddon?.fit();
+            // After every fit, push the cell grid to the PTY so the
+            // shell wraps long lines at the same column xterm renders.
+            const dims = fitAddon?.proposeDimensions();
+            if (dims && resizePty) resizePty(dims.cols, dims.rows);
           } catch {
             // Slot may not have measurable dimensions yet; next observer tick will fit.
           }

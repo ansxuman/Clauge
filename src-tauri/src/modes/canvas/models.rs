@@ -15,6 +15,25 @@ pub struct CanvasTile {
     pub height: f64,
     pub z_order: i64,
     pub minimized: i64,
+    pub region_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// A named container that groups tiles by project. Stored separately
+/// from tiles; child tiles point at the region via canvas_tiles.region_id.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct CanvasRegion {
+    pub workspace_id: String,
+    pub region_id: String,
+    pub name: String,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub color: String,
+    pub z_order: i64,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -55,4 +74,5 @@ pub struct TileGeometryUpdate {
     pub width: f64,
     pub height: f64,
     pub z_order: i64,
+    pub region_id: Option<String>,
 }

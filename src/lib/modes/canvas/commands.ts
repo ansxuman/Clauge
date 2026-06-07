@@ -24,6 +24,21 @@ export interface CanvasTile {
   zOrder: number;
   /** SQLite INTEGER on wire; 0 = visible, 1 = minimized. */
   minimized: number;
+  regionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CanvasRegion {
+  workspaceId: string;
+  regionId: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+  zOrder: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +69,7 @@ export interface TileGeometryUpdate {
   width: number;
   height: number;
   zOrder: number;
+  regionId: string | null;
 }
 
 export const canvasResolveTiles = (workspaceId: string, openTabRefs: TabRef[]) =>
@@ -73,6 +89,19 @@ export const canvasDeleteTile = (workspaceId: string, tabId: string) =>
 
 export const canvasGetViewport = (workspaceId: string) =>
   invoke<CanvasViewport>('canvas_get_viewport', { workspaceId });
+
+export const canvasListRegions = (workspaceId: string) =>
+  invoke<CanvasRegion[]>('canvas_list_regions', { workspaceId });
+
+export const canvasUpsertRegion = (region: CanvasRegion) =>
+  invoke<void>('canvas_upsert_region', { region });
+
+export const canvasDeleteRegion = (
+  workspaceId: string,
+  regionId: string,
+  deleteChildren: boolean,
+) =>
+  invoke<void>('canvas_delete_region', { workspaceId, regionId, deleteChildren });
 
 export const canvasSetViewport = (
   workspaceId: string,

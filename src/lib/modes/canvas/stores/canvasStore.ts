@@ -1,9 +1,11 @@
 import { writable, derived, get } from 'svelte/store';
-import type { CanvasTile, TabKind, TabRef } from '$lib/modes/canvas/commands';
+import type { CanvasRegion, CanvasTile, TabKind, TabRef } from '$lib/modes/canvas/commands';
 import type { AppMode } from '$lib/stores/app';
 import {
+  canvasListRegions,
   canvasResolveTiles,
   canvasSetViewport,
+  canvasUpsertRegion,
   canvasUpsertTilesBatch,
 } from '$lib/modes/canvas/commands';
 
@@ -26,9 +28,29 @@ export const TILE_FLUSH_DEBOUNCE_MS = 500;
 // Mutating in place skips subscriber notifications. Phase 3 will introduce
 // typed setter helpers; until then, follow the copy-on-mutate pattern.
 export const tilesByTab = writable<Map<string, CanvasTile>>(new Map());
+export const regionsById = writable<Map<string, CanvasRegion>>(new Map());
 export const viewport = writable<ViewportState>({ offsetX: 0, offsetY: 0, zoom: ZOOM_DEFAULT });
 export const interactionState = writable<InteractionState>('idle');
 export const focusedTabId = writable<string | null>(null);
+
+export interface RegionDraftPreview {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+}
+/** Live rectangle shown while the user is Shift+dragging to create a region. */
+export const regionPreview = writable<RegionDraftPreview | null>(null);
+
+/**
+ * Signal to the CanvasRegion for `regionId` to enter rename mode as
+ * soon as it mounts. Cleared by the region once consumed. Set by the
+ * region creation paths (toolbar button, Shift+drag) so the user can
+ * type the project name immediately without hunting for the rename
+ * affordance.
+ */
+export const pendingRenameRegionId = writable<string | null>(null);
 
 // Debounced viewport flush — single timer.
 let viewportFlushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -63,10 +85,16 @@ export async function flushViewportNow(): Promise<void> {
 // so backend creates no tiles. Phase 3 wires in real adapters.
 export async function loadCanvas(workspaceId: string, openTabRefs: TabRef[]): Promise<void> {
   setActiveWorkspace(workspaceId);
-  const tiles = await canvasResolveTiles(workspaceId, openTabRefs);
-  const map = new Map<string, CanvasTile>();
-  for (const t of tiles) map.set(t.tabId, t);
-  tilesByTab.set(map);
+  const [tiles, regions] = await Promise.all([
+    canvasResolveTiles(workspaceId, openTabRefs),
+    canvasListRegions(workspaceId),
+  ]);
+  const tileMap = new Map<string, CanvasTile>();
+  for (const t of tiles) tileMap.set(t.tabId, t);
+  tilesByTab.set(tileMap);
+  const regionMap = new Map<string, CanvasRegion>();
+  for (const r of regions) regionMap.set(r.regionId, r);
+  regionsById.set(regionMap);
 }
 
 // Dirty-tile tracking for Phase 3's geometry flush.
@@ -101,6 +129,7 @@ export async function flushDirtyTilesNow(): Promise<void> {
       width: t.width,
       height: t.height,
       zOrder: t.zOrder,
+      regionId: t.regionId,
     }));
   dirtyTiles.clear();
   if (updates.length === 0) return;
@@ -117,6 +146,58 @@ export async function flushDirtyTilesNow(): Promise<void> {
 export const tilesSortedByZ = derived(tilesByTab, ($map) =>
   [...$map.values()].sort((a, b) => a.zOrder - b.zOrder),
 );
+
+// Regions render behind tiles; sort by zOrder so explicit ordering still works
+// if we add it later. Today every region has zOrder 0 so the sort is stable.
+export const regionsSortedByZ = derived(regionsById, ($map) =>
+  [...$map.values()].sort((a, b) => a.zOrder - b.zOrder),
+);
+
+// region_id -> [tile, ...]. Used by region drag to translate children
+// in lockstep without a per-frame scan over all tiles.
+export const tilesByRegion = derived(tilesByTab, ($map) => {
+  const out = new Map<string, CanvasTile[]>();
+  for (const t of $map.values()) {
+    if (!t.regionId) continue;
+    const arr = out.get(t.regionId);
+    if (arr) arr.push(t);
+    else out.set(t.regionId, [t]);
+  }
+  return out;
+});
+
+const dirtyRegions = new Set<string>();
+let regionFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function markRegionDirty(regionId: string): void {
+  dirtyRegions.add(regionId);
+  if (regionFlushTimer) clearTimeout(regionFlushTimer);
+  regionFlushTimer = setTimeout(() => {
+    regionFlushTimer = null;
+    void flushDirtyRegionsNow();
+  }, TILE_FLUSH_DEBOUNCE_MS);
+}
+
+export async function flushDirtyRegionsNow(): Promise<void> {
+  if (!currentWorkspaceId || dirtyRegions.size === 0) return;
+  if (regionFlushTimer) {
+    clearTimeout(regionFlushTimer);
+    regionFlushTimer = null;
+  }
+  const map = get(regionsById);
+  const snapshot = [...dirtyRegions];
+  dirtyRegions.clear();
+  const targets = snapshot
+    .map((id) => map.get(id))
+    .filter((r): r is CanvasRegion => !!r);
+  if (targets.length === 0) return;
+  try {
+    await Promise.all(targets.map((r) => canvasUpsertRegion(r)));
+  } catch (err) {
+    for (const id of snapshot) dirtyRegions.add(id);
+    throw err;
+  }
+}
 
 /**
  * Maps a focused tile's TabKind back to its source mode (the value of $mode

@@ -1,7 +1,7 @@
 use sqlx::sqlite::SqlitePool;
 use std::collections::HashSet;
 
-use super::models::{CanvasTile, CanvasViewport, TabRef, TileGeometryUpdate};
+use super::models::{CanvasRegion, CanvasTile, CanvasViewport, TabRef, TileGeometryUpdate};
 
 const DEFAULT_TILE_WIDTH: f64 = 720.0;
 const DEFAULT_TILE_HEIGHT: f64 = 480.0;
@@ -10,8 +10,12 @@ const CASCADE_BASE: f64 = 80.0;
 const CASCADE_WRAP: usize = 5;
 
 const TILE_SELECT: &str = "SELECT workspace_id, tab_id, tab_kind, x, y, width, height,
-                                  z_order, minimized, created_at, updated_at
+                                  z_order, minimized, region_id, created_at, updated_at
                              FROM canvas_tiles";
+
+const REGION_SELECT: &str = "SELECT workspace_id, region_id, name, x, y, width, height,
+                                    color, z_order, created_at, updated_at
+                               FROM canvas_regions";
 
 /// Read all tile rows for a workspace, ordered by z_order.
 pub async fn list_tiles(
@@ -129,7 +133,7 @@ pub async fn upsert_tiles_batch(
         sqlx::query(
             "UPDATE canvas_tiles
                 SET x = ?, y = ?, width = ?, height = ?, z_order = ?,
-                    updated_at = datetime('now')
+                    region_id = ?, updated_at = datetime('now')
               WHERE workspace_id = ? AND tab_id = ?",
         )
         .bind(u.x)
@@ -137,11 +141,99 @@ pub async fn upsert_tiles_batch(
         .bind(u.width)
         .bind(u.height)
         .bind(u.z_order)
+        .bind(&u.region_id)
         .bind(&u.workspace_id)
         .bind(&u.tab_id)
         .execute(&mut *tx)
         .await?;
     }
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Read all regions for a workspace.
+pub async fn list_regions(
+    pool: &SqlitePool,
+    workspace_id: &str,
+) -> Result<Vec<CanvasRegion>, sqlx::Error> {
+    sqlx::query_as::<_, CanvasRegion>(
+        &format!("{} WHERE workspace_id = ? ORDER BY z_order", REGION_SELECT)
+    )
+    .bind(workspace_id)
+    .fetch_all(pool)
+    .await
+}
+
+/// Insert-or-update a region.
+pub async fn upsert_region(
+    pool: &SqlitePool,
+    region: &CanvasRegion,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO canvas_regions
+             (workspace_id, region_id, name, x, y, width, height, color, z_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(workspace_id, region_id) DO UPDATE SET
+             name = excluded.name,
+             x = excluded.x,
+             y = excluded.y,
+             width = excluded.width,
+             height = excluded.height,
+             color = excluded.color,
+             z_order = excluded.z_order,
+             updated_at = datetime('now')",
+    )
+    .bind(&region.workspace_id)
+    .bind(&region.region_id)
+    .bind(&region.name)
+    .bind(region.x)
+    .bind(region.y)
+    .bind(region.width)
+    .bind(region.height)
+    .bind(&region.color)
+    .bind(region.z_order)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Delete a region. Optionally cascade-delete its child tiles too;
+/// otherwise child tiles are detached (region_id cleared).
+pub async fn delete_region(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    region_id: &str,
+    delete_children: bool,
+) -> Result<(), sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    if delete_children {
+        sqlx::query(
+            "DELETE FROM canvas_tiles
+              WHERE workspace_id = ? AND region_id = ?",
+        )
+        .bind(workspace_id)
+        .bind(region_id)
+        .execute(&mut *tx)
+        .await?;
+    } else {
+        sqlx::query(
+            "UPDATE canvas_tiles
+                SET region_id = NULL, updated_at = datetime('now')
+              WHERE workspace_id = ? AND region_id = ?",
+        )
+        .bind(workspace_id)
+        .bind(region_id)
+        .execute(&mut *tx)
+        .await?;
+    }
+    sqlx::query(
+        "DELETE FROM canvas_regions
+          WHERE workspace_id = ? AND region_id = ?",
+    )
+    .bind(workspace_id)
+    .bind(region_id)
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok(())
 }

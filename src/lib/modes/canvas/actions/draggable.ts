@@ -1,6 +1,7 @@
 import { get } from 'svelte/store';
 import {
   tilesByTab,
+  regionsById,
   interactionState,
   markTileDirty,
   viewport,
@@ -124,6 +125,36 @@ export function draggable(node: HTMLElement, params: DraggableParams) {
     interactionState.set('idle');
     document.body.classList.remove('cv-interacting');
     snapGuides.set([]);
+
+    // Spatial-implicit region membership: whichever region's bounds
+    // contain the tile's centre at drop time becomes its parent.
+    const tile = get(tilesByTab).get(tabId);
+    if (tile) {
+      const centerX = tile.x + tile.width / 2;
+      const centerY = tile.y + tile.height / 2;
+      let containing: string | null = null;
+      let highestZ = -Infinity;
+      for (const r of get(regionsById).values()) {
+        if (
+          centerX >= r.x &&
+          centerX <= r.x + r.width &&
+          centerY >= r.y &&
+          centerY <= r.y + r.height &&
+          r.zOrder > highestZ
+        ) {
+          containing = r.regionId;
+          highestZ = r.zOrder;
+        }
+      }
+      if (containing !== tile.regionId) {
+        tilesByTab.update((m) => {
+          const next = new Map(m);
+          const cur = next.get(tabId);
+          if (cur) next.set(tabId, { ...cur, regionId: containing });
+          return next;
+        });
+      }
+    }
     markTileDirty(tabId);
   }
 

@@ -555,6 +555,9 @@ pub fn run() {
             modes::canvas::commands::canvas_delete_tile,
             modes::canvas::commands::canvas_get_viewport,
             modes::canvas::commands::canvas_set_viewport,
+            modes::canvas::commands::canvas_list_regions,
+            modes::canvas::commands::canvas_upsert_region,
+            modes::canvas::commands::canvas_delete_region,
             modes::agent::terminal::canvas_shell_terminal_spawn,
         ])
         .on_window_event(|window, event| {

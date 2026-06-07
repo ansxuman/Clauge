@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import CanvasGrid from './CanvasGrid.svelte';
   import CanvasWorld from './CanvasWorld.svelte';
   import CanvasOverlay from './CanvasOverlay.svelte';
@@ -6,12 +7,21 @@
   import { pannable } from '$lib/modes/canvas/actions/pannable';
   import { zoomable } from '$lib/modes/canvas/actions/zoomable';
   import { tilesByTab } from '$lib/modes/canvas/stores/canvasStore';
+  import { installXtermPointerCompensation } from '$lib/modes/canvas/services/xtermPointerCompensation';
 
   const isEmpty = $derived($tilesByTab.size === 0);
+
+  let viewportEl: HTMLDivElement | undefined = $state();
+
+  onMount(() => {
+    if (!viewportEl) return;
+    return installXtermPointerCompensation(viewportEl);
+  });
 </script>
 
 <!-- Phase 3 TODO: restore per-tile context menus once tile content can host them. -->
 <div
+  bind:this={viewportEl}
   class="cv-viewport"
   use:pannable
   use:zoomable
