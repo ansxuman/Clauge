@@ -14,8 +14,10 @@ use std::sync::OnceLock;
 
 use crate::cloud::domains::{export_kind, import_kind, ALL_KINDS};
 
-#[allow(dead_code)]
-pub const MAX_SNAPSHOTS: usize = 30;
+/// Newest snapshots retained per (kind, reason) group.
+pub const KEEP_PER_GROUP: usize = 5;
+/// Absolute cap across all groups — disk-safety backstop.
+pub const MAX_TOTAL_SNAPSHOTS: usize = 300;
 
 static SNAPSHOT_DIR: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
 
@@ -69,8 +71,8 @@ pub async fn snapshot_kind(pool: &SqlitePool, kind: &str, reason: &str) -> Resul
     Ok(path)
 }
 
-/// Keep only the newest MAX_SNAPSHOTS files (filenames sort chronologically).
-#[allow(dead_code)]
+/// Prune snapshots: keep at most KEEP_PER_GROUP per (kind, reason) group,
+/// then enforce MAX_TOTAL_SNAPSHOTS as a disk-safety backstop.
 fn prune(d: &std::path::Path) {
     let entries = match fs::read_dir(d) {
         Ok(e) => e,
@@ -85,10 +87,47 @@ fn prune(d: &std::path::Path) {
         .filter(|n| n.ends_with(".json.gz"))
         .collect();
     names.sort();
-    while names.len() > MAX_SNAPSHOTS {
-        let victim = names.remove(0);
-        if let Err(err) = fs::remove_file(d.join(&victim)) {
-            log::warn!("[cloud:snapshots] remove {} failed: {}", victim, err);
+
+    // Group by (kind, reason) — stem split is `<ts-uid>__<kind>__<reason>.json.gz`.
+    // Unparseable filenames are left alone (never deleted by group logic).
+    use std::collections::HashMap;
+    let mut groups: HashMap<(String, String), Vec<String>> = HashMap::new();
+    let mut unparseable: Vec<String> = Vec::new();
+    for name in names {
+        let stem = name.trim_end_matches(".json.gz");
+        let parts: Vec<&str> = stem.splitn(3, "__").collect();
+        if parts.len() == 3 {
+            groups
+                .entry((parts[1].to_string(), parts[2].to_string()))
+                .or_default()
+                .push(name);
+        } else {
+            unparseable.push(name);
+        }
+    }
+
+    // Within each group: files are already sorted ascending (oldest first).
+    // Keep only the newest KEEP_PER_GROUP; delete the rest.
+    let mut surviving: Vec<String> = unparseable;
+    for (_key, mut group) in groups {
+        // group is sorted ascending; newest are at the tail.
+        while group.len() > KEEP_PER_GROUP {
+            let victim = group.remove(0);
+            if let Err(err) = fs::remove_file(d.join(&victim)) {
+                log::warn!("[cloud:snapshots] remove {} failed: {}", victim, err);
+            }
+        }
+        surviving.extend(group);
+    }
+
+    // Backstop: if total still exceeds MAX_TOTAL_SNAPSHOTS, delete oldest first.
+    if surviving.len() > MAX_TOTAL_SNAPSHOTS {
+        surviving.sort();
+        while surviving.len() > MAX_TOTAL_SNAPSHOTS {
+            let victim = surviving.remove(0);
+            if let Err(err) = fs::remove_file(d.join(&victim)) {
+                log::warn!("[cloud:snapshots] remove {} failed: {}", victim, err);
+            }
         }
     }
 }
@@ -183,11 +222,23 @@ mod tests {
         assert!(p.exists());
         assert!(p.file_name().unwrap().to_string_lossy().contains("__ssh__pre-pull"));
 
+        // Write 2 "pre-merge" snapshots FIRST — different (kind, reason) group.
+        let pm1 = snapshot_kind(&pool, "ssh", "pre-merge").await.unwrap();
+        let pm2 = snapshot_kind(&pool, "ssh", "pre-merge").await.unwrap();
+
+        // Write 35 more "pre-pull" snapshots (36 total including the first).
         for _ in 0..35 {
             snapshot_kind(&pool, "ssh", "pre-pull").await.unwrap();
         }
+
+        // The "pre-pull" group should be capped at KEEP_PER_GROUP; "pre-merge" untouched.
         let count = std::fs::read_dir(&dir).unwrap().count();
-        assert_eq!(count, MAX_SNAPSHOTS);
+        assert_eq!(count, KEEP_PER_GROUP + 2, "expected KEEP_PER_GROUP pre-pull + 2 pre-merge");
+
+        // Both pre-merge snapshots must still exist.
+        assert!(pm1.exists(), "pre-merge snapshot 1 was incorrectly evicted");
+        assert!(pm2.exists(), "pre-merge snapshot 2 was incorrectly evicted");
+
         std::fs::remove_dir_all(&dir).ok();
     }
 
