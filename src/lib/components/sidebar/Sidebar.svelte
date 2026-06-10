@@ -183,13 +183,8 @@
     setSyncing(true);
     try {
       await cloudSyncRestore();
-      await Promise.all([
-        loadCollections(),
-        loadEnvironments(),
-        loadSqlConnections(),
-        loadNoSqlConnections(),
-        loadSqlScripts(),
-      ]);
+      const { reloadSyncedStores } = await import('$lib/commands/syncReload');
+      await reloadSyncedStores();
       markSynced();
       const { announceRestoreCompletion } = await import('$lib/stores/missingCredentials');
       const shown = await announceRestoreCompletion();

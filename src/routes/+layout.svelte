@@ -1129,9 +1129,14 @@
         const pullIfDue = () => {
             if (Date.now() - lastFocusPull < 5 * 60_000) return;
             lastFocusPull = Date.now();
-            cloudPullIfRemoteNewer().catch((e) =>
-                console.warn("[Cloud] background pull:", e),
-            );
+            cloudPullIfRemoteNewer()
+                .then(async (pulled) => {
+                    if (pulled.length > 0) {
+                        const { reloadSyncedStores } = await import("$lib/commands/syncReload");
+                        await reloadSyncedStores();
+                    }
+                })
+                .catch((e) => console.warn("[Cloud] background pull:", e));
         };
         window.addEventListener("focus", pullIfDue);
         backgroundPullInterval = setInterval(pullIfDue, 15 * 60_000);
