@@ -4,13 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Clauge — Connecting to Google</title>
-<meta name="theme-color" content="#060709">
-<meta name="color-scheme" content="dark">
-<meta name="robots" content="noindex, nofollow">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="../site.css">
+<meta name="theme-color" content="#0a0d14">
+<link rel="stylesheet" href="../design.css">
 <style>
   body {
     display: flex; align-items: center; justify-content: center;
@@ -20,33 +15,27 @@
     position: relative; z-index: 1;
     text-align: center;
     width: min(480px, calc(100% - 48px));
-    padding: 44px 40px;
-    border: 1px solid var(--line-strong);
-    border-radius: 22px;
-    background:
-      radial-gradient(360px 180px at 50% -10%, rgba(200, 255, 74, 0.1), transparent 70%),
-      linear-gradient(180deg, var(--bg-2), var(--bg-1));
-    box-shadow: 0 40px 120px -30px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    padding: 40px;
+    border: 1px solid var(--rule-2);
+    background: var(--bg-plate);
   }
-  .card img { margin: 0 auto 18px; }
+  .card::after {
+    content: ""; position: absolute; inset: 4px;
+    border: 1px solid var(--rule); pointer-events: none;
+  }
+  .card img { margin: 0 auto 18px; width: 48px; height: 48px; }
   h1 {
-    font-family: var(--font-display); font-weight: 800;
-    font-size: 24px; letter-spacing: -0.02em;
-    color: var(--ink); margin-bottom: 12px;
+    font-family: var(--f-display); font-weight: 800;
+    font-size: 26px; text-transform: uppercase; letter-spacing: -0.01em;
+    color: var(--ink); margin-bottom: 10px;
   }
-  p { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-dim); line-height: 1.65; margin-bottom: 4px; }
-  .spinner {
-    width: 22px; height: 22px;
-    border: 2px solid var(--line-strong); border-top-color: var(--lime);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 16px;
-  }
+  p { font-family: var(--f-mono); font-size: 13px; color: var(--ink-2); line-height: 1.6; margin-bottom: 20px; }
+  .spinner { width: 22px; height: 22px; border: 2px solid var(--rule-2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .error { color: #f07070; }
-  .success { color: #4ade80; }
-  a { color: var(--lime); border-bottom: 1px dashed currentColor; }
-  a:hover { color: var(--cyan); }
+  .error { color: #f85149; }
+  .success { color: #3fb950; }
+  a { color: var(--accent); border-bottom: 1px dashed currentColor; }
+  a:hover { color: var(--accent-2); }
 </style>
 </head>
 <body>

@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Page not found — Clauge</title>
     <meta name="description" content="That page doesn't exist on clauge.in. Head back home or check the changelog for what's new." />
-    <meta name="theme-color" content="#060709" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0d14" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
     <!-- Don't let 404 pages dilute the index — Google should never show
          them in search results, but bots should still follow links back. -->
     <meta name="robots" content="noindex, follow" />
@@ -17,46 +18,47 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="Clauge" />
     <link rel="manifest" href="/site.webmanifest" />
-
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer" />
-
     <script src="config.js"></script>
-    <link rel="stylesheet" href="site.css" />
+    <link rel="stylesheet" href="style.css" />
+        <link rel="stylesheet" href="design.css" />
 
     <style>
         .nf-hero {
-            min-height: calc(100vh - var(--header-h));
+            min-height: calc(100vh - 80px);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: calc(var(--header-h) + 40px) 20px 56px;
+            padding: 40px 20px;
         }
         .nf-code {
-            font-family: var(--font-display);
-            font-weight: 800;
-            font-size: clamp(110px, 20vw, 220px);
-            letter-spacing: -0.05em;
-            line-height: 0.9;
-            margin: 0 0 18px;
+            font-family: var(--font-mono, ui-monospace, monospace);
+            font-size: clamp(80px, 14vw, 160px);
+            font-weight: 700;
+            letter-spacing: -0.04em;
+            line-height: 1;
+            background: linear-gradient(120deg, #ffffff 0%, var(--purple, #9d5cff) 60%, var(--cyan, #4fd8ff) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin: 0 0 12px;
         }
         .nf-title {
-            font-family: var(--font-display);
-            font-weight: 700;
-            font-size: clamp(22px, 3vw, 32px);
+            font-family: var(--font-display, system-ui);
+            font-size: clamp(24px, 3.2vw, 36px);
             letter-spacing: -0.02em;
             margin: 0 0 12px;
         }
         .nf-sub {
-            color: var(--ink-dim);
-            max-width: 440px;
-            margin: 0 auto 32px;
-            font-size: 15.5px;
-            line-height: 1.6;
+            color: var(--text-muted, #a1a1aa);
+            max-width: 480px;
+            margin: 0 auto 28px;
+            font-size: 15px;
+            line-height: 1.55;
         }
         .nf-actions {
             display: flex;
@@ -64,36 +66,35 @@
             flex-wrap: wrap;
             justify-content: center;
         }
-        .nf-path {
-            margin-top: 44px;
-        }
     </style>
 </head>
 <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <div class="bg-field" aria-hidden="true"></div>
 
-    <header id="site-header"></header>
+    <header class="header" id="site-header"></header>
 
     <main id="main" class="container nf-hero">
-        <div class="nf-code grad" aria-hidden="true">404</div>
-        <h1 class="nf-title">This page doesn't exist.</h1>
-        <p class="nf-sub">The link might be broken, or the page might have moved.</p>
+        <div class="nf-code" aria-hidden="true">404</div>
+        <h1 class="nf-title">This page doesn't exist</h1>
+        <p class="nf-sub">
+            The link might be broken, or the page might have moved. Try the
+            homepage, or jump into the changelog to see what's new.
+        </p>
         <div class="nf-actions">
-            <a href="/" class="btn btn-primary">
+            <a href="/" class="cta">
                 <i class="fa-solid fa-arrow-left" aria-hidden="true"></i>
                 <span>Back to home</span>
             </a>
-            <a href="/changelog.html" class="btn btn-ghost">
+            <a href="/changelog.html" class="cta">
                 <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
                 <span>Changelog</span>
             </a>
         </div>
-        <p class="mono-note nf-path">err 404 · route not found</p>
     </main>
 
-    <footer id="site-footer"></footer>
+    <footer class="cl-footer" id="site-footer"></footer>
 
-    <script src="site.js" defer></script>
+    <script src="app.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Pricing — Clauge</title>
+        <meta
+            name="description"
+            content="Clauge pricing — free for personal use, Pro for premium features, Enterprise for organizations. Source-available under PolyForm Noncommercial."
+        />
+        <meta
+            name="theme-color"
+            content="#0a0d14"
+            media="(prefers-color-scheme: dark)"
+        />
+        <meta
+            name="theme-color"
+            content="#ffffff"
+            media="(prefers-color-scheme: light)"
+        />
+        <meta name="color-scheme" content="dark light" />
+        <meta name="robots" content="index, follow, max-image-preview:large" />
+        <meta name="author" content="Clauge" />
+        <link rel="canonical" href="https://clauge.in/pricing.html" />
+
+        <!-- Open Graph -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Clauge" />
+        <meta property="og:locale" content="en_US" />
+        <meta property="og:url" content="https://clauge.in/pricing.html" />
+        <meta property="og:title" content="Pricing — Clauge" />
+        <meta
+            property="og:description"
+            content="Free for personal use, Pro for premium features, Enterprise for organizations. Source-available under PolyForm Noncommercial."
+        />
+        <meta property="og:image" content="https://clauge.in/og-image.png" />
+        <meta property="og:image:alt" content="Clauge logo" />
+
+        <!-- Twitter / X card -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Pricing — Clauge" />
+        <meta
+            name="twitter:description"
+            content="Free for personal use, Pro for premium features, Enterprise for organizations."
+        />
+        <meta
+            name="twitter:image"
+            content="https://clauge.in/og-image.png"
+        />
+
+        <!-- Structured data: this page + breadcrumb back to home -->
+        <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@graph": [
+                    {
+                        "@type": "WebPage",
+                        "@id": "https://clauge.in/pricing.html#webpage",
+                        "url": "https://clauge.in/pricing.html",
+                        "name": "Pricing — Clauge",
+                        "description": "Clauge pricing tiers: Free, Pro, Enterprise.",
+                        "isPartOf": { "@id": "https://clauge.in/#website" },
+                        "about": { "@id": "https://clauge.in/#app" }
+                    },
+                    {
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [
+                            {
+                                "@type": "ListItem",
+                                "position": 1,
+                                "name": "Home",
+                                "item": "https://clauge.in/"
+                            },
+                            {
+                                "@type": "ListItem",
+                                "position": 2,
+                                "name": "Pricing",
+                                "item": "https://clauge.in/pricing.html"
+                            }
+                        ]
+                    }
+                ]
+            }
+        </script>
+
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+        <link rel="shortcut icon" href="/favicon.ico" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-title" content="Clauge" />
+        <link rel="manifest" href="/site.webmanifest" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+            referrerpolicy="no-referrer"
+        />
+        <script src="config.js"></script>
+        <link rel="stylesheet" href="style.css" />
+        <link rel="stylesheet" href="design.css" />
+
+        <style>
+            .pr-hero {
+                padding: 80px 0 32px;
+                text-align: center;
+            }
+            .pr-hero h1 {
+                font-family: var(--font-display);
+                font-size: clamp(38px, 5vw, 60px);
+                letter-spacing: -0.025em;
+                line-height: 1.06;
+                margin: 16px 0 14px;
+            }
+            .pr-hero h1 .grad {
+                background: linear-gradient(
+                    120deg,
+                    #ffffff 0%,
+                    var(--purple) 45%,
+                    var(--ssh) 100%
+                );
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+            }
+            .pr-hero p {
+                color: var(--text-muted);
+                max-width: 640px;
+                margin: 0 auto;
+                font-size: 16px;
+                line-height: 1.55;
+            }
+
+            .pr-cards {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 18px;
+                max-width: 1100px;
+                margin: 56px auto 80px;
+                /* align-items defaults to stretch — all three cards match the row's tallest content */
+            }
+            @media (max-width: 900px) {
+                .pr-cards {
+                    grid-template-columns: 1fr;
+                    gap: 16px;
+                    margin: 32px auto 48px;
+                }
+            }
+
+            .pr-card {
+                display: flex;
+                flex-direction: column;
+                padding: 36px 28px 28px;
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.025);
+                transition:
+                    border-color 0.15s,
+                    background 0.15s;
+            }
+            .pr-card.is-highlight {
+                border-color: var(--purple);
+                background:
+                    radial-gradient(
+                        120% 80% at 50% -10%,
+                        rgba(210, 168, 255, 0.2) 0%,
+                        transparent 65%
+                    ),
+                    linear-gradient(
+                        180deg,
+                        rgba(255, 255, 255, 0.04),
+                        rgba(255, 255, 255, 0.02)
+                    );
+                box-shadow:
+                    0 16px 50px -16px rgba(210, 168, 255, 0.3),
+                    0 0 0 1px rgba(210, 168, 255, 0.45) inset;
+            }
+
+            .pr-card .pr-badge {
+                align-self: flex-start;
+                font-family: var(--font-mono);
+                font-size: 10px;
+                text-transform: uppercase;
+                letter-spacing: 0.14em;
+                color: #1dc880;
+                padding: 5px 12px;
+                border-radius: 999px;
+                background: rgba(29, 200, 128, 0.12);
+                border: 1px solid rgba(29, 200, 128, 0.4);
+                margin-bottom: 18px;
+            }
+
+            /* Strikethrough original price shown above the discounted price */
+            .pr-price-original {
+                display: block;
+                font-family: var(--font-display);
+                font-size: 22px;
+                font-weight: 600;
+                color: var(--text-muted);
+                text-decoration: line-through;
+                text-decoration-color: rgba(255, 255, 255, 0.45);
+                text-decoration-thickness: 2px;
+                letter-spacing: -0.02em;
+                line-height: 1;
+                margin-bottom: 4px;
+            }
+
+            /* Tier label (small uppercase above the big price) */
+            .pr-tier-label {
+                font-family: var(--font-mono);
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.16em;
+                color: var(--text-muted);
+                margin-bottom: 10px;
+            }
+
+            /* Big bold price — the visual anchor of the card */
+            .pr-price-display {
+                font-family: var(--font-display);
+                font-size: clamp(40px, 5.2vw, 60px);
+                font-weight: 700;
+                letter-spacing: -0.035em;
+                line-height: 1;
+                color: var(--text);
+                margin: 0 0 10px;
+            }
+            .pr-card.is-highlight .pr-price-display {
+                background: linear-gradient(
+                    120deg,
+                    #ffffff 0%,
+                    var(--purple) 60%,
+                    var(--ssh) 100%
+                );
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+            }
+
+            /* Unit line under the price (Pro shows the per-month + yearly equivalent) */
+            .pr-price-unit {
+                font-size: 13px;
+                color: var(--text-muted);
+                margin: 0 0 18px;
+            }
+
+            /* Strike-through "what you would have paid" next to the
+               effective price. Hidden when empty so failed/absent discount
+               leaves no orphan element behind. */
+            .pr-price-strike {
+                display: inline-block;
+                font-family: var(--font-display);
+                font-size: 0.42em;
+                font-weight: 600;
+                color: var(--text-muted);
+                text-decoration: line-through;
+                margin-left: 8px;
+                vertical-align: middle;
+                -webkit-text-fill-color: var(--text-muted);
+            }
+            .pr-price-strike:empty {
+                display: none;
+            }
+            .pr-price-unit .pr-price-strike-inline {
+                color: var(--text-muted);
+                text-decoration: line-through;
+                margin-left: 6px;
+                font-size: inherit;
+            }
+            .pr-price-unit .pr-price-strike-inline:empty {
+                display: none;
+            }
+
+            .pr-tagline {
+                color: var(--text-muted);
+                font-size: 14px;
+                line-height: 1.55;
+                margin: 0 0 28px;
+            }
+
+            /* CTA wrapper — pinned to the bottom of the card */
+            .pr-cta-wrap {
+                margin-top: auto;
+                padding-top: 26px;
+            }
+            .pr-cta {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                justify-content: center;
+                width: 100%;
+                box-sizing: border-box;
+                padding: 13px 22px;
+                border-radius: 10px;
+                border: 1px solid var(--border-2, var(--border));
+                background: transparent;
+                color: var(--text);
+                font-family: var(--font-body, system-ui);
+                font-size: 13.5px;
+                font-weight: 600;
+                cursor: default;
+                transition:
+                    background 0.15s,
+                    border-color 0.15s,
+                    transform 0.15s;
+                text-decoration: none;
+            }
+            .pr-cta:hover {
+                background: rgba(255, 255, 255, 0.05);
+                border-color: var(--text-muted);
+            }
+            .pr-cta.is-primary {
+                background: linear-gradient(120deg, var(--purple), var(--ssh));
+                border-color: transparent;
+                color: #fff;
+            }
+            .pr-cta.is-primary:hover {
+                opacity: 0.92;
+                transform: translateY(-1px);
+            }
+            .pr-cta-sub {
+                display: block;
+                font-size: 11.5px;
+                color: var(--text-muted);
+                text-align: center;
+                margin: 12px 0 0;
+                line-height: 1.5;
+            }
+            .pr-features {
+                list-style: none;
+                padding: 0;
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 9px;
+                font-size: 13.5px;
+                color: var(--text-muted);
+            }
+            .pr-features li {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                line-height: 1.4;
+            }
+            .pr-features li i {
+                color: var(--purple);
+                font-size: 11px;
+                width: 14px;
+                flex-shrink: 0;
+                text-align: center;
+            }
+            .pr-features li.is-muted {
+                color: var(--text-dim, var(--text-muted));
+                opacity: 0.65;
+            }
+            .pr-features li.is-muted i {
+                color: var(--text-muted);
+            }
+            .pr-features li em {
+                color: var(--text-dim, var(--text-muted));
+                font-style: italic;
+                font-size: 12px;
+            }
+
+            .pr-faq {
+                max-width: 800px;
+                margin: 56px auto 80px;
+                padding: 0 16px;
+            }
+            .pr-faq h2 {
+                font-family: var(--font-display);
+                font-size: clamp(24px, 3vw, 34px);
+                letter-spacing: -0.02em;
+                margin: 0 0 28px;
+                text-align: center;
+            }
+            .pr-faq-item {
+                padding: 18px 20px;
+                border: 1px solid var(--border);
+                border-radius: var(--r-md, 10px);
+                margin-bottom: 12px;
+                background: rgba(255, 255, 255, 0.02);
+            }
+            .pr-faq-item summary {
+                font-family: var(--font-display);
+                font-size: 15.5px;
+                font-weight: 600;
+                letter-spacing: -0.005em;
+                color: var(--text);
+                cursor: default;
+                list-style: none;
+                position: relative;
+                padding-right: 28px;
+            }
+            .pr-faq-item summary::after {
+                content: "+";
+                position: absolute;
+                right: 0;
+                top: 0;
+                font-size: 20px;
+                color: var(--text-muted);
+                transition: transform 0.15s;
+            }
+            .pr-faq-item[open] summary::after {
+                content: "−";
+            }
+            .pr-faq-item summary::-webkit-details-marker {
+                display: none;
+            }
+            .pr-faq-item p,
+            .pr-faq-item ul {
+                color: var(--text-muted);
+                font-size: 14px;
+                line-height: 1.65;
+                margin: 12px 0 0;
+            }
+            .pr-faq-item ul {
+                padding-left: 20px;
+            }
+            .pr-faq-item a {
+                color: var(--purple);
+                text-decoration: underline;
+                text-underline-offset: 3px;
+            }
+
+            /* Monthly / Yearly billing toggle (segmented pill, centered above cards) */
+            .pr-billing-toggle {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 5px;
+                margin: 0 auto 28px;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+            }
+            .pr-billing-toggle-wrap {
+                display: flex;
+                justify-content: center;
+            }
+            .pr-toggle-opt {
+                appearance: none;
+                background: transparent;
+                border: 0;
+                color: var(--text-muted);
+                font-family: var(--font-body, system-ui);
+                font-size: 13.5px;
+                font-weight: 600;
+                padding: 8px 18px;
+                border-radius: 999px;
+                cursor: pointer;
+                transition:
+                    background 0.18s,
+                    color 0.18s,
+                    box-shadow 0.18s;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .pr-toggle-opt:hover {
+                color: var(--text);
+            }
+            .pr-toggle-opt.is-active {
+                background: rgba(255, 255, 255, 0.1);
+                color: var(--text);
+                box-shadow:
+                    0 1px 2px rgba(0, 0, 0, 0.4),
+                    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            }
+            .pr-toggle-save {
+                color: var(--purple);
+                font-weight: 600;
+            }
+
+            /* Show/hide price + credit blocks based on the active toggle.
+               Each [data-show] block reveals only when the parent card's
+               data-billing matches. Three plans now: monthly / yearly / lifetime. */
+            .pr-card[data-billing="monthly"] [data-show="yearly"],
+            .pr-card[data-billing="monthly"] [data-show="lifetime"],
+            .pr-card[data-billing="yearly"] [data-show="monthly"],
+            .pr-card[data-billing="yearly"] [data-show="lifetime"],
+            .pr-card[data-billing="lifetime"] [data-show="monthly"],
+            .pr-card[data-billing="lifetime"] [data-show="yearly"] {
+                display: none;
+            }
+
+            /* "Best deal" pill on the Lifetime toggle option — amber accent. */
+            .pr-toggle-best {
+                color: #f0b429;
+                font-weight: 600;
+                margin-left: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <a class="skip-link" href="#main">Skip to content</a>
+        <div class="bg-field" aria-hidden="true"></div>
+
+        <header class="header" id="site-header"></header>
+
+        <main id="main">
+            <section class="pr-hero">
+                <div class="container">
+                    <span class="eyebrow"
+                        ><i class="fa-solid fa-tag" aria-hidden="true"></i>
+                        Pricing</span
+                    >
+                    <h1>Simple, <span class="grad">honest</span> pricing.</h1>
+                    <p>
+                        Free for personal use. Pro unlocks premium features.
+                        Enterprise is for teams who need a commercial license +
+                        priority support.
+                    </p>
+                </div>
+            </section>
+
+            <section class="container">
+                <div class="pr-billing-toggle-wrap">
+                    <div
+                        class="pr-billing-toggle"
+                        role="tablist"
+                        aria-label="Billing period"
+                    >
+                        <button
+                            type="button"
+                            class="pr-toggle-opt"
+                            data-period="monthly"
+                            role="tab"
+                            aria-selected="false"
+                        >
+                            Monthly
+                        </button>
+                        <button
+                            type="button"
+                            class="pr-toggle-opt"
+                            data-period="yearly"
+                            role="tab"
+                            aria-selected="false"
+                        >
+                            Yearly
+                            <span class="pr-toggle-save">· Save 30%</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="pr-toggle-opt is-active"
+                            data-period="lifetime"
+                            role="tab"
+                            aria-selected="true"
+                        >
+                            Lifetime
+                            <span class="pr-toggle-best">· Best deal</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="pr-cards">
+                    <!-- FREE -->
+                    <article class="pr-card">
+                        <span class="pr-tier-label">Personal</span>
+                        <div class="pr-price-display">Free</div>
+                        <p class="pr-tagline">
+                            For personal use, hobbyists, students, and
+                            noncommercial projects.
+                        </p>
+                        <ul class="pr-features">
+                            <li>
+                                <i class="fa-solid fa-check"></i> Agent mode
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> Workspace + AI
+                                Co-Workers
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> REST client
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> SQL client
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> NoSQL client
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> SSH client
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> File Explorer
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> AI Assistance
+                                (BYO API key)
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> Cloud sync —
+                                REST, SQL, NoSQL, SSH, Explorer profiles
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> Standard
+                                themes
+                            </li>
+                        </ul>
+                        <div class="pr-cta-wrap">
+                            <a
+                                class="pr-cta"
+                                href="https://github.com/ansxuman/Clauge/releases"
+                                target="_blank"
+                                rel="noopener"
+                            >
+                                <i
+                                    class="fa-solid fa-download"
+                                    aria-hidden="true"
+                                ></i>
+                                Download for free
+                            </a>
+                            <span class="pr-cta-sub"
+                                >macOS · Windows · Linux</span
+                            >
+                        </div>
+                    </article>
+
+                    <!-- PRO -->
+                    <article class="pr-card is-highlight" data-billing="lifetime">
+                        <span class="pr-tier-label">Pro</span>
+
+                        <div class="pr-price-display" data-show="monthly">
+                            $<span data-price-key="monthly">12</span><span class="pr-price-strike" data-price-key="monthly-strike"></span>
+                        </div>
+                        <p class="pr-price-unit" data-show="monthly">
+                            per month &middot; billed monthly
+                        </p>
+
+                        <div class="pr-price-display" data-show="yearly">
+                            $<span data-price-key="yearly-permonth">8.33</span><span class="pr-price-strike" data-price-key="yearly-permonth-strike"></span>
+                        </div>
+                        <p class="pr-price-unit" data-show="yearly">
+                            per month &middot; billed $<span data-price-key="yearly-total">100</span> yearly<span class="pr-price-strike-inline" data-price-key="yearly-total-strike"></span>
+                        </p>
+
+                        <div class="pr-price-display" data-show="lifetime">
+                            $<span data-price-key="lifetime">299</span><span class="pr-price-strike" data-price-key="lifetime-strike"></span>
+                        </div>
+                        <p class="pr-price-unit" data-show="lifetime">
+                            one-time &middot; yours forever
+                        </p>
+
+                        <p class="pr-tagline">
+                            Managed AI, unlimited workspaces, premium themes.
+                        </p>
+                        <ul class="pr-features">
+                            <li>
+                                <i class="fa-solid fa-check"></i> Everything in
+                                Free
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> Clauge AI
+                                &mdash; managed AI assistance, no API key setup
+                            </li>
+                            <li data-show="monthly">
+                                <i class="fa-solid fa-check"></i>
+                                <span data-credits-key="monthly">1,000</span>
+                                credits each month
+                            </li>
+                            <li data-show="yearly">
+                                <i class="fa-solid fa-check"></i>
+                                <span data-credits-key="yearly">12,000</span>
+                                credits up front, refilled yearly
+                            </li>
+                            <li data-show="lifetime">
+                                <i class="fa-solid fa-check"></i>
+                                <span data-credits-key="lifetime">20,000</span>
+                                credits &mdash; one-time grant
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> Unlimited
+                                coworkers in workspaces (free is capped at 3)
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> Premium themes
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> All future
+                                premium features included
+                            </li>
+                            <li data-show="monthly">
+                                <i class="fa-solid fa-check"></i> Cancel anytime
+                                &middot; credits non-refundable once used
+                            </li>
+                            <li data-show="yearly">
+                                <i class="fa-solid fa-check"></i> Cancel anytime
+                                &middot; credits non-refundable once used
+                            </li>
+                            <li data-show="lifetime">
+                                <i class="fa-solid fa-check"></i> No recurring
+                                charges ever &middot; credits non-refundable
+                                once used
+                            </li>
+                        </ul>
+                        <div class="pr-cta-wrap">
+                            <a
+                                class="pr-cta is-primary"
+                                href="clauge://upgrade"
+                            >
+                                <i
+                                    class="fa-solid fa-arrow-up-right-from-square"
+                                    aria-hidden="true"
+                                ></i>
+                                Upgrade in app
+                            </a>
+                            <span class="pr-cta-sub"
+                                >Already have Clauge installed? The button above
+                                opens the upgrade flow.<br />New here?
+                                <a
+                                    href="https://github.com/ansxuman/Clauge/releases"
+                                    target="_blank"
+                                    rel="noopener"
+                                    style="color: var(--purple)"
+                                    >Download first ↓</a
+                                ></span
+                            >
+                        </div>
+                    </article>
+
+                    <!-- ENTERPRISE -->
+                    <article class="pr-card">
+                        <span class="pr-tier-label">Enterprise</span>
+                        <div class="pr-price-display">Let's talk</div>
+                        <p class="pr-tagline">
+                            For organizations using Clauge commercially or with
+                            compliance constraints.
+                        </p>
+                        <ul class="pr-features">
+                            <li>
+                                <i class="fa-solid fa-check"></i> Commercial
+                                license
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> All Pro
+                                features
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> Priority
+                                support
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> Private sync
+                                backend
+                            </li>
+                            <li>
+                                <i class="fa-solid fa-check"></i> Volume / SLA
+                                terms
+                            </li>
+                        </ul>
+                        <div class="pr-cta-wrap">
+                            <a class="pr-cta" href="enterprise.html">
+                                <i
+                                    class="fa-solid fa-envelope"
+                                    aria-hidden="true"
+                                ></i>
+                                Contact us
+                            </a>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="pr-faq">
+                <h2>Frequently asked questions</h2>
+
+                <details class="pr-faq-item">
+                    <summary>Is Clauge really free?</summary>
+                    <p>
+                        The core features are free for
+                        <strong
+                            >personal, hobby, academic, and other noncommercial
+                            use</strong
+                        >
+                        — every mode listed under the Free plan above, with no
+                        paywalls. Clauge AI managed assistance, unlimited
+                        coworkers, and premium themes require the Pro tier. Any
+                        use by or within a for-profit organization — even just
+                        the core features — requires a separate license;
+                        <a href="enterprise.html">contact us</a> to discuss
+                        terms.
+                    </p>
+                </details>
+
+                <details class="pr-faq-item">
+                    <summary>
+                        What's the difference between Pro and Enterprise?
+                    </summary>
+                    <ul>
+                        <li>
+                            <strong>Pro</strong> is per-user — premium add-ons
+                            for individuals on top of the free core.
+                        </li>
+                        <li>
+                            <strong>Enterprise</strong> is per-organization — a
+                            commercial license for using Clauge at a for-profit
+                            company, plus bulk Pro entitlements, priority
+                            support, security review, and an optional private
+                            sync backend on your own Cloudflare account.
+                        </li>
+                    </ul>
+                    <p>
+                        If you're a single dev, Pro is what you want. If you're
+                        deploying Clauge across a team, talk to us via the
+                        <a href="enterprise.html">Enterprise form</a>.
+                    </p>
+                </details>
+
+                <details class="pr-faq-item">
+                    <summary>Refunds?</summary>
+                    <p>14-day no-questions-asked refund window.</p>
+                </details>
+            </section>
+        </main>
+
+        <footer id="site-footer"></footer>
+
+        <script src="app.js" defer></script>
+        <script>
+            (function () {
+                var opts = document.querySelectorAll(".pr-toggle-opt");
+                var cards = document.querySelectorAll(".pr-card[data-billing]");
+                opts.forEach(function (btn) {
+                    btn.addEventListener("click", function () {
+                        var period = btn.dataset.period;
+                        opts.forEach(function (b) {
+                            var active = b === btn;
+                            b.classList.toggle("is-active", active);
+                            b.setAttribute(
+                                "aria-selected",
+                                active ? "true" : "false",
+                            );
+                        });
+                        cards.forEach(function (card) {
+                            card.dataset.billing = period;
+                        });
+                    });
+                });
+
+                // Live-fetch current Pro pricing from the worker. The inline
+                // numbers above are a fallback so the page renders sane prices
+                // even before the fetch resolves (or if it fails).
+                fetch("https://clauge.in/api/billing/pricing", {
+                    headers: { Accept: "application/json" },
+                })
+                    .then(function (r) {
+                        return r.ok ? r.json() : null;
+                    })
+                    .then(function (data) {
+                        if (!data || !Array.isArray(data.plans)) return;
+                        var byId = {};
+                        data.plans.forEach(function (p) {
+                            byId[p.id] = p;
+                        });
+                        var fmt = function (n) {
+                            return n % 1 === 0 ? n.toFixed(0) : n.toFixed(2);
+                        };
+                        var eff = function (p) {
+                            if (!p.discount) return p.price_usd;
+                            return (
+                                Math.round(
+                                    p.price_usd *
+                                        (1 - p.discount.percent / 100) *
+                                        100,
+                                ) / 100
+                            );
+                        };
+                        var write = function (key, value) {
+                            document
+                                .querySelectorAll('[data-price-key="' + key + '"]')
+                                .forEach(function (el) {
+                                    el.textContent = value;
+                                });
+                        };
+
+                        // Monthly + Lifetime: big = discounted, strike = own sticker.
+                        // Yearly: big per-month = discounted-yearly / 12, strike =
+                        // monthly sticker (the "you'd otherwise pay monthly" framing
+                        // we use in the desktop upgrade modal).
+                        if (byId.monthly) {
+                            var m = byId.monthly;
+                            write("monthly", fmt(eff(m)));
+                            if (m.discount)
+                                write("monthly-strike", "$" + fmt(m.price_usd));
+                        }
+                        if (byId.yearly) {
+                            var y = byId.yearly;
+                            var yEff = eff(y);
+                            write("yearly-total", fmt(yEff));
+                            write("yearly-permonth", fmt(yEff / 12));
+                            if (byId.monthly) {
+                                write(
+                                    "yearly-permonth-strike",
+                                    "$" + fmt(byId.monthly.price_usd),
+                                );
+                                write(
+                                    "yearly-total-strike",
+                                    "$" + fmt(byId.monthly.price_usd * 12),
+                                );
+                            }
+                        }
+                        if (byId.lifetime) {
+                            var l = byId.lifetime;
+                            write("lifetime", fmt(eff(l)));
+                            if (l.discount)
+                                write("lifetime-strike", "$" + fmt(l.price_usd));
+                        }
+
+                        // Per-plan credit grants — single source of truth is
+                        // billing_pricing.credits in the worker's D1. Inline
+                        // numbers above are the fallback for cached / offline.
+                        data.plans.forEach(function (p) {
+                            if (typeof p.credits !== "number") return;
+                            var formatted = p.credits.toLocaleString();
+                            document
+                                .querySelectorAll('[data-credits-key="' + p.id + '"]')
+                                .forEach(function (el) {
+                                    el.textContent = formatted;
+                                });
+                        });
+                    })
+                    .catch(function () {
+                        // Network blip — inline fallbacks stay visible.
+                    });
+            })();
+        </script>
+    </body>
+</html>

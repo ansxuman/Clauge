@@ -1,642 +1,523 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Enterprise — Clauge</title>
-        <meta
-            name="description"
-            content="Bring Clauge to your organization. Commercial licensing, internal deployment, custom support — reach out and we'll find the right setup for your team."
-        />
-        <meta
-            name="theme-color"
-            content="#0a0d14"
-            media="(prefers-color-scheme: dark)"
-        />
-        <meta
-            name="theme-color"
-            content="#ffffff"
-            media="(prefers-color-scheme: light)"
-        />
-        <meta name="color-scheme" content="dark light" />
-        <meta name="robots" content="index, follow, max-image-preview:large" />
-        <meta name="author" content="Clauge" />
-        <link rel="canonical" href="https://clauge.in/enterprise.html" />
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Enterprise — Clauge</title>
+    <meta
+        name="description"
+        content="Bring Clauge to your organization. Commercial licensing, internal deployment, custom support — reach out and we'll find the right setup for your team."
+    />
+    <meta name="theme-color" content="#060709" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="Clauge" />
+    <link rel="canonical" href="https://clauge.in/enterprise.html" />
 
-        <!-- Open Graph -->
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Clauge" />
-        <meta property="og:locale" content="en_US" />
-        <meta property="og:url" content="https://clauge.in/enterprise.html" />
-        <meta property="og:title" content="Enterprise — Clauge" />
-        <meta
-            property="og:description"
-            content="Bring Clauge to your organization. Commercial licensing, internal deployment, custom support — reach out and we'll find the right setup for your team."
-        />
-        <meta property="og:image" content="https://clauge.in/og-image.png" />
-        <meta property="og:image:alt" content="Clauge logo" />
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Clauge" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://clauge.in/enterprise.html" />
+    <meta property="og:title" content="Enterprise — Clauge" />
+    <meta
+        property="og:description"
+        content="Bring Clauge to your organization. Commercial licensing, internal deployment, custom support — reach out and we'll find the right setup for your team."
+    />
+    <meta property="og:image" content="https://clauge.in/og-image.png" />
+    <meta property="og:image:alt" content="Clauge logo" />
 
-        <!-- Twitter / X card -->
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Enterprise — Clauge" />
-        <meta
-            name="twitter:description"
-            content="Bring Clauge to your organization. Commercial licensing, internal deployment, custom support."
-        />
-        <meta
-            name="twitter:image"
-            content="https://clauge.in/og-image.png"
-        />
+    <!-- Twitter / X card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Enterprise — Clauge" />
+    <meta
+        name="twitter:description"
+        content="Bring Clauge to your organization. Commercial licensing, internal deployment, custom support."
+    />
+    <meta name="twitter:image" content="https://clauge.in/og-image.png" />
 
-        <!-- Structured data -->
-        <script type="application/ld+json">
-            {
-                "@context": "https://schema.org",
-                "@graph": [
-                    {
-                        "@type": "WebPage",
-                        "@id": "https://clauge.in/enterprise.html#webpage",
-                        "url": "https://clauge.in/enterprise.html",
-                        "name": "Enterprise — Clauge",
-                        "description": "Commercial licensing, internal deployment, and custom support for organizations.",
-                        "isPartOf": { "@id": "https://clauge.in/#website" },
-                        "about": { "@id": "https://clauge.in/#app" }
-                    },
-                    {
-                        "@type": "BreadcrumbList",
-                        "itemListElement": [
-                            {
-                                "@type": "ListItem",
-                                "position": 1,
-                                "name": "Home",
-                                "item": "https://clauge.in/"
-                            },
-                            {
-                                "@type": "ListItem",
-                                "position": 2,
-                                "name": "Enterprise",
-                                "item": "https://clauge.in/enterprise.html"
-                            }
-                        ]
-                    }
-                ]
-            }
-        </script>
-
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
-        <link rel="shortcut icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <meta name="apple-mobile-web-app-title" content="Clauge" />
-        <link rel="manifest" href="/site.webmanifest" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-            referrerpolicy="no-referrer"
-        />
-        <script src="config.js"></script>
-        <link rel="stylesheet" href="style.css" />
-        <link rel="stylesheet" href="design.css" />
-
-        <style>
-            .ent-hero {
-                padding: 80px 0 24px;
-                text-align: center;
-            }
-            .ent-hero h1 {
-                font-family: var(--font-display);
-                font-size: clamp(36px, 4.8vw, 60px);
-                letter-spacing: -0.025em;
-                line-height: 1.06;
-                margin: 16px 0 14px;
-            }
-            .ent-hero h1 .grad {
-                background: linear-gradient(
-                    120deg,
-                    #ffffff 0%,
-                    var(--purple) 45%,
-                    var(--ssh) 100%
-                );
-                -webkit-background-clip: text;
-                background-clip: text;
-                color: transparent;
-            }
-            .ent-hero p {
-                color: var(--text-muted);
-                max-width: 640px;
-                margin: 0 auto;
-                font-size: 16px;
-                line-height: 1.55;
-            }
-
-            .ent-wrap {
-                max-width: 980px;
-                margin: 0 auto;
-                padding: 28px 0 96px;
-                display: grid;
-                grid-template-columns: 1fr 1.15fr;
-                gap: 48px;
-                align-items: start;
-            }
-            @media (max-width: 820px) {
-                .ent-wrap {
-                    grid-template-columns: 1fr;
-                    gap: 32px;
-                }
-            }
-
-            .ent-pitch h3 {
-                font-family: var(--font-display);
-                font-size: 18px;
-                letter-spacing: -0.01em;
-                margin: 0 0 10px;
-            }
-            .ent-pitch p,
-            .ent-pitch li {
-                color: var(--text-muted);
-                font-size: 14.5px;
-                line-height: 1.65;
-            }
-            .ent-pitch ul {
-                margin: 0 0 24px;
-                padding-left: 18px;
-            }
-            .ent-pitch li {
-                margin-bottom: 8px;
-            }
-            .ent-pitch .ent-when {
-                margin-top: 12px;
-                padding: 14px 16px;
-                border: 1px solid var(--border);
-                border-radius: var(--r-md, 10px);
-                background: rgba(255, 255, 255, 0.02);
-                font-size: 13.5px;
-                color: var(--text-muted);
-            }
-            .ent-pitch .ent-when strong {
-                color: var(--text);
-            }
-
-            /* Form card */
-            .ent-form-card {
-                padding: 28px;
-                border: 1px solid var(--border);
-                border-radius: var(--r-md, 12px);
-                background: rgba(255, 255, 255, 0.025);
-                backdrop-filter: blur(6px);
-            }
-            .ent-form-card h2 {
-                font-family: var(--font-display);
-                font-size: 22px;
-                letter-spacing: -0.015em;
-                margin: 0 0 6px;
-            }
-            .ent-form-card .ent-form-sub {
-                color: var(--text-muted);
-                font-size: 13.5px;
-                margin: 0 0 22px;
-            }
-
-            .ent-field {
-                display: flex;
-                flex-direction: column;
-                margin-bottom: 16px;
-            }
-            .ent-field label {
-                font-family: var(--font-mono);
-                font-size: 11px;
-                text-transform: uppercase;
-                letter-spacing: 0.12em;
-                color: var(--text-muted);
-                margin-bottom: 6px;
-            }
-            .ent-field label .req {
-                color: var(--purple);
-            }
-            .ent-field input,
-            .ent-field textarea {
-                width: 100%;
-                box-sizing: border-box;
-                padding: 11px 14px;
-                font-size: 14px;
-                font-family: var(--font-body, system-ui);
-                color: var(--text);
-                background: rgba(0, 0, 0, 0.25);
-                border: 1px solid var(--border);
-                border-radius: var(--r-sm, 8px);
-                outline: none;
-                transition:
-                    border-color 0.15s,
-                    background 0.15s;
-            }
-            .ent-field input:focus,
-            .ent-field textarea:focus {
-                border-color: var(--purple);
-                background: rgba(0, 0, 0, 0.4);
-            }
-            .ent-field input:disabled,
-            .ent-field textarea:disabled {
-                opacity: 0.6;
-                cursor: not-allowed;
-            }
-            .ent-field textarea {
-                min-height: 110px;
-                resize: vertical;
-                font-family: var(--font-body, system-ui);
-            }
-
-            /* Honeypot: hidden from humans, visible to dumb bots */
-            .ent-hp {
-                position: absolute;
-                left: -9999px;
-                width: 1px;
-                height: 1px;
-                overflow: hidden;
-                opacity: 0;
-                pointer-events: none;
-            }
-
-            .ent-row-2col {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 14px;
-            }
-            @media (max-width: 520px) {
-                .ent-row-2col {
-                    grid-template-columns: 1fr;
-                }
-            }
-
-            .ent-submit {
-                width: 100%;
-                padding: 13px 20px;
-                font-size: 14px;
-                font-weight: 600;
-                font-family: var(--font-body, system-ui);
-                color: #fff;
-                background: linear-gradient(
-                    120deg,
-                    var(--purple),
-                    var(--ssh, var(--purple))
-                );
-                border: 1px solid transparent;
-                border-radius: var(--r-sm, 8px);
-                cursor: pointer;
-                transition:
-                    transform 0.15s var(--ease, ease),
-                    opacity 0.15s var(--ease, ease);
-                margin-top: 4px;
-            }
-            .ent-submit:hover:not(:disabled) {
-                transform: translateY(-1px);
-                opacity: 0.95;
-            }
-            .ent-submit:disabled {
-                opacity: 0.55;
-                cursor: not-allowed;
-            }
-
-            .ent-status {
-                margin-top: 14px;
-                padding: 12px 14px;
-                border-radius: var(--r-sm, 8px);
-                font-size: 13.5px;
-                line-height: 1.5;
-                display: none;
-            }
-            .ent-status.is-success {
-                display: block;
-                background: rgba(29, 200, 128, 0.08);
-                border: 1px solid rgba(29, 200, 128, 0.35);
-                color: #1dc880;
-            }
-            .ent-status.is-error {
-                display: block;
-                background: rgba(240, 68, 68, 0.08);
-                border: 1px solid rgba(240, 68, 68, 0.35);
-                color: #f04444;
-            }
-
-            .ent-alt {
-                margin-top: 18px;
-                padding-top: 18px;
-                border-top: 1px solid var(--border);
-                font-size: 13px;
-                color: var(--text-muted);
-                text-align: center;
-            }
-            .ent-alt a {
-                color: var(--purple);
-                text-decoration: underline;
-                text-underline-offset: 3px;
-            }
-        </style>
-    </head>
-    <body>
-        <a class="skip-link" href="#main">Skip to content</a>
-        <div class="bg-field" aria-hidden="true"></div>
-
-        <header class="header" id="site-header"></header>
-
-        <main id="main">
-            <section class="ent-hero">
-                <div class="container">
-                    <span class="eyebrow"
-                        ><i class="fa-solid fa-building" aria-hidden="true"></i>
-                        Enterprise</span
-                    >
-                    <h1>Clauge for <span class="grad">your team</span>.</h1>
-                    <p>
-                        Interested in bringing Clauge to your organization?
-                        Reach out and we'll work with you to find the right
-                        setup for your team.
-                    </p>
-                </div>
-            </section>
-
-            <section class="container">
-                <div class="ent-wrap">
-                    <!-- LEFT: pitch / when-do-I-need-this -->
-                    <div class="ent-pitch">
-                        <h3>Who needs to talk to us</h3>
-                        <p>
-                            Clauge is free for personal, hobby, academic, and
-                            other noncommercial use under the PolyForm
-                            Noncommercial license.
-                            <strong
-                                >If you or your organization is using Clauge in
-                                any commercial context, you need a license —
-                                reach out here.</strong
-                            >
-                        </p>
-
-                        <h3 style="margin-top: 28px">This includes</h3>
-                        <ul>
-                            <li>
-                                Solo contractors, freelancers, and consultants
-                                using Clauge on paid work
-                            </li>
-                            <li>
-                                Startups, agencies, and small businesses
-                                deploying Clauge to their team
-                            </li>
-                            <li>
-                                Mid-size and enterprise organizations rolling
-                                Clauge out to developers
-                            </li>
-                            <li>
-                                Anyone embedding Clauge in a product or service
-                                they offer to others
-                            </li>
-                        </ul>
-
-                        <h3 style="margin-top: 28px">What you get</h3>
-                        <ul>
-                            <li>
-                                A commercial license sized to your organization
-                                (pricing scales — a 5-person team pays
-                                meaningfully less than a 500-person one)
-                            </li>
-                            <li>
-                                Priority support and a direct line to the
-                                maintainer
-                            </li>
-                            <li>
-                                Security review assistance for your compliance
-                                team
-                            </li>
-                            <li>
-                                Optional private deployment of the sync backend
-                                on your own Cloudflare account
-                            </li>
-                            <li>
-                                Volume licensing and SLA terms negotiated per
-                                agreement
-                            </li>
-                        </ul>
-                    </div>
-
-                    <!-- RIGHT: the form -->
-                    <div class="ent-form-card">
-                        <h2>Talk to us</h2>
-
-                        <form id="ent-form" novalidate>
-                            <div class="ent-field">
-                                <label for="ef-name"
-                                    >Full name <span class="req">*</span></label
-                                >
-                                <input
-                                    id="ef-name"
-                                    name="name"
-                                    type="text"
-                                    required
-                                    autocomplete="name"
-                                    maxlength="120"
-                                />
-                            </div>
-
-                            <div class="ent-row-2col">
-                                <div class="ent-field">
-                                    <label for="ef-role"
-                                        >Role <span class="req">*</span></label
-                                    >
-                                    <input
-                                        id="ef-role"
-                                        name="role"
-                                        type="text"
-                                        required
-                                        maxlength="120"
-                                        placeholder="e.g. Engineering Manager"
-                                    />
-                                </div>
-                                <div class="ent-field">
-                                    <label for="ef-company"
-                                        >Company
-                                        <span class="req">*</span></label
-                                    >
-                                    <input
-                                        id="ef-company"
-                                        name="company"
-                                        type="text"
-                                        required
-                                        autocomplete="organization"
-                                        maxlength="160"
-                                    />
-                                </div>
-                            </div>
-
-                            <div class="ent-row-2col">
-                                <div class="ent-field">
-                                    <label for="ef-email"
-                                        >Company email
-                                        <span class="req">*</span></label
-                                    >
-                                    <input
-                                        id="ef-email"
-                                        name="email"
-                                        type="email"
-                                        required
-                                        autocomplete="email"
-                                        maxlength="200"
-                                    />
-                                </div>
-                                <div class="ent-field">
-                                    <label for="ef-phone">Phone number</label>
-                                    <input
-                                        id="ef-phone"
-                                        name="phone"
-                                        type="tel"
-                                        autocomplete="tel"
-                                        maxlength="40"
-                                        placeholder="optional"
-                                    />
-                                </div>
-                            </div>
-
-                            <div class="ent-field">
-                                <label for="ef-problem"
-                                    >Tell us about your team and use case
-                                    <span class="req">*</span></label
-                                >
-                                <textarea
-                                    id="ef-problem"
-                                    name="problem"
-                                    required
-                                    maxlength="4000"
-                                ></textarea>
-                            </div>
-
-                            <!-- Honeypot: bots fill, humans don't -->
-                            <div class="ent-hp" aria-hidden="true">
-                                <label for="ef-website"
-                                    >Website (leave blank)</label
-                                >
-                                <input
-                                    id="ef-website"
-                                    name="website"
-                                    type="text"
-                                    tabindex="-1"
-                                    autocomplete="off"
-                                />
-                            </div>
-
-                            <button
-                                id="ef-submit"
-                                class="ent-submit"
-                                type="submit"
-                            >
-                                Send
-                            </button>
-
-                            <div
-                                id="ef-status"
-                                class="ent-status"
-                                role="status"
-                                aria-live="polite"
-                            ></div>
-
-                            <div class="ent-alt">
-                                Prefer email? Reach out directly at
-                                <a href="mailto:support@clauge.in"
-                                    >support@clauge.in</a
-                                >.
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </section>
-        </main>
-
-        <footer id="site-footer"></footer>
-
-        <script>
-            (function () {
-                const form = document.getElementById("ent-form");
-                const submit = document.getElementById("ef-submit");
-                const status = document.getElementById("ef-status");
-
-                function setStatus(msg, kind) {
-                    status.className = "ent-status is-" + kind;
-                    status.textContent = msg;
-                }
-
-                form.addEventListener("submit", async function (e) {
-                    e.preventDefault();
-                    status.className = "ent-status";
-                    status.textContent = "";
-
-                    const data = {
-                        name: form.name.value.trim(),
-                        role: form.role.value.trim(),
-                        company: form.company.value.trim(),
-                        email: form.email.value.trim(),
-                        phone: form.phone.value.trim(),
-                        problem: form.problem.value.trim(),
-                        website: form.website.value.trim(), // honeypot
-                    };
-
-                    // Client-side gate (server re-validates)
-                    if (
-                        !data.name ||
-                        !data.role ||
-                        !data.company ||
-                        !data.email ||
-                        !data.problem
-                    ) {
-                        setStatus(
-                            "Please fill in all required fields.",
-                            "error",
-                        );
-                        return;
-                    }
-                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-                        setStatus(
-                            "That email address looks wrong — please double-check.",
-                            "error",
-                        );
-                        return;
-                    }
-
-                    submit.disabled = true;
-                    const originalLabel = submit.textContent;
-                    submit.textContent = "Sending…";
-
-                    try {
-                        const resp = await fetch("/api/contact", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(data),
-                        });
-                        const body = await resp.json().catch(() => ({}));
-                        if (!resp.ok) {
-                            throw new Error(
-                                body.error || "Server returned " + resp.status,
-                            );
+    <!-- Structured data -->
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "WebPage",
+                    "@id": "https://clauge.in/enterprise.html#webpage",
+                    "url": "https://clauge.in/enterprise.html",
+                    "name": "Enterprise — Clauge",
+                    "description": "Commercial licensing, internal deployment, and custom support for organizations.",
+                    "isPartOf": { "@id": "https://clauge.in/#website" },
+                    "about": { "@id": "https://clauge.in/#app" }
+                },
+                {
+                    "@type": "BreadcrumbList",
+                    "itemListElement": [
+                        {
+                            "@type": "ListItem",
+                            "position": 1,
+                            "name": "Home",
+                            "item": "https://clauge.in/"
+                        },
+                        {
+                            "@type": "ListItem",
+                            "position": 2,
+                            "name": "Enterprise",
+                            "item": "https://clauge.in/enterprise.html"
                         }
-                        setStatus(
-                            "Thanks — we received your message and will reply within 2 business days.",
-                            "success",
-                        );
-                        form.reset();
-                    } catch (err) {
-                        setStatus(
-                            "Could not send: " +
-                                (err && err.message
-                                    ? err.message
-                                    : "unknown error") +
-                                ". Email support@clauge.in if this keeps failing.",
-                            "error",
-                        );
-                    } finally {
-                        submit.disabled = false;
-                        submit.textContent = originalLabel;
-                    }
-                });
-            })();
-        </script>
+                    ]
+                }
+            ]
+        }
+    </script>
 
-        <script src="app.js" defer></script>
-    </body>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Clauge" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap" />
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        referrerpolicy="no-referrer"
+    />
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="site.css" />
+
+    <style>
+        /* ── split layout: pitch left, form right ── */
+        .ent-split {
+            padding: calc(var(--header-h) + 52px) 0 90px;
+        }
+        .ent-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 540px);
+            gap: 60px;
+            align-items: start;
+        }
+        @media (max-width: 940px) {
+            .ent-grid { grid-template-columns: 1fr; gap: 40px; }
+        }
+
+        .ent-title {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: clamp(34px, 4.6vw, 56px);
+            letter-spacing: -0.03em;
+            line-height: 1.04;
+            margin-top: 20px;
+        }
+        .ent-lede {
+            margin-top: 16px;
+            color: var(--ink-dim);
+            font-size: 15.5px;
+            line-height: 1.7;
+        }
+        .ent-lede strong { color: var(--ink); }
+
+        .ent-block { margin-top: 30px; }
+        .ent-block h6 {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--lime);
+            margin: 0 0 12px;
+        }
+        .ent-list { display: flex; flex-direction: column; gap: 10px; }
+        .ent-list li {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            color: var(--ink-dim);
+            font-size: 14px;
+            line-height: 1.55;
+        }
+        .ent-list li i {
+            color: var(--lime);
+            font-size: 12px;
+            flex: none;
+            position: relative;
+            top: 1px;
+        }
+
+        /* ── contact form (right column) ── */
+        .ent-form-wrap { position: sticky; top: calc(var(--header-h) + 24px); }
+        @media (max-width: 940px) { .ent-form-wrap { position: static; } }
+        .ent-form-title {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 26px;
+            letter-spacing: -0.02em;
+            margin: 0 0 6px;
+        }
+        .ent-form-sub {
+            color: var(--ink-faint);
+            font-size: 13px;
+            margin: 0 0 22px;
+        }
+        .ent-field {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 16px;
+        }
+        .ent-field label {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--ink-faint);
+            margin-bottom: 7px;
+        }
+        .ent-field label .req { color: var(--lime); }
+        .ent-field input,
+        .ent-field textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px 14px;
+            font-size: 14.5px;
+            font-family: var(--font-body);
+            color: var(--ink);
+            background: var(--bg-1);
+            border: 1px solid var(--line);
+            border-radius: var(--r-sm);
+            outline: none;
+            transition: border-color 0.18s, box-shadow 0.18s;
+        }
+        .ent-field input::placeholder,
+        .ent-field textarea::placeholder { color: var(--ink-faint); }
+        .ent-field input:focus,
+        .ent-field textarea:focus {
+            border-color: var(--lime);
+            box-shadow: 0 0 0 3px rgba(200, 255, 74, 0.14);
+        }
+        .ent-field input:disabled,
+        .ent-field textarea:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .ent-field textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .ent-row-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+        @media (max-width: 520px) {
+            .ent-row-2col { grid-template-columns: 1fr; }
+        }
+
+        /* Honeypot: hidden from humans, visible to dumb bots */
+        .ent-hp {
+            position: absolute;
+            left: -9999px;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .ent-submit {
+            width: 100%;
+            margin-top: 6px;
+            cursor: pointer;
+        }
+        .ent-submit:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .ent-status {
+            margin-top: 14px;
+            padding: 12px 14px;
+            border-radius: var(--r-sm);
+            font-size: 13.5px;
+            line-height: 1.5;
+            display: none;
+        }
+        .ent-status.is-success {
+            display: block;
+            background: rgba(200, 255, 74, 0.07);
+            border: 1px solid var(--lime-line);
+            color: var(--lime);
+        }
+        .ent-status.is-error {
+            display: block;
+            background: rgba(240, 68, 68, 0.08);
+            border: 1px solid rgba(240, 68, 68, 0.35);
+            color: #f07070;
+        }
+
+        .ent-alt {
+            margin-top: 20px;
+            padding-top: 18px;
+            border-top: 1px dashed var(--line-strong);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--ink-faint);
+            text-align: center;
+        }
+        .ent-alt a {
+            color: var(--lime);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+        }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="bg-field" aria-hidden="true"></div>
+
+    <header id="site-header"></header>
+
+    <main id="main">
+
+        <!-- ═══ SPLIT: pitch left · contact form right ═════════ -->
+        <section class="ent-split" id="contact">
+            <div class="container ent-grid">
+
+                <div class="ent-left">
+                    <span class="eyebrow"><i class="fa-solid fa-building" aria-hidden="true"></i> Enterprise</span>
+                    <h1 class="ent-title">Clauge for <em class="grad">your team</em>.</h1>
+                    <p class="ent-lede">
+                        Clauge is free for personal, hobby, academic, and other
+                        noncommercial use under the PolyForm Noncommercial license.
+                        <strong>If you or your organization is using Clauge in any
+                        commercial context, you need a license — reach out here.</strong>
+                    </p>
+
+                    <div class="ent-block">
+                        <h6>Who needs a license</h6>
+                        <ul class="ent-list">
+                            <li><i class="fa-solid fa-user-check" aria-hidden="true"></i> Solo contractors, freelancers, and consultants using Clauge on paid work</li>
+                            <li><i class="fa-solid fa-rocket" aria-hidden="true"></i> Startups, agencies, and small businesses deploying Clauge to their team</li>
+                            <li><i class="fa-solid fa-city" aria-hidden="true"></i> Mid-size and enterprise organizations rolling Clauge out to developers</li>
+                            <li><i class="fa-solid fa-cubes" aria-hidden="true"></i> Anyone embedding Clauge in a product or service they offer to others</li>
+                        </ul>
+                    </div>
+
+                    <div class="ent-block">
+                        <h6>What you get</h6>
+                        <ul class="ent-list">
+                            <li><i class="fa-solid fa-check" aria-hidden="true"></i> A commercial license sized to your organization (pricing scales — a 5-person team pays meaningfully less than a 500-person one)</li>
+                            <li><i class="fa-solid fa-check" aria-hidden="true"></i> Priority support and a direct line to the maintainer</li>
+                            <li><i class="fa-solid fa-check" aria-hidden="true"></i> Security review assistance for your compliance team</li>
+                            <li><i class="fa-solid fa-check" aria-hidden="true"></i> Optional private deployment of the sync backend on your own Cloudflare account</li>
+                            <li><i class="fa-solid fa-check" aria-hidden="true"></i> Volume licensing and SLA terms negotiated per agreement</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="panel ent-form-wrap">
+                    <h2 class="ent-form-title">Talk <em class="grad">to us</em></h2>
+                    <p class="ent-form-sub">We reply within 2 business days.</p>
+                    <form id="ent-form" novalidate>
+                        <div class="ent-field">
+                            <label for="ef-name">Full name <span class="req">*</span></label>
+                            <input
+                                id="ef-name"
+                                name="name"
+                                type="text"
+                                required
+                                autocomplete="name"
+                                maxlength="120"
+                            />
+                        </div>
+
+                        <div class="ent-row-2col">
+                            <div class="ent-field">
+                                <label for="ef-role">Role <span class="req">*</span></label>
+                                <input
+                                    id="ef-role"
+                                    name="role"
+                                    type="text"
+                                    required
+                                    maxlength="120"
+                                    placeholder="e.g. Engineering Manager"
+                                />
+                            </div>
+                            <div class="ent-field">
+                                <label for="ef-company">Company <span class="req">*</span></label>
+                                <input
+                                    id="ef-company"
+                                    name="company"
+                                    type="text"
+                                    required
+                                    autocomplete="organization"
+                                    maxlength="160"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="ent-row-2col">
+                            <div class="ent-field">
+                                <label for="ef-email">Company email <span class="req">*</span></label>
+                                <input
+                                    id="ef-email"
+                                    name="email"
+                                    type="email"
+                                    required
+                                    autocomplete="email"
+                                    maxlength="200"
+                                />
+                            </div>
+                            <div class="ent-field">
+                                <label for="ef-phone">Phone number</label>
+                                <input
+                                    id="ef-phone"
+                                    name="phone"
+                                    type="tel"
+                                    autocomplete="tel"
+                                    maxlength="40"
+                                    placeholder="optional"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="ent-field">
+                            <label for="ef-problem">Tell us about your team and use case <span class="req">*</span></label>
+                            <textarea
+                                id="ef-problem"
+                                name="problem"
+                                required
+                                maxlength="4000"
+                            ></textarea>
+                        </div>
+
+                        <!-- Honeypot: bots fill, humans don't -->
+                        <div class="ent-hp" aria-hidden="true">
+                            <label for="ef-website">Website (leave blank)</label>
+                            <input
+                                id="ef-website"
+                                name="website"
+                                type="text"
+                                tabindex="-1"
+                                autocomplete="off"
+                            />
+                        </div>
+
+                        <button
+                            id="ef-submit"
+                            class="btn btn-primary ent-submit"
+                            type="submit"
+                        >
+                            Send
+                        </button>
+
+                        <div
+                            id="ef-status"
+                            class="ent-status"
+                            role="status"
+                            aria-live="polite"
+                        ></div>
+
+                        <div class="ent-alt">
+                            Prefer email? Reach out directly at
+                            <a href="mailto:support@clauge.in">support@clauge.in</a>.
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer id="site-footer"></footer>
+
+    <script src="site.js" defer></script>
+    <script>
+        (function () {
+            const form = document.getElementById("ent-form");
+            const submit = document.getElementById("ef-submit");
+            const status = document.getElementById("ef-status");
+
+            function setStatus(msg, kind) {
+                status.className = "ent-status is-" + kind;
+                status.textContent = msg;
+            }
+
+            form.addEventListener("submit", async function (e) {
+                e.preventDefault();
+                status.className = "ent-status";
+                status.textContent = "";
+
+                const data = {
+                    name: form.name.value.trim(),
+                    role: form.role.value.trim(),
+                    company: form.company.value.trim(),
+                    email: form.email.value.trim(),
+                    phone: form.phone.value.trim(),
+                    problem: form.problem.value.trim(),
+                    website: form.website.value.trim(), // honeypot
+                };
+
+                // Client-side gate (server re-validates)
+                if (
+                    !data.name ||
+                    !data.role ||
+                    !data.company ||
+                    !data.email ||
+                    !data.problem
+                ) {
+                    setStatus(
+                        "Please fill in all required fields.",
+                        "error",
+                    );
+                    return;
+                }
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+                    setStatus(
+                        "That email address looks wrong — please double-check.",
+                        "error",
+                    );
+                    return;
+                }
+
+                submit.disabled = true;
+                const originalLabel = submit.textContent;
+                submit.textContent = "Sending…";
+
+                try {
+                    const resp = await fetch("/api/contact", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(data),
+                    });
+                    const body = await resp.json().catch(() => ({}));
+                    if (!resp.ok) {
+                        throw new Error(
+                            body.error || "Server returned " + resp.status,
+                        );
+                    }
+                    setStatus(
+                        "Thanks — we received your message and will reply within 2 business days.",
+                        "success",
+                    );
+                    form.reset();
+                } catch (err) {
+                    setStatus(
+                        "Could not send: " +
+                            (err && err.message
+                                ? err.message
+                                : "unknown error") +
+                            ". Email support@clauge.in if this keeps failing.",
+                        "error",
+                    );
+                } finally {
+                    submit.disabled = false;
+                    submit.textContent = originalLabel;
+                }
+            });
+        })();
+    </script>
+</body>
 </html>

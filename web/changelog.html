@@ -1,35 +1,34 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Changelog — Clauge</title>
-  <meta name="description" content="What's new in Clauge — releases pulled live from GitHub." />
-  <meta name="theme-color" content="#0a0d14" media="(prefers-color-scheme: dark)" />
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-  <meta name="color-scheme" content="dark light" />
-  <meta name="robots" content="index, follow, max-image-preview:large" />
-  <meta name="author" content="Clauge" />
-  <link rel="canonical" href="https://clauge.in/changelog.html" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Changelog — Clauge</title>
+    <meta name="description" content="What's new in Clauge — releases pulled live from GitHub." />
+    <meta name="theme-color" content="#060709" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="Clauge" />
+    <link rel="canonical" href="https://clauge.in/changelog.html" />
 
-  <!-- Open Graph -->
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="Clauge" />
-  <meta property="og:locale" content="en_US" />
-  <meta property="og:url" content="https://clauge.in/changelog.html" />
-  <meta property="og:title" content="Changelog — Clauge" />
-  <meta property="og:description" content="What's new in Clauge — releases pulled live from GitHub." />
-  <meta property="og:image" content="https://clauge.in/og-image.png" />
-  <meta property="og:image:alt" content="Clauge logo" />
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Clauge" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://clauge.in/changelog.html" />
+    <meta property="og:title" content="Changelog — Clauge" />
+    <meta property="og:description" content="What's new in Clauge — releases pulled live from GitHub." />
+    <meta property="og:image" content="https://clauge.in/og-image.png" />
+    <meta property="og:image:alt" content="Clauge logo" />
 
-  <!-- Twitter / X card -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Changelog — Clauge" />
-  <meta name="twitter:description" content="What's new in Clauge — releases pulled live from GitHub." />
-  <meta name="twitter:image" content="https://clauge.in/og-image.png" />
+    <!-- Twitter / X card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Changelog — Clauge" />
+    <meta name="twitter:description" content="What's new in Clauge — releases pulled live from GitHub." />
+    <meta name="twitter:image" content="https://clauge.in/og-image.png" />
 
-  <!-- Structured data -->
-  <script type="application/ld+json">
+    <!-- Structured data -->
+    <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@graph": [
@@ -51,225 +50,403 @@
         }
       ]
     }
-  </script>
+    </script>
 
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
-  <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-  <meta name="apple-mobile-web-app-title" content="Clauge" />
-  <link rel="manifest" href="/site.webmanifest" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer" />
-  <script src="config.js"></script>
-  <link rel="stylesheet" href="style.css" />
-        <link rel="stylesheet" href="design.css" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Clauge" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer" />
+
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="site.css" />
+
+    <style>
+        /* compact, desktop-first hero + feed */
+        .page-hero { padding: calc(var(--header-h) + 36px) 0 24px; }
+        .page-hero p { margin-top: 10px; }
+        .cl-section { padding: 12px 0 80px; }
+        .releases {
+            max-width: 920px;
+            margin: 0 auto;
+            display: grid;
+            gap: 16px;
+        }
+
+        /* ── release card ── */
+        .release-card {
+            border: 1px solid var(--line);
+            border-radius: var(--r-lg);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.008));
+            padding: 22px 26px 20px;
+        }
+        .release-card.is-latest { border-color: var(--lime-line); }
+
+        .release-meta {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 10px;
+        }
+        .release-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--ink-faint);
+        }
+        .release-card.is-latest .release-dot {
+            background: var(--lime);
+            box-shadow: 0 0 10px var(--lime);
+        }
+        .release-date {
+            font-family: var(--font-mono);
+            font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--ink-faint);
+        }
+        .release-badge-latest {
+            font-family: var(--font-mono);
+            font-size: 10px; font-weight: 600;
+            letter-spacing: 0.14em; text-transform: uppercase;
+            color: #0c0e05; background: var(--lime);
+            padding: 3px 9px; border-radius: 999px;
+        }
+
+        .release-card-head {
+            display: flex; align-items: baseline; justify-content: space-between;
+            gap: 14px; flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .release-card-head h2 {
+            font-family: var(--font-display); font-weight: 700;
+            font-size: clamp(20px, 2.4vw, 26px);
+            letter-spacing: -0.02em; line-height: 1.15;
+            margin: 0;
+        }
+        .release-card-head h2 a { color: var(--ink); transition: color 0.2s; }
+        .release-card-head h2 a:hover { color: var(--lime); }
+        .release-tag {
+            font-family: var(--font-mono);
+            font-size: 12px; font-weight: 500;
+            letter-spacing: 0.04em;
+            color: var(--lime);
+            border: 1px solid var(--lime-line);
+            background: rgba(200, 255, 74, 0.05);
+            padding: 4px 11px; border-radius: 999px;
+            white-space: nowrap;
+        }
+
+        .release-images {
+            display: grid; gap: 12px;
+            margin: 16px 0 4px;
+        }
+        .release-images img {
+            width: 100%; border-radius: var(--r-md);
+            border: 1px solid var(--line);
+            display: block;
+        }
+
+        /* ── markdown body ── */
+        .release-body { margin-top: 8px; color: var(--ink-dim); font-size: 14.5px; line-height: 1.65; }
+        .release-body > :first-child { margin-top: 0; }
+        .release-body > :last-child { margin-bottom: 0; }
+        .release-body h1,
+        .release-body h2,
+        .release-body h3,
+        .release-body h4 {
+            font-family: var(--font-display); font-weight: 700;
+            color: var(--ink); letter-spacing: -0.01em;
+            margin: 22px 0 8px;
+        }
+        .release-body h1 { font-size: 19px; }
+        .release-body h2 { font-size: 17px; }
+        .release-body h3 { font-size: 15.5px; }
+        .release-body h4 { font-size: 14px; }
+        .release-body p { margin: 0 0 12px; }
+        .release-body ul,
+        .release-body ol { margin: 0 0 12px; padding-left: 22px; }
+        .release-body li { margin: 5px 0; }
+        .release-body li::marker { color: var(--lime); }
+        .release-body a { color: var(--cyan); text-underline-offset: 3px; }
+        .release-body a:hover { text-decoration: underline; }
+        .release-body strong { color: var(--ink); font-weight: 600; }
+        .release-body code {
+            font-family: var(--font-mono); font-size: 13px;
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--line);
+            padding: 1.5px 6px; border-radius: 6px;
+        }
+        .release-body pre {
+            background: var(--bg-1);
+            border: 1px solid var(--line);
+            border-radius: var(--r-md);
+            padding: 16px 18px;
+            overflow-x: auto;
+            margin: 0 0 12px;
+        }
+        .release-body pre code { background: none; border: 0; padding: 0; font-size: 12.5px; line-height: 1.6; }
+        .release-body hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+        .release-body img { max-width: 100%; border-radius: var(--r-md); border: 1px solid var(--line); }
+        .release-body blockquote {
+            margin: 0 0 12px; padding: 2px 0 2px 16px;
+            border-left: 2px solid var(--lime-line);
+            color: var(--ink-faint);
+        }
+        .cl-mention { color: var(--violet); font-weight: 500; }
+        .cl-mention:hover { text-decoration: underline; text-underline-offset: 3px; }
+        .cl-empty-body { color: var(--ink-faint); font-style: italic; }
+
+        /* ── asset download chips ── */
+        .release-assets {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            margin-top: 14px; padding-top: 14px;
+            border-top: 1px solid var(--line);
+        }
+        .release-asset {
+            display: inline-flex; align-items: center; gap: 9px;
+            font-family: var(--font-mono); font-size: 12.5px; font-weight: 500;
+            color: var(--ink);
+            border: 1px solid var(--line-strong);
+            background: rgba(255, 255, 255, 0.03);
+            padding: 9px 15px; border-radius: 999px;
+            transition: border-color 0.2s, background 0.2s, transform 0.25s var(--ease-out);
+        }
+        .release-asset:hover {
+            border-color: var(--lime-line);
+            background: rgba(200, 255, 74, 0.06);
+            transform: translateY(-1px);
+        }
+        .release-asset i { color: var(--lime); font-size: 13px; }
+        .asset-suffix { color: var(--ink-faint); font-size: 11px; }
+
+        /* ── empty / error states ── */
+        .cl-empty {
+            text-align: center;
+            border: 1px dashed var(--line-strong);
+            border-radius: var(--r-lg);
+            padding: 64px 28px;
+        }
+        .cl-empty i { font-size: 26px; color: var(--ink-faint); }
+        .cl-empty h3 {
+            font-family: var(--font-display); font-weight: 700;
+            font-size: 20px; letter-spacing: -0.01em;
+            margin: 16px 0 6px;
+        }
+        .cl-empty p { color: var(--ink-dim); font-size: 14.5px; max-width: 420px; margin: 0 auto 22px; }
+        .cl-empty-error i { color: var(--violet); }
+
+        @media (max-width: 640px) {
+            .release-card { padding: 24px 20px 22px; }
+        }
+    </style>
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to content</a>
-  <div class="bg-field" aria-hidden="true"></div>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="bg-field" aria-hidden="true"></div>
 
-  <header class="header" id="site-header"></header>
+    <header id="site-header"></header>
 
-  <main id="main">
-    <section class="changelog-hero">
-      <div class="container">
-        <span class="eyebrow"><i class="fa-solid fa-rss" aria-hidden="true"></i> Release notes</span>
-        <h1>What's new in Clauge.</h1>
-        <p>Every release, every download, straight from GitHub.</p>
-        <a class="all-releases" href="https://github.com/ansxuman/Clauge/releases" target="_blank" rel="noopener">
-          View all releases on GitHub <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-        </a>
-      </div>
-    </section>
+    <main id="main">
+        <section class="page-hero">
+            <div class="container">
+                <span class="eyebrow"><span class="dot" aria-hidden="true"></span> Release notes</span>
+                <h1>What's new in <span class="grad">Clauge</span>.</h1>
+                <p>Every release, every download — straight from GitHub.</p>
+                <p style="margin-top: 14px;">
+                    <a class="text-link" href="https://github.com/ansxuman/Clauge/releases" target="_blank" rel="noopener">
+                        <u>View all releases on GitHub</u> <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                    </a>
+                </p>
+            </div>
+        </section>
 
-    <section style="padding: 24px 0 80px;">
-      <div class="container">
-        <div class="releases" id="releases" aria-live="polite">
-          <div class="cl-loading">
-            <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
-            Loading releases…
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
+        <section class="cl-section">
+            <div class="container">
+                <div class="releases" id="releases" aria-live="polite">
+                    <div class="cl-loading">
+                        <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
+                        Loading releases…
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
 
-  <footer id="site-footer"></footer>
+    <footer id="site-footer"></footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script>
-  (async function () {
-    const REPO = 'ansxuman/Clauge';
-    const container = document.getElementById('releases');
+    <script src="site.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+    (async function () {
+      const REPO = 'ansxuman/Clauge';
+      const container = document.getElementById('releases');
 
-    // GitHub @mentions → profile links. Marked tokenizes code blocks and
-    // existing links first, so this only fires on plain text.
-    marked.use({
-      extensions: [{
-        name: 'ghMention',
-        level: 'inline',
-        start(src) { const i = src.indexOf('@'); return i < 0 ? undefined : i; },
-        tokenizer(src) {
-          // GitHub usernames: 1–39 chars, alphanumeric + single hyphens, no leading/trailing hyphen.
-          // Require a non-word char (or start of string) before the @ to avoid matching emails.
-          const m = /^@([a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38})/.exec(src);
-          if (m) return { type: 'ghMention', raw: m[0], user: m[1] };
-        },
-        renderer(t) {
-          return `<a class="cl-mention" href="https://github.com/${t.user}" target="_blank" rel="noopener">@${t.user}</a>`;
-        }
-      }]
-    });
-
-    const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-
-    const isImage = (n) => /\.(png|jpe?g|gif|webp|svg)$/i.test(n);
-    // Only ship-friendly installers — drop tarballs/zips/raw .app bundles
-    const isDownload = (n) => /\.(dmg|pkg|exe|msi|appimage|deb|rpm)$/i.test(n);
-
-    const assetIcon = (name) => {
-      const n = name.toLowerCase();
-      if (n.endsWith('.dmg') || n.endsWith('.pkg')) return 'fa-brands fa-apple';
-      if (n.endsWith('.exe') || n.endsWith('.msi')) return 'fa-brands fa-windows';
-      if (n.endsWith('.deb') || n.endsWith('.rpm') || n.endsWith('.appimage')) return 'fa-brands fa-linux';
-      return 'fa-solid fa-download';
-    };
-
-    const platformOf = (name) => {
-      const n = name.toLowerCase();
-      if (n.endsWith('.dmg') || n.endsWith('.pkg')) return 'macOS';
-      if (n.endsWith('.exe') || n.endsWith('.msi')) return 'Windows';
-      if (n.endsWith('.deb') || n.endsWith('.rpm') || n.endsWith('.appimage')) return 'Linux';
-      return '';
-    };
-
-    // Apple Silicon / Intel only mean anything on macOS (Apple shipped both).
-    // Windows + Linux use ARM64 / AMD64.
-    const archHint = (name) => {
-      const n = name.toLowerCase();
-      const plat = platformOf(name);
-      const isArm = /(arm64|aarch64|apple[-_ ]?silicon)/.test(n);
-      const isX64 = /(x86_64|x64|amd64|intel)/.test(n);
-      if (plat === 'macOS') {
-        if (isArm) return 'Apple Silicon';
-        if (isX64) return 'Intel';
-      } else {
-        if (isArm) return 'ARM64';
-        if (isX64) return 'AMD64';
-      }
-      return '';
-    };
-
-    const extOf = (name) => {
-      const m = name.match(/\.([a-z0-9]+)$/i);
-      return m ? '.' + m[1].toLowerCase() : '';
-    };
-
-    // "Apple Silicon" + ".dmg" → primary label (arch) + suffix (.dmg)
-    const assetLabel = (name) => {
-      const arch = archHint(name);
-      if (arch) return arch;
-      return platformOf(name) || name;
-    };
-
-    // Strip the version/tag from the release title — the tag pill sits next to it
-    const cleanTitle = (title, tag) => {
-      if (!title) return tag;
-      let t = title;
-      if (tag) {
-        const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        t = t.replace(new RegExp('\\s*' + safe + '\\s*', 'gi'), ' ');
-      }
-      // bare version patterns: v1.2.3, 1.2.3, 1.2.3-alpha.1, 1.2.3-rc1, etc.
-      t = t.replace(/\s*v?\d+\.\d+\.\d+(?:[-.][\w.]+)?\s*/g, ' ');
-      t = t.replace(/\s+/g, ' ').trim();
-      return t || tag || 'Release';
-    };
-
-    try {
-      const resp = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=30`, {
-        headers: { 'Accept': 'application/vnd.github+json' }
+      // GitHub @mentions → profile links. Marked tokenizes code blocks and
+      // existing links first, so this only fires on plain text.
+      marked.use({
+        extensions: [{
+          name: 'ghMention',
+          level: 'inline',
+          start(src) { const i = src.indexOf('@'); return i < 0 ? undefined : i; },
+          tokenizer(src) {
+            // GitHub usernames: 1–39 chars, alphanumeric + single hyphens, no leading/trailing hyphen.
+            // Require a non-word char (or start of string) before the @ to avoid matching emails.
+            const m = /^@([a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38})/.exec(src);
+            if (m) return { type: 'ghMention', raw: m[0], user: m[1] };
+          },
+          renderer(t) {
+            return `<a class="cl-mention" href="https://github.com/${t.user}" target="_blank" rel="noopener">@${t.user}</a>`;
+          }
+        }]
       });
-      if (!resp.ok) throw new Error(`GitHub returned ${resp.status}`);
-      const allReleases = await resp.json();
-      const showAlpha = window.CLAUGE_FLAGS && window.CLAUGE_FLAGS.showAlpha === true;
-      // Filter by GitHub's prerelease flag (the source of truth) — not a name regex
-      const releases = Array.isArray(allReleases)
-        ? (showAlpha ? allReleases : allReleases.filter(r => !r.prerelease && !r.draft))
-        : [];
 
-      if (!releases.length) {
+      const fmtDate = (d) => new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+      const isImage = (n) => /\.(png|jpe?g|gif|webp|svg)$/i.test(n);
+      // Only ship-friendly installers — drop tarballs/zips/raw .app bundles
+      const isDownload = (n) => /\.(dmg|pkg|exe|msi|appimage|deb|rpm)$/i.test(n);
+
+      const assetIcon = (name) => {
+        const n = name.toLowerCase();
+        if (n.endsWith('.dmg') || n.endsWith('.pkg')) return 'fa-brands fa-apple';
+        if (n.endsWith('.exe') || n.endsWith('.msi')) return 'fa-brands fa-windows';
+        if (n.endsWith('.deb') || n.endsWith('.rpm') || n.endsWith('.appimage')) return 'fa-brands fa-linux';
+        return 'fa-solid fa-download';
+      };
+
+      const platformOf = (name) => {
+        const n = name.toLowerCase();
+        if (n.endsWith('.dmg') || n.endsWith('.pkg')) return 'macOS';
+        if (n.endsWith('.exe') || n.endsWith('.msi')) return 'Windows';
+        if (n.endsWith('.deb') || n.endsWith('.rpm') || n.endsWith('.appimage')) return 'Linux';
+        return '';
+      };
+
+      // Apple Silicon / Intel only mean anything on macOS (Apple shipped both).
+      // Windows + Linux use ARM64 / AMD64.
+      const archHint = (name) => {
+        const n = name.toLowerCase();
+        const plat = platformOf(name);
+        const isArm = /(arm64|aarch64|apple[-_ ]?silicon)/.test(n);
+        const isX64 = /(x86_64|x64|amd64|intel)/.test(n);
+        if (plat === 'macOS') {
+          if (isArm) return 'Apple Silicon';
+          if (isX64) return 'Intel';
+        } else {
+          if (isArm) return 'ARM64';
+          if (isX64) return 'AMD64';
+        }
+        return '';
+      };
+
+      const extOf = (name) => {
+        const m = name.match(/\.([a-z0-9]+)$/i);
+        return m ? '.' + m[1].toLowerCase() : '';
+      };
+
+      // "Apple Silicon" + ".dmg" → primary label (arch) + suffix (.dmg)
+      const assetLabel = (name) => {
+        const arch = archHint(name);
+        if (arch) return arch;
+        return platformOf(name) || name;
+      };
+
+      // Strip the version/tag from the release title — the tag pill sits next to it
+      const cleanTitle = (title, tag) => {
+        if (!title) return tag;
+        let t = title;
+        if (tag) {
+          const safe = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          t = t.replace(new RegExp('\\s*' + safe + '\\s*', 'gi'), ' ');
+        }
+        // bare version patterns: v1.2.3, 1.2.3, 1.2.3-alpha.1, 1.2.3-rc1, etc.
+        t = t.replace(/\s*v?\d+\.\d+\.\d+(?:[-.][\w.]+)?\s*/g, ' ');
+        t = t.replace(/\s+/g, ' ').trim();
+        return t || tag || 'Release';
+      };
+
+      try {
+        const resp = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=30`, {
+          headers: { 'Accept': 'application/vnd.github+json' }
+        });
+        if (!resp.ok) throw new Error(`GitHub returned ${resp.status}`);
+        const allReleases = await resp.json();
+        const showAlpha = window.CLAUGE_FLAGS && window.CLAUGE_FLAGS.showAlpha === true;
+        // Filter by GitHub's prerelease flag (the source of truth) — not a name regex
+        const releases = Array.isArray(allReleases)
+          ? (showAlpha ? allReleases : allReleases.filter(r => !r.prerelease && !r.draft))
+          : [];
+
+        if (!releases.length) {
+          container.innerHTML = `
+            <div class="cl-empty">
+              <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
+              <h3>No releases yet.</h3>
+              <p>The first release will land here as soon as it's published on GitHub.</p>
+              <a class="btn btn-ghost btn-sm" href="https://github.com/${REPO}" target="_blank" rel="noopener">
+                <i class="fa-brands fa-github"></i> Watch the repo
+              </a>
+            </div>`;
+          return;
+        }
+
+        container.innerHTML = releases.map((r, idx) => {
+          const date = fmtDate(r.published_at || r.created_at);
+          const title = cleanTitle(r.name || r.tag_name, r.tag_name);
+          const body = r.body && r.body.trim() ? marked.parse(r.body) : '<p class="cl-empty-body">No release notes for this version.</p>';
+
+          const images = (r.assets || []).filter(a => isImage(a.name));
+          const downloads = (r.assets || []).filter(a => isDownload(a.name));
+
+          const imageHtml = images.length
+            ? `<div class="release-images">${images.map(a =>
+                `<img src="${a.browser_download_url}" alt="${a.name}" loading="lazy" />`).join('')}</div>`
+            : '';
+
+          const downloadHtml = downloads.length
+            ? `<div class="release-assets">${downloads.map(a => {
+                const label = assetLabel(a.name);
+                const platform = platformOf(a.name);
+                const ext = extOf(a.name);
+                return `<a class="release-asset" href="${a.browser_download_url}" target="_blank" rel="noopener" download title="${a.name}">
+                  <i class="${assetIcon(a.name)}" aria-hidden="true"></i>
+                  <span class="asset-label">${label}</span>
+                  ${(platform || ext) ? `<span class="asset-suffix">${platform}${platform && ext ? ' · ' : ''}${ext}</span>` : ''}
+                </a>`;
+              }).join('')}</div>`
+            : '';
+
+          return `
+            <article class="release-card${idx === 0 ? ' is-latest' : ''}">
+              <div class="release-meta">
+                <span class="release-dot" aria-hidden="true"></span>
+                <time class="release-date">${date}</time>
+                ${idx === 0 ? '<span class="release-badge-latest">Latest</span>' : ''}
+              </div>
+              <header class="release-card-head">
+                <h2><a href="${r.html_url}" target="_blank" rel="noopener">${title}</a></h2>
+                <span class="release-tag">${r.tag_name}</span>
+              </header>
+              ${imageHtml}
+              <div class="release-body">${body}</div>
+              ${downloadHtml}
+            </article>
+          `;
+        }).join('');
+      } catch (err) {
         container.innerHTML = `
-          <div class="cl-empty">
-            <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
-            <h3>No releases yet.</h3>
-            <p>The first release will land here as soon as it's published on GitHub.</p>
-            <a class="btn btn-ghost" href="https://github.com/${REPO}" target="_blank" rel="noopener">
-              <i class="fa-brands fa-github"></i> Watch the repo
+          <div class="cl-empty cl-empty-error">
+            <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+            <h3>Couldn't reach GitHub.</h3>
+            <p>${(err && err.message) || 'Network error.'} You can still browse releases directly.</p>
+            <a class="btn btn-ghost btn-sm" href="https://github.com/${REPO}/releases" target="_blank" rel="noopener">
+              <i class="fa-brands fa-github"></i> View releases on GitHub
             </a>
           </div>`;
-        return;
       }
-
-      container.innerHTML = releases.map((r, idx) => {
-        const date = fmtDate(r.published_at || r.created_at);
-        const title = cleanTitle(r.name || r.tag_name, r.tag_name);
-        const body = r.body && r.body.trim() ? marked.parse(r.body) : '<p class="cl-empty-body">No release notes for this version.</p>';
-
-        const images = (r.assets || []).filter(a => isImage(a.name));
-        const downloads = (r.assets || []).filter(a => isDownload(a.name));
-
-        const imageHtml = images.length
-          ? `<div class="release-images">${images.map(a =>
-              `<img src="${a.browser_download_url}" alt="${a.name}" loading="lazy" />`).join('')}</div>`
-          : '';
-
-        const downloadHtml = downloads.length
-          ? `<div class="release-assets">${downloads.map(a => {
-              const label = assetLabel(a.name);
-              const platform = platformOf(a.name);
-              const ext = extOf(a.name);
-              return `<a class="release-asset" href="${a.browser_download_url}" target="_blank" rel="noopener" download title="${a.name}">
-                <i class="${assetIcon(a.name)}" aria-hidden="true"></i>
-                <span class="asset-label">${label}</span>
-                ${(platform || ext) ? `<span class="asset-suffix">${platform}${platform && ext ? ' · ' : ''}${ext}</span>` : ''}
-              </a>`;
-            }).join('')}</div>`
-          : '';
-
-        return `
-          <article class="release-card${idx === 0 ? ' is-latest' : ''}">
-            <div class="release-meta">
-              <span class="release-dot" aria-hidden="true"></span>
-              <time class="release-date">${date}</time>
-              ${idx === 0 ? '<span class="release-badge-latest">Latest</span>' : ''}
-            </div>
-            <header class="release-card-head">
-              <h2><a href="${r.html_url}" target="_blank" rel="noopener">${title}</a></h2>
-              <span class="release-tag">${r.tag_name}</span>
-            </header>
-            ${imageHtml}
-            <div class="release-body">${body}</div>
-            ${downloadHtml}
-          </article>
-        `;
-      }).join('');
-    } catch (err) {
-      container.innerHTML = `
-        <div class="cl-empty cl-empty-error">
-          <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-          <h3>Couldn't reach GitHub.</h3>
-          <p>${(err && err.message) || 'Network error.'} You can still browse releases directly.</p>
-          <a class="btn btn-ghost" href="https://github.com/${REPO}/releases" target="_blank" rel="noopener">
-            <i class="fa-brands fa-github"></i> View releases on GitHub
-          </a>
-        </div>`;
-    }
-  })();
-  </script>
-
-  <script src="app.js" defer></script>
+    })();
+    </script>
 </body>
 </html>

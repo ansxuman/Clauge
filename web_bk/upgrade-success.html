@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Welcome to Clauge Pro</title>
 <meta name="description" content="Your Clauge Pro subscription is active. Return to the app to continue.">
-<meta name="theme-color" content="#060709">
+<meta name="theme-color" content="#0a0d14">
 <meta name="color-scheme" content="dark">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -14,10 +14,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Clauge">
 <link rel="manifest" href="/site.webmanifest">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="design.css">
 <style>
   body {
     display: flex; align-items: center; justify-content: center;
@@ -25,61 +22,80 @@
   }
   .us-wrap {
     position: relative; z-index: 1;
-    width: min(560px, calc(100% - 48px));
+    width: min(560px, calc(100% - 64px));
     padding: 48px;
-    border: 1px solid var(--line-strong);
-    border-radius: 24px;
-    background:
-      radial-gradient(420px 220px at 50% -10%, rgba(200, 255, 74, 0.12), transparent 70%),
-      linear-gradient(180deg, var(--bg-2), var(--bg-1));
-    box-shadow: 0 40px 120px -30px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--rule-2);
+    background: var(--bg-plate);
+  }
+  .us-wrap::after {
+    content: ""; position: absolute; inset: 4px;
+    border: 1px solid var(--rule); pointer-events: none;
   }
   .us-rail {
     display: grid;
     grid-template-columns: max-content 1fr max-content;
     gap: 18px; align-items: center;
-    font-family: var(--font-mono); font-size: 10px;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    color: var(--ink-faint);
-    margin-bottom: 30px;
+    font-family: var(--f-mono); font-size: 10.5px;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--ink-3);
+    padding-bottom: 14px; margin-bottom: 28px;
+    border-bottom: 1px dashed var(--rule-2);
   }
-  .us-rail .line { height: 1px; background: var(--line); }
-  .us-logo { width: 44px; height: 44px; margin-bottom: 20px; }
+  .us-rail .key { color: var(--accent); font-weight: 500; }
+  .us-rail .line { border-top: 1px dashed var(--rule-2); height: 1px; }
+  .us-rail .end { color: var(--ink-4); }
+  .us-logo {
+    width: 56px; height: 56px;
+    margin: 0 0 22px;
+    display: block;
+  }
   .us-eyebrow {
     display: inline-flex; align-items: center; gap: 8px;
-    font-family: var(--font-mono); font-size: 10.5px; font-weight: 500;
-    letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--lime);
-    border: 1px solid var(--lime-line); border-radius: 999px;
-    background: rgba(200, 255, 74, 0.06);
-    padding: 6px 13px;
-    margin-bottom: 20px;
+    padding: 4px 10px; margin-bottom: 18px;
+    font-family: var(--f-mono); font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
   }
   .us-title {
-    font-family: var(--font-display); font-weight: 800;
-    font-size: clamp(34px, 4.8vw, 52px);
-    line-height: 1.02; letter-spacing: -0.03em;
+    font-family: var(--f-display); font-weight: 800;
+    font-size: clamp(36px, 4.8vw, 56px);
+    line-height: 0.96; letter-spacing: -0.012em;
+    text-transform: uppercase;
     color: var(--ink);
     margin: 0 0 14px;
   }
   .us-title em {
-    font-style: normal;
-    background: linear-gradient(110deg, var(--lime) 10%, var(--cyan) 60%, var(--violet) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    font-style: normal; font-weight: 900;
+    color: var(--accent);
   }
   .us-sub {
-    font-size: 14.5px; line-height: 1.65;
-    color: var(--ink-dim);
+    font-family: var(--f-mono); font-size: 13px;
+    line-height: 1.6; color: var(--ink-2);
     margin: 0 0 28px;
     max-width: 44ch;
   }
   .us-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .us-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 13px 18px;
+    font-family: var(--f-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    border: 1px solid var(--accent);
+    background: var(--accent); color: var(--bg);
+    cursor: pointer;
+    transition: background .2s var(--ease), transform .12s var(--ease);
+  }
+  .us-btn:hover { background: var(--accent-2); transform: translateY(-1px); }
+  .us-btn-ghost {
+    background: transparent; color: var(--ink-2);
+    border-color: var(--ink-4);
+  }
+  .us-btn-ghost:hover { color: var(--ink); border-color: var(--ink-2); background: transparent; }
 </style>
 </head>
 <body>
-<div class="bg-field" aria-hidden="true"></div>
 <div class="us-wrap">
   <div class="us-rail">
     <span class="key">RECEIPT / 00</span>
@@ -100,13 +116,13 @@
   <p class="us-sub">Your subscription is active. Return to the app to continue where you left off.</p>
 
   <div class="us-actions">
-    <button type="button" class="btn btn-primary btn-sm" id="open-btn">
+    <button type="button" class="us-btn" id="open-btn">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>
       </svg>
       Open Clauge
     </button>
-    <a class="btn btn-ghost btn-sm" href="/">
+    <a class="us-btn us-btn-ghost" href="/">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/>
       </svg>
