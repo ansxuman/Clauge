@@ -1,14 +1,11 @@
 import { get } from 'svelte/store';
-import { collections } from '$lib/modes/rest/stores';
-import { connections as sqlConnections } from '$lib/modes/sql/stores';
-import { nosqlConnections } from '$lib/modes/nosql/stores';
 import {
   hasSyncedOnce,
   markSynced,
   showSyncRestorePrompt,
   showDeviceSetup,
 } from '$lib/stores/cloud';
-import { cloudCheckRemoteExists, cloudSyncPushNow } from '$lib/commands/cloud';
+import { cloudCheckRemoteExists, cloudLocalHasData, cloudSyncPushNow } from '$lib/commands/cloud';
 import { showToast } from '$lib/shared/primitives/toast';
 
 /**
@@ -24,12 +21,14 @@ import { showToast } from '$lib/shared/primitives/toast';
  * On a transient remote-check failure nothing is marked — the next boot
  * retries rather than permanently dismissing the decision.
  */
-export async function decideFirstSync(): Promise<void> {
+let inFlight: Promise<void> | null = null;
+export function decideFirstSync(): Promise<void> {
+  inFlight ??= run().finally(() => { inFlight = null; });
+  return inFlight;
+}
+async function run(): Promise<void> {
   if (get(hasSyncedOnce)) return;
-  const localEmpty =
-    get(collections).length === 0 &&
-    get(sqlConnections).length === 0 &&
-    get(nosqlConnections).length === 0;
+  const localEmpty = !(await cloudLocalHasData());
   try {
     const remoteHas = await cloudCheckRemoteExists();
     if (!remoteHas && localEmpty) {

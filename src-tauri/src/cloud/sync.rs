@@ -278,8 +278,14 @@ pub fn pull_order_rank(kind: &str) -> u8 {
 
 /// True if the user has any locally-created data in the synced tables.
 /// Used by the first-sign-in flow to decide whether to auto-pull or prompt.
+///
+/// IMPORTANT: this function must list EVERY table that the sync domains
+/// export. Whenever a new sync domain (or new table within an existing
+/// domain) is added, add a corresponding `(SELECT COUNT(*) FROM <table>)`
+/// term here, otherwise the first-sync empty-check will mis-classify
+/// devices that only have data in the new table.
 pub async fn local_has_data(pool: &SqlitePool) -> Result<bool, String> {
-    // OR'd counts across the synced tables. If any has > 0 rows → user has data.
+    // Summed counts across all synced tables. If any has > 0 rows → user has data.
     let row: (i64,) = sqlx::query_as(
         "SELECT \
            (SELECT COUNT(*) FROM collections) + \
@@ -288,7 +294,9 @@ pub async fn local_has_data(pool: &SqlitePool) -> Result<bool, String> {
            (SELECT COUNT(*) FROM ssh_profiles) + \
            (SELECT COUNT(*) FROM explorer_connections) + \
            (SELECT COUNT(*) FROM agent_contexts) + \
-           (SELECT COUNT(*) FROM agent_sessions WHERE origin = 'manual' OR origin IS NULL) \
+           (SELECT COUNT(*) FROM agent_sessions WHERE origin = 'manual' OR origin IS NULL) + \
+           (SELECT COUNT(*) FROM environments) + \
+           (SELECT COUNT(*) FROM sql_scripts) \
            AS n",
     )
     .fetch_one(pool)
