@@ -1,3 +1,4 @@
+use crate::companion::fanout;
 use crate::modes::agent::models::{TerminalEntry, TerminalOutputPayload, TerminalState};
 use crate::shared::repos::settings as settings_repo;
 use crate::shared::cli::{registry::runner_for, runner::{CliRunner, SpawnOpts}};
@@ -48,6 +49,47 @@ pub async fn agent_spawn_terminal(
     workspace_mcp_token: Option<String>,
     on_output: Channel<TerminalOutputPayload>,
 ) -> Result<String, String> {
+    // The desktop only knows the claude resume id at this point, so
+    // that doubles as the entry's session_ref (see TerminalEntry).
+    spawn_agent_terminal_impl(
+        &state,
+        pool.inner(),
+        session_id.clone(),
+        session_id,
+        project_path,
+        context_prompt,
+        skip_permissions,
+        git_name,
+        git_email,
+        provider,
+        binary_path,
+        workspace_mcp_token,
+        Some(on_output),
+    )
+    .await
+}
+
+/// Shared spawn path for the Tauri command above and the companion
+/// server (POST /v1/sessions/agent). `on_output: None` means no one is
+/// streaming yet — the reader thread still drains the PTY so the child
+/// never blocks on a full pipe; the companion fan-out (D3) taps output
+/// separately.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn spawn_agent_terminal_impl(
+    state: &TerminalState,
+    pool: &SqlitePool,
+    session_ref: Option<String>,
+    resume_session_id: Option<String>,
+    project_path: String,
+    context_prompt: Option<String>,
+    skip_permissions: Option<bool>,
+    git_name: Option<String>,
+    git_email: Option<String>,
+    provider: Option<String>,
+    binary_path: Option<String>,
+    workspace_mcp_token: Option<String>,
+    on_output: Option<Channel<TerminalOutputPayload>>,
+) -> Result<String, String> {
     crate::telemetry::bump("agent.spawn");
     let terminal_id = Uuid::new_v4().to_string();
     let pty_system = native_pty_system();
@@ -60,7 +102,7 @@ pub async fn agent_spawn_terminal(
     let provider = provider.unwrap_or_else(|| "claude".to_string());
     let cli: &dyn CliRunner = runner_for(&provider);
     let spawn_cmd = cli.build_spawn_command(&SpawnOpts {
-        resume_session_id: session_id,
+        resume_session_id,
         system_prompt: context_prompt,
         skip_permissions: skip_permissions.unwrap_or(false),
         binary_path_override: binary_path
@@ -91,7 +133,7 @@ pub async fn agent_spawn_terminal(
     // exactly when we're spawning codex, so codex can authenticate
     // without the token ever touching ~/.codex/config.toml.
     if provider == "codex" {
-        let persisted_token = match settings_repo::get_by_key(pool.inner(), "workspace_mcp_token").await {
+        let persisted_token = match settings_repo::get_by_key(pool, "workspace_mcp_token").await {
             Ok(Some(s)) => Some(s.value),
             Ok(None) => None,
             Err(e) => {
@@ -122,6 +164,16 @@ pub async fn agent_spawn_terminal(
     let writer = pty_pair.master.take_writer().map_err(|e| format!("Failed to get PTY writer: {}", e))?;
     let reader = pty_pair.master.try_clone_reader().map_err(|e| format!("Failed to clone PTY reader: {}", e))?;
 
+    // Register with the companion fan-out before the reader starts so
+    // the very first bytes land in the mirror scrollback. The title is
+    // the project basename — it becomes the push notification body.
+    let fanout_title = std::path::Path::new(&project_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(provider.as_str())
+        .to_string();
+    fanout::register(&terminal_id, fanout::TermKind::Agent, &fanout_title);
+
     let tid_clone = terminal_id.clone();
     std::thread::spawn(move || {
         let mut reader = reader;
@@ -130,17 +182,24 @@ pub async fn agent_spawn_terminal(
             match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
-                    let data = base64::engine::general_purpose::STANDARD.encode(&buf[..n]);
-                    if on_output.send(TerminalOutputPayload { terminal_id: tid_clone.clone(), data, exit: None }).is_err() { break; }
+                    fanout::publish(&tid_clone, &buf[..n]);
+                    if let Some(ch) = &on_output {
+                        let data = base64::engine::general_purpose::STANDARD.encode(&buf[..n]);
+                        if ch.send(TerminalOutputPayload { terminal_id: tid_clone.clone(), data, exit: None }).is_err() { break; }
+                    }
                 }
                 Err(_) => break,
             }
         }
-        // PTY closed — signal the frontend so it can clean up without waiting for a stray write.
-        let _ = on_output.send(TerminalOutputPayload { terminal_id: tid_clone.clone(), data: String::new(), exit: Some(true) });
+        // PTY closed — signal mirrors and the frontend so both clean up
+        // without waiting for a stray write.
+        fanout::publish_exit(&tid_clone);
+        if let Some(ch) = &on_output {
+            let _ = ch.send(TerminalOutputPayload { terminal_id: tid_clone.clone(), data: String::new(), exit: Some(true) });
+        }
     });
 
-    state.terminals.lock().insert(terminal_id.clone(), TerminalEntry { master: pty_pair.master, writer, child });
+    state.terminals.lock().insert(terminal_id.clone(), TerminalEntry { master: pty_pair.master, writer, child, session_ref });
     Ok(terminal_id)
 }
 
@@ -169,6 +228,12 @@ fn spawn_shell_pty(
     let writer = pty_pair.master.take_writer().map_err(|e| format!("Failed to get PTY writer: {}", e))?;
     let reader = pty_pair.master.try_clone_reader().map_err(|e| format!("Failed to clone PTY reader: {}", e))?;
 
+    // Shell PTYs aren't listed by the companion API, but they share
+    // agent_resize_terminal — registering keeps the size-indirection
+    // path (set_client_size → effective_size) uniform for every entry
+    // in TerminalState.
+    fanout::register(&terminal_id, fanout::TermKind::Agent, "Shell");
+
     let tid_clone = terminal_id.clone();
     std::thread::spawn(move || {
         let mut reader = reader;
@@ -177,16 +242,18 @@ fn spawn_shell_pty(
             match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
+                    fanout::publish(&tid_clone, &buf[..n]);
                     let data = base64::engine::general_purpose::STANDARD.encode(&buf[..n]);
                     if on_output.send(TerminalOutputPayload { terminal_id: tid_clone.clone(), data, exit: None }).is_err() { break; }
                 }
                 Err(_) => break,
             }
         }
+        fanout::publish_exit(&tid_clone);
         let _ = on_output.send(TerminalOutputPayload { terminal_id: tid_clone.clone(), data: String::new(), exit: Some(true) });
     });
 
-    state.terminals.lock().insert(terminal_id.clone(), TerminalEntry { master: pty_pair.master, writer, child });
+    state.terminals.lock().insert(terminal_id.clone(), TerminalEntry { master: pty_pair.master, writer, child, session_ref: None });
     Ok(terminal_id)
 }
 
@@ -223,8 +290,16 @@ pub fn agent_write_to_terminal(state: State<'_, TerminalState>, terminal_id: Str
 pub fn agent_resize_terminal(state: State<'_, TerminalState>, terminal_id: String, cols: u32, rows: u32) -> Result<(), String> {
     let terminals = state.terminals.lock();
     let entry = terminals.get(&terminal_id).ok_or("Terminal not found")?;
-    entry.master.resize(PtySize { rows: rows as u16, cols: cols as u16, pixel_width: 0, pixel_height: 0 })
-        .map_err(|e| format!("Resize error: {}", e))?;
+    // The desktop is one mirror client among potentially many: record
+    // its viewport and drive the PTY at the effective (min) size, which
+    // is exactly the desktop size while no phone is attached. None =
+    // effective size unchanged → nothing to apply.
+    if let Some((c, r)) =
+        fanout::set_client_size(&terminal_id, fanout::DESKTOP_CLIENT, cols as u16, rows as u16)
+    {
+        entry.master.resize(PtySize { rows: r, cols: c, pixel_width: 0, pixel_height: 0 })
+            .map_err(|e| format!("Resize error: {}", e))?;
+    }
     Ok(())
 }
 

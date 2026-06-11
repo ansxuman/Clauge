@@ -87,4 +87,8 @@ export const APP_EVENT = {
    *  behaviour (SSH/Agent/Workspace pickers, SQL script prompt, blank
    *  REST/NoSQL tab, etc.) stays in one place. */
   NEW_TAB: 'clauge:new-tab',
+  /** Close a tab the same way the topbar "x" does, but WITHOUT the confirm
+   *  prompt — a programmatic close (e.g. the mobile companion closed the
+   *  session). Detail: `{ tabId: number }`. Topbar runs `doCloseTab`. */
+  CLOSE_TAB_PROGRAMMATIC: 'clauge:close-tab-programmatic',
 } as const;

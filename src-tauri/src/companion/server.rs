@@ -1,0 +1,154 @@
+// Bind + serve loop and lifecycle commands. Mirrors the workspace MCP
+// server (modes/workspace/mcp/server.rs) with two deliberate
+// differences: it binds 0.0.0.0 (phones connect over LAN/tailnet, not
+// loopback) and shutdown is a watch channel instead of a oneshot so
+// future WebSocket tasks (D3) can each subscribe and die on stop.
+
+use axum::{middleware, routing::get, Router};
+use sqlx::SqlitePool;
+use std::sync::Arc;
+use tauri::State as TauriState;
+use tokio::sync::watch;
+
+use super::lifecycle::LifecycleState;
+use super::pairing::PairingState;
+use super::{api, auth, pairing, ws, BASE_PORT, PORT_FALLBACK_RANGE};
+
+pub struct ServerHandle {
+    pub port: u16,
+    pub shutdown: watch::Sender<bool>,
+}
+
+#[derive(Clone)]
+pub struct CompanionAppState {
+    pub pool: SqlitePool,
+    /// For emitting `companion:pair-request` to the desktop UI.
+    pub app: tauri::AppHandle,
+    pub pairing: Arc<PairingState>,
+    /// Shared with the Tauri commands so spawn handlers can park on the
+    /// desktop UI opening a real tab and reporting its terminalId.
+    pub lifecycle: Arc<LifecycleState>,
+    /// Server-stop signal. Upgraded WebSocket connections outlive the
+    /// listener's graceful shutdown, so each mirror task watches this
+    /// and dies when the server is toggled off.
+    pub shutdown: watch::Receiver<bool>,
+}
+
+/// Bind 0.0.0.0 on the first free port in BASE_PORT..=BASE_PORT+RANGE,
+/// spawn the axum server, and return its handle. `shutdown.send(true)`
+/// stops the listener gracefully.
+pub async fn start(
+    pool: SqlitePool,
+    app: tauri::AppHandle,
+    pairing: Arc<PairingState>,
+    lifecycle: Arc<LifecycleState>,
+) -> Result<ServerHandle, String> {
+    let (tx, rx) = watch::channel(false);
+    let state = Arc::new(CompanionAppState {
+        pool,
+        app,
+        pairing,
+        lifecycle,
+        shutdown: rx.clone(),
+    });
+    let mut last_err: Option<String> = None;
+    for offset in 0..=PORT_FALLBACK_RANGE {
+        let port = BASE_PORT + offset;
+        let addr = format!("0.0.0.0:{}", port);
+        match tokio::net::TcpListener::bind(&addr).await {
+            Ok(listener) => {
+                // Everything under /v1 requires a paired device token;
+                // /healthz and /pair are the only open endpoints. The
+                // /v1 routes themselves live in api.rs + ws.rs.
+                let v1 = api::routes().merge(ws::routes()).route_layer(
+                    middleware::from_fn_with_state(state.clone(), auth::require_bearer),
+                );
+                let router = Router::new()
+                    .route("/healthz", get(|| async { "ok" }))
+                    .route("/pair", axum::routing::post(pairing::handle_pair))
+                    .nest("/v1", v1)
+                    .with_state(state.clone());
+
+                let mut rx = rx.clone();
+                tokio::spawn(async move {
+                    let _ = axum::serve(listener, router)
+                        .with_graceful_shutdown(async move {
+                            let _ = rx.changed().await;
+                        })
+                        .await;
+                });
+                log::info!("[companion] server listening on {}", addr);
+                return Ok(ServerHandle { port, shutdown: tx });
+            }
+            Err(e) => {
+                last_err = Some(format!("{}: {}", addr, e));
+            }
+        }
+    }
+    Err(format!(
+        "Failed to bind any port in {}..={}: {}",
+        BASE_PORT,
+        BASE_PORT + PORT_FALLBACK_RANGE,
+        last_err.unwrap_or_default(),
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// Lifecycle commands
+// ---------------------------------------------------------------------------
+
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CompanionStatus {
+    pub running: bool,
+    pub port: Option<u16>,
+}
+
+#[tauri::command]
+pub async fn companion_status(
+    state: TauriState<'_, super::CompanionState>,
+) -> Result<CompanionStatus, String> {
+    let g = state.server.lock().await;
+    Ok(match &*g {
+        Some(h) => CompanionStatus { running: true, port: Some(h.port) },
+        None => CompanionStatus { running: false, port: None },
+    })
+}
+
+#[tauri::command]
+pub async fn companion_start(
+    app: tauri::AppHandle,
+    pool: TauriState<'_, SqlitePool>,
+    state: TauriState<'_, super::CompanionState>,
+) -> Result<CompanionStatus, String> {
+    let mut g = state.server.lock().await;
+    if let Some(h) = &*g {
+        return Ok(CompanionStatus { running: true, port: Some(h.port) });
+    }
+    let handle = start(
+        pool.inner().clone(),
+        app.clone(),
+        state.pairing.clone(),
+        state.lifecycle.clone(),
+    )
+    .await?;
+    let port = handle.port;
+    // Start push dispatch alongside the listener — the drain + attention
+    // sweep tasks watch the same shutdown channel and die on stop.
+    super::push::start(app, handle.shutdown.subscribe());
+    *g = Some(handle);
+    Ok(CompanionStatus { running: true, port: Some(port) })
+}
+
+#[tauri::command]
+pub async fn companion_stop(
+    state: TauriState<'_, super::CompanionState>,
+) -> Result<CompanionStatus, String> {
+    let mut g = state.server.lock().await;
+    if let Some(h) = g.take() {
+        super::push::stop();
+        let _ = h.shutdown.send(true);
+        log::info!("[companion] server stopped");
+    }
+    Ok(CompanionStatus { running: false, port: None })
+}

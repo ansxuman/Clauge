@@ -1,3 +1,4 @@
+use crate::companion::fanout;
 use crate::modes::agent::models::TerminalOutputPayload;
 use crate::modes::ssh::models::{SshCommand, SshTerminalEntry, SshTerminalState};
 use crate::modes::ssh::ssh_session::{open_authenticated_ssh_session, ClientHandler};
@@ -20,6 +21,19 @@ pub async fn ssh_spawn_terminal(
     profile_id: String,
     on_output: Channel<TerminalOutputPayload>,
 ) -> Result<String, String> {
+    spawn_ssh_terminal_impl(&state, pool.inner(), profile_id, Some(on_output)).await
+}
+
+/// Shared spawn path for the Tauri command above and the companion
+/// server (POST /v1/sessions/ssh). `on_output: None` = nothing streams
+/// to the desktop UI; the russh task still drains channel messages so
+/// the session stays healthy until the companion fan-out (D3) taps it.
+pub(crate) async fn spawn_ssh_terminal_impl(
+    state: &SshTerminalState,
+    pool: &SqlitePool,
+    profile_id: String,
+    on_output: Option<Channel<TerminalOutputPayload>>,
+) -> Result<String, String> {
     let terminal_id = Uuid::new_v4().to_string();
 
     // Set up the command channel BEFORE spawning so we can return its sender via the
@@ -29,12 +43,21 @@ pub async fn ssh_spawn_terminal(
     let tid_for_task = terminal_id.clone();
     let on_output_for_task = on_output.clone();
 
-    // Clone the pool handle for the spawned task. State::inner() returns
-    // &SqlitePool; SqlitePool is `Clone` (it's an Arc inside).
-    let pool_clone: SqlitePool = pool.inner().clone();
+    // Clone the pool handle for the spawned task — SqlitePool is
+    // `Clone` (it's an Arc inside).
+    let pool_clone: SqlitePool = pool.clone();
     let profile_id_for_task = profile_id.clone();
 
     log::info!("[ssh] connect profile={}", profile_id);
+
+    // Register with the companion fan-out before the session task runs
+    // so the first server bytes land in the mirror scrollback. The
+    // profile name becomes the push notification body.
+    let fanout_title = crate::shared::repos::ssh_profiles::get_by_id(pool, &profile_id)
+        .await
+        .map(|p| p.name)
+        .unwrap_or_else(|_| "SSH session".to_string());
+    fanout::register(&terminal_id, fanout::TermKind::Ssh, &fanout_title);
 
     // Drive the whole russh session inside this task. Any failure → emit
     // exit:true so the frontend can swap to the reconnect banner.
@@ -50,18 +73,23 @@ pub async fn ssh_spawn_terminal(
         {
             log::warn!("[ssh] session ended: {}", err);
         }
-        // Always signal exit on the way out so the frontend cleans up.
-        let _ = on_output_for_task.send(TerminalOutputPayload {
-            terminal_id: tid_for_task,
-            data: String::new(),
-            exit: Some(true),
-        });
+        // Always signal exit on the way out so mirrors and the frontend
+        // both clean up.
+        fanout::publish_exit(&tid_for_task);
+        if let Some(ch) = &on_output_for_task {
+            let _ = ch.send(TerminalOutputPayload {
+                terminal_id: tid_for_task,
+                data: String::new(),
+                exit: Some(true),
+            });
+        }
     });
 
     state.terminals.lock().insert(
         terminal_id.clone(),
         SshTerminalEntry {
             handle_tx: cmd_tx,
+            profile_id,
         },
     );
 
@@ -95,10 +123,16 @@ pub fn ssh_resize_terminal(
 ) -> Result<(), String> {
     let map = state.terminals.lock();
     let entry = map.get(&terminal_id).ok_or("Terminal not found")?;
-    entry
-        .handle_tx
-        .send(SshCommand::Resize { cols, rows })
-        .map_err(|e| format!("send resize: {}", e))?;
+    // Mirror-aware sizing: record the desktop viewport and forward the
+    // effective (min over clients) size, which equals the desktop size
+    // whenever no phone is attached. None = no change → nothing sent.
+    if let Some((c, r)) = fanout::set_client_size(&terminal_id, fanout::DESKTOP_CLIENT, cols, rows)
+    {
+        entry
+            .handle_tx
+            .send(SshCommand::Resize { cols: c, rows: r })
+            .map_err(|e| format!("send resize: {}", e))?;
+    }
     Ok(())
 }
 
@@ -122,7 +156,7 @@ async fn run_ssh_session(
     pool: &SqlitePool,
     profile_id: &str,
     terminal_id: String,
-    on_output: Channel<TerminalOutputPayload>,
+    on_output: Option<Channel<TerminalOutputPayload>>,
     mut cmd_rx: tokio::sync::mpsc::UnboundedReceiver<SshCommand>,
 ) -> Result<(), String> {
     // Connect + auth via the shared helper. Returns a post-auth Handle that
@@ -150,32 +184,38 @@ async fn run_ssh_session(
             msg = chan.wait() => {
                 match msg {
                     Some(ChannelMsg::Data { data }) => {
-                        let bytes: &[u8] = data.as_ref();
-                        let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
-                        if on_output
-                            .send(TerminalOutputPayload {
-                                terminal_id: terminal_id.clone(),
-                                data: encoded,
-                                exit: None,
-                            })
-                            .is_err()
-                        {
-                            break;
+                        fanout::publish(&terminal_id, data.as_ref());
+                        if let Some(ch) = &on_output {
+                            let bytes: &[u8] = data.as_ref();
+                            let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+                            if ch
+                                .send(TerminalOutputPayload {
+                                    terminal_id: terminal_id.clone(),
+                                    data: encoded,
+                                    exit: None,
+                                })
+                                .is_err()
+                            {
+                                break;
+                            }
                         }
                     }
                     Some(ChannelMsg::ExtendedData { data, .. }) => {
                         // Stream stderr into the same xterm.
-                        let bytes: &[u8] = data.as_ref();
-                        let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
-                        if on_output
-                            .send(TerminalOutputPayload {
-                                terminal_id: terminal_id.clone(),
-                                data: encoded,
-                                exit: None,
-                            })
-                            .is_err()
-                        {
-                            break;
+                        fanout::publish(&terminal_id, data.as_ref());
+                        if let Some(ch) = &on_output {
+                            let bytes: &[u8] = data.as_ref();
+                            let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+                            if ch
+                                .send(TerminalOutputPayload {
+                                    terminal_id: terminal_id.clone(),
+                                    data: encoded,
+                                    exit: None,
+                                })
+                                .is_err()
+                            {
+                                break;
+                            }
                         }
                     }
                     Some(ChannelMsg::Eof) | Some(ChannelMsg::Close) => {

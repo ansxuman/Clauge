@@ -530,15 +530,26 @@
     handleTabClose(synthetic, tabId);
   };
 
+  // Programmatic close (no confirm) — e.g. the mobile companion closed the
+  // session. Runs the SAME teardown (doCloseTab) as the "x" button's
+  // confirmed path, just skipping the prompt.
+  const onProgrammaticClose = (e: Event) => {
+    const tabId = (e as CustomEvent<{ tabId: number }>).detail?.tabId;
+    if (typeof tabId !== 'number') return;
+    doCloseTab(tabId);
+  };
+
   onMount(() => {
     window.addEventListener(APP_EVENT.TAB_CLOSE_PROMPT, handleTabClosePromptEvent);
     window.addEventListener(APP_EVENT.NEW_TAB, handleNewTabShortcut);
     window.addEventListener('canvas:request-tab-close', onCanvasCloseRequest);
+    window.addEventListener(APP_EVENT.CLOSE_TAB_PROGRAMMATIC, onProgrammaticClose);
   });
   onDestroy(() => {
     window.removeEventListener(APP_EVENT.TAB_CLOSE_PROMPT, handleTabClosePromptEvent);
     window.removeEventListener(APP_EVENT.NEW_TAB, handleNewTabShortcut);
     window.removeEventListener('canvas:request-tab-close', onCanvasCloseRequest);
+    window.removeEventListener(APP_EVENT.CLOSE_TAB_PROGRAMMATIC, onProgrammaticClose);
   });
 </script>
 
