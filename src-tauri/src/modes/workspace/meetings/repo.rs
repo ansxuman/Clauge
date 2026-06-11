@@ -36,7 +36,7 @@ pub async fn insert_meeting(
     .bind(&now)
     .execute(pool)
     .await?;
-    get_meeting(pool, &id).await
+    get_meeting(pool, &id).await?.ok_or(sqlx::Error::RowNotFound)
 }
 
 pub async fn list_meetings(pool: &SqlitePool) -> Result<Vec<WorkspaceMeeting>, sqlx::Error> {
@@ -47,21 +47,24 @@ pub async fn list_meetings(pool: &SqlitePool) -> Result<Vec<WorkspaceMeeting>, s
     .await
 }
 
-pub async fn get_meeting(pool: &SqlitePool, id: &str) -> Result<WorkspaceMeeting, sqlx::Error> {
+pub async fn get_meeting(
+    pool: &SqlitePool,
+    id: &str,
+) -> Result<Option<WorkspaceMeeting>, sqlx::Error> {
     sqlx::query_as::<_, WorkspaceMeeting>("SELECT * FROM workspace_meetings WHERE id = ?")
         .bind(id)
-        .fetch_one(pool)
+        .fetch_optional(pool)
         .await
 }
 
-pub async fn update_title(pool: &SqlitePool, id: &str, title: &str) -> Result<(), sqlx::Error> {
-    sqlx::query("UPDATE workspace_meetings SET title = ?, updated_at = ? WHERE id = ?")
+pub async fn update_title(pool: &SqlitePool, id: &str, title: &str) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query("UPDATE workspace_meetings SET title = ?, updated_at = ? WHERE id = ?")
         .bind(title)
         .bind(now_rfc3339())
         .bind(id)
         .execute(pool)
         .await?;
-    Ok(())
+    Ok(result.rows_affected())
 }
 
 /// AI generation passes `provider`/`model` and stamps
@@ -73,9 +76,9 @@ pub async fn update_notes(
     notes_md: &str,
     provider: Option<&str>,
     model: Option<&str>,
-) -> Result<(), sqlx::Error> {
+) -> Result<u64, sqlx::Error> {
     let now = now_rfc3339();
-    if provider.is_some() {
+    let result = if provider.is_some() {
         sqlx::query(
             "UPDATE workspace_meetings \
              SET notes_md = ?, notes_provider = ?, notes_model = ?, \
@@ -89,16 +92,16 @@ pub async fn update_notes(
         .bind(&now)
         .bind(id)
         .execute(pool)
-        .await?;
+        .await?
     } else {
         sqlx::query("UPDATE workspace_meetings SET notes_md = ?, updated_at = ? WHERE id = ?")
             .bind(notes_md)
             .bind(&now)
             .bind(id)
             .execute(pool)
-            .await?;
-    }
-    Ok(())
+            .await?
+    };
+    Ok(result.rows_affected())
 }
 
 /// Read-modify-write on the transcript JSON. Assumes a single writer
@@ -214,7 +217,7 @@ mod tests {
         .await
         .unwrap();
 
-        let got = get_meeting(&pool, &m.id).await.unwrap();
+        let got = get_meeting(&pool, &m.id).await.unwrap().unwrap();
         let segs = parsed(&got);
         assert_eq!(segs.len(), 3);
         assert_eq!(
@@ -227,24 +230,21 @@ mod tests {
         );
 
         finish_meeting(&pool, &m.id).await.unwrap();
-        let got = get_meeting(&pool, &m.id).await.unwrap();
+        let got = get_meeting(&pool, &m.id).await.unwrap().unwrap();
         assert_eq!(got.status, "transcribed");
         assert!(got.ended_at.is_some());
 
         update_notes(&pool, &m.id, "# Notes", Some("anthropic"), Some("opus"))
             .await
             .unwrap();
-        let got = get_meeting(&pool, &m.id).await.unwrap();
+        let got = get_meeting(&pool, &m.id).await.unwrap().unwrap();
         assert_eq!(got.notes_md.as_deref(), Some("# Notes"));
         assert_eq!(got.notes_provider.as_deref(), Some("anthropic"));
         assert_eq!(got.notes_model.as_deref(), Some("opus"));
         assert!(got.notes_generated_at.is_some());
 
         delete_meeting(&pool, &m.id).await.unwrap();
-        assert!(matches!(
-            get_meeting(&pool, &m.id).await,
-            Err(sqlx::Error::RowNotFound)
-        ));
+        assert!(get_meeting(&pool, &m.id).await.unwrap().is_none());
     }
 
     #[tokio::test]
@@ -253,7 +253,7 @@ mod tests {
         let m = insert_meeting(&pool, "Retro", None, "auto").await.unwrap();
 
         update_notes(&pool, &m.id, "draft", None, None).await.unwrap();
-        let got = get_meeting(&pool, &m.id).await.unwrap();
+        let got = get_meeting(&pool, &m.id).await.unwrap().unwrap();
         assert_eq!(got.notes_md.as_deref(), Some("draft"));
         assert!(got.notes_provider.is_none());
         assert!(got.notes_generated_at.is_none());
@@ -264,7 +264,7 @@ mod tests {
         update_notes(&pool, &m.id, "# AI, edited", None, None)
             .await
             .unwrap();
-        let got = get_meeting(&pool, &m.id).await.unwrap();
+        let got = get_meeting(&pool, &m.id).await.unwrap().unwrap();
         assert_eq!(got.notes_md.as_deref(), Some("# AI, edited"));
         assert_eq!(got.notes_provider.as_deref(), Some("clauge"));
         assert_eq!(got.notes_model.as_deref(), Some("haiku"));
@@ -330,8 +330,28 @@ mod tests {
     async fn meeting_update_title() {
         let pool = test_pool().await;
         let m = insert_meeting(&pool, "Untitled", None, "auto").await.unwrap();
-        update_title(&pool, &m.id, "Q3 planning").await.unwrap();
-        let got = get_meeting(&pool, &m.id).await.unwrap();
+        let rows = update_title(&pool, &m.id, "Q3 planning").await.unwrap();
+        assert_eq!(rows, 1);
+        let got = get_meeting(&pool, &m.id).await.unwrap().unwrap();
         assert_eq!(got.title, "Q3 planning");
+    }
+
+    #[tokio::test]
+    async fn meeting_update_missing_id_reports_not_found() {
+        let pool = test_pool().await;
+        assert_eq!(update_title(&pool, "missing", "New title").await.unwrap(), 0);
+        assert_eq!(
+            update_notes(&pool, "missing", "# Notes", None, None)
+                .await
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            update_notes(&pool, "missing", "# Notes", Some("anthropic"), Some("opus"))
+                .await
+                .unwrap(),
+            0
+        );
+        assert!(get_meeting(&pool, "missing").await.unwrap().is_none());
     }
 }

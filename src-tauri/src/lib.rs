@@ -596,6 +596,11 @@ pub fn run() {
             modes::workspace::commands::workspace_mcp_new_token,
             modes::workspace::commands::workspace_scan_project_issues,
             modes::workspace::commands::workspace_scan_project_issues_by_url,
+            modes::workspace::meetings::commands::workspace_meeting_list,
+            modes::workspace::meetings::commands::workspace_meeting_get,
+            modes::workspace::meetings::commands::workspace_meeting_update_title,
+            modes::workspace::meetings::commands::workspace_meeting_update_notes,
+            modes::workspace::meetings::commands::workspace_meeting_delete,
 
             // Companion (mobile) server
             companion::server::companion_status,

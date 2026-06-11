@@ -1,0 +1,76 @@
+use sqlx::SqlitePool;
+use tauri::State;
+
+use crate::modes::workspace::meetings::repo;
+use crate::modes::workspace::models::WorkspaceMeeting;
+
+// --- CRUD ---
+
+/// Transcripts can run to megabytes; the list view never renders them,
+/// so each row's `transcript` is blanked to "[]" — `workspace_meeting_get`
+/// is the only way to load the full transcript.
+#[tauri::command]
+pub async fn workspace_meeting_list(
+    pool: State<'_, SqlitePool>,
+) -> Result<Vec<WorkspaceMeeting>, String> {
+    let mut meetings = repo::list_meetings(pool.inner())
+        .await
+        .map_err(|e| e.to_string())?;
+    for meeting in &mut meetings {
+        meeting.transcript = "[]".to_string();
+    }
+    Ok(meetings)
+}
+
+#[tauri::command]
+pub async fn workspace_meeting_get(
+    pool: State<'_, SqlitePool>,
+    id: String,
+) -> Result<WorkspaceMeeting, String> {
+    repo::get_meeting(pool.inner(), &id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Meeting not found".to_string())
+}
+
+#[tauri::command]
+pub async fn workspace_meeting_update_title(
+    pool: State<'_, SqlitePool>,
+    id: String,
+    title: String,
+) -> Result<(), String> {
+    let rows = repo::update_title(pool.inner(), &id, &title)
+        .await
+        .map_err(|e| e.to_string())?;
+    if rows == 0 {
+        return Err("Meeting not found".to_string());
+    }
+    Ok(())
+}
+
+/// Manual edit path — provider/model stay untouched (None), so the
+/// "AI generated" stamp is never applied to hand-written notes.
+#[tauri::command]
+pub async fn workspace_meeting_update_notes(
+    pool: State<'_, SqlitePool>,
+    id: String,
+    notes_md: String,
+) -> Result<(), String> {
+    let rows = repo::update_notes(pool.inner(), &id, &notes_md, None, None)
+        .await
+        .map_err(|e| e.to_string())?;
+    if rows == 0 {
+        return Err("Meeting not found".to_string());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn workspace_meeting_delete(
+    pool: State<'_, SqlitePool>,
+    id: String,
+) -> Result<(), String> {
+    repo::delete_meeting(pool.inner(), &id)
+        .await
+        .map_err(|e| e.to_string())
+}
