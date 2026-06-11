@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { workspaces, loadWorkspaces, refreshInboxUnread, loadCoworkers, loadMeetings, initMeetingListeners } from '../stores';
   import WorkspaceItem from './WorkspaceItem.svelte';
+  import MeetingListSection from './MeetingListSection.svelte';
   import { WORKSPACE_EVENT } from '$lib/shared/constants/events';
 
   interface Props {
@@ -30,6 +31,7 @@
 </script>
 
 <div class="ws-nav">
+  <MeetingListSection {searchQuery} />
   {#if filtered.length === 0}
     <div class="nav-empty">
       {#if searchQuery}

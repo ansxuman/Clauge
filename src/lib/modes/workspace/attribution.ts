@@ -99,7 +99,7 @@ export function formatAttribution(actor: string, isoTimestamp: string): string {
   return when ? `${label} · ${when}` : label;
 }
 
-function relativeTime(iso: string): string {
+export function relativeTime(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
