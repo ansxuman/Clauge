@@ -69,7 +69,7 @@ impl PairingState {
         let mut g = self.code.lock();
         match g.take() {
             Some(active) if Instant::now() >= active.expires_at => false,
-            Some(active) if active.code == candidate => true,
+            Some(active) if auth::ct_eq(active.code.as_bytes(), candidate.as_bytes()) => true,
             Some(active) => {
                 *g = Some(active);
                 false

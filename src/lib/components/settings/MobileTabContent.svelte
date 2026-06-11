@@ -227,12 +227,10 @@
                 <span class="mob-knob"></span>
             </button>
         </div>
-        {#if status.running && status.port != null}
+        {#if status.running && status.port != null && primaryHost}
             <div class="mob-hostline">
                 <span class="mob-dot on"></span>
-                <span class="mob-host"
-                    >{primaryHost ?? "0.0.0.0"}:{status.port}</span
-                >
+                <span class="mob-host">{primaryHost}:{status.port}</span>
             </div>
         {/if}
     </section>

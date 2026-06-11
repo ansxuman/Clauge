@@ -42,10 +42,9 @@ impl LifecycleState {
     /// typically the 30s wait already timed out and dropped the entry.
     pub fn resolve(&self, request_id: &str, result: OpenResult) -> Result<(), String> {
         match self.pending.lock().remove(request_id) {
-            Some(tx) => {
-                let _ = tx.send(result);
-                Ok(())
-            }
+            Some(tx) => tx
+                .send(result)
+                .map_err(|_| format!("open request receiver dropped: {}", request_id)),
             None => Err(format!("unknown or expired open request: {}", request_id)),
         }
     }

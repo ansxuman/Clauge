@@ -34,7 +34,7 @@ pub fn hash_token(token: &str) -> String {
 
 /// Branch-free byte comparison — the early-exit of `==` would leak how
 /// many leading bytes matched.
-fn ct_eq(a: &[u8], b: &[u8]) -> bool {
+pub(crate) fn ct_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {
         return false;
     }
