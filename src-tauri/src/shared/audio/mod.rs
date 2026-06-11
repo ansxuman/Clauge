@@ -1,6 +1,7 @@
 pub mod chunker;
 pub mod mic;
 pub mod resample;
+mod stream;
 pub mod system;
 
 pub use chunker::Chunker;

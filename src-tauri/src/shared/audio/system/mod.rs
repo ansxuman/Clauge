@@ -2,10 +2,14 @@ use std::sync::mpsc::Sender;
 
 use super::CaptureEvent;
 
+#[cfg(target_os = "linux")]
+mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 mod stub;
+#[cfg(target_os = "windows")]
+mod windows;
 
 #[derive(Debug)]
 pub enum SystemAudioError {
@@ -31,7 +35,11 @@ impl std::error::Error for SystemAudioError {}
 pub struct SystemCapture {
     #[cfg(target_os = "macos")]
     inner: macos::MacSystemCapture,
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    inner: windows::WindowsSystemCapture,
+    #[cfg(target_os = "linux")]
+    inner: linux::LinuxSystemCapture,
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     inner: stub::StubCapture,
 }
 
@@ -43,7 +51,19 @@ impl SystemCapture {
                 inner: macos::MacSystemCapture::start(tx)?,
             })
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "windows")]
+        {
+            Ok(Self {
+                inner: windows::WindowsSystemCapture::start(tx)?,
+            })
+        }
+        #[cfg(target_os = "linux")]
+        {
+            Ok(Self {
+                inner: linux::LinuxSystemCapture::start(tx)?,
+            })
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
         {
             Ok(Self {
                 inner: stub::StubCapture::start(tx)?,

@@ -88,7 +88,12 @@ rand = "0.10"
 local-ip-address = "0.6"
 toml_edit = "0.25.5"
 # Meeting-notes audio kernel (shared/audio/).
-cpal = "0.18"
+# cpal ships default = [] — without the "pulseaudio" feature the Linux host is
+# bare ALSA, which exposes no "<sink>.monitor" capture sources. The feature is
+# inert off Linux: cpal target-gates both the dep and the host module to
+# linux/BSD. PipeWire systems are reached through pipewire-pulse, so the
+# native "pipewire" feature (which needs libpipewire at build time) stays off.
+cpal = { version = "0.18", features = ["pulseaudio"] }
 rubato = "3.0"
 audioadapter-buffers = "3.0"
 # Credential store — per-OS dispatch in shared/platform/credential_store.rs:
