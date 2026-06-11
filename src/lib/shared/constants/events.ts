@@ -75,6 +75,30 @@ export const WORKSPACE_EVENT = {
   NEW_BOARD: 'workspace:new-board',
 } as const;
 
+/** Tauri backend → frontend events from the meeting recorder, model
+ *  manager, and call detector. Mirrored in
+ *  `src-tauri/src/modes/workspace/meetings/` + `shared/transcribe/`. */
+export const MEETING_EVENT = {
+  /** Detail: `{ meetingId, startedAt, sourceApp, systemAudio }`. */
+  RECORDING_STARTED: 'meetings:recording-started',
+  /** Detail: `{ meetingId }`. */
+  RECORDING_STOPPED: 'meetings:recording-stopped',
+  /** Detail: `{ meetingId, message }`. */
+  RECORDING_ERROR: 'meetings:recording-error',
+  /** Detail: `{ meetingId, message }`. */
+  RECORDING_WARNING: 'meetings:recording-warning',
+  /** Detail: `{ meetingId, segment: TranscriptSegment }`. */
+  TRANSCRIPT_SEGMENT: 'meetings:transcript-segment',
+  /** Detail: `{ name, downloaded, total }` — `total` 0 = indeterminate. */
+  MODEL_DOWNLOAD_PROGRESS: 'meetings:model-download-progress',
+  /** Detail: `{ app }`. */
+  CALL_DETECTED: 'meetings:call-detected',
+  CALL_ENDED: 'meetings:call-ended',
+  /** Emitted by the floating widget when its settings shortcut is
+   *  clicked — main window opens workspace Settings. */
+  OPEN_SETTINGS: 'meetings:open-settings',
+} as const;
+
 export const APP_EVENT = {
   TAB_CLOSE_PROMPT: 'clauge:tab-close-prompt',
   SQL_SAVE: 'clauge:sql-save',

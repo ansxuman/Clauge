@@ -5,6 +5,8 @@
     import { getCurrentWindow } from "@tauri-apps/api/window";
     import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
     import { LogicalSize } from "@tauri-apps/api/dpi";
+    import { MEETING_EVENT } from "$lib/shared/constants/events";
+    import { MEETING_MODEL_MISSING } from "$lib/modes/workspace/commands";
 
     type DetectStatus = {
         enabled: boolean;
@@ -118,7 +120,7 @@
         try {
             await invoke("workspace_meeting_start", { sourceApp });
         } catch (e) {
-            if (String(e) === "model_missing") {
+            if (String(e) === MEETING_MODEL_MISSING) {
                 phase = "model-missing";
             } else {
                 errorMsg = String(e);
@@ -162,7 +164,7 @@
     async function openSettings() {
         menuOpen = false;
         try {
-            await emit("meetings:open-settings");
+            await emit(MEETING_EVENT.OPEN_SETTINGS);
             const main = await WebviewWindow.getByLabel("main");
             if (main) {
                 await main.unminimize();
@@ -176,7 +178,7 @@
 
     onMount(async () => {
         unlistens = await Promise.all([
-            listen<{ app: string }>("meetings:call-detected", (e) => {
+            listen<{ app: string }>(MEETING_EVENT.CALL_DETECTED, (e) => {
                 if (phase === "recording") return;
                 sourceApp = e.payload.app;
                 errorMsg = null;
@@ -187,7 +189,7 @@
                 startedAt: string;
                 sourceApp: string | null;
                 systemAudio: boolean;
-            }>("meetings:recording-started", (e) => {
+            }>(MEETING_EVENT.RECORDING_STARTED, (e) => {
                 sourceApp = e.payload.sourceApp ?? sourceApp;
                 systemAudio = e.payload.systemAudio;
                 startedAtMs = Date.parse(e.payload.startedAt) || Date.now();
@@ -195,14 +197,14 @@
                 stopping = false;
                 phase = "recording";
             }),
-            listen("meetings:recording-warning", () => {
+            listen(MEETING_EVENT.RECORDING_WARNING, () => {
                 void refreshRecordingStatus();
             }),
-            listen("meetings:recording-stopped", () => {
+            listen(MEETING_EVENT.RECORDING_STOPPED, () => {
                 if (phase !== "recording") return;
                 getCurrentWindow().close().catch(() => {});
             }),
-            listen("meetings:recording-error", () => {
+            listen(MEETING_EVENT.RECORDING_ERROR, () => {
                 if (phase !== "recording") return;
                 getCurrentWindow().close().catch(() => {});
             }),

@@ -1,13 +1,17 @@
 import { invoke } from '@tauri-apps/api/core';
 import type {
   InboxItem,
+  MeetingDetectStatus,
   ProjectScanResult,
+  RecordingStatus,
+  WhisperModelInfo,
   Workspace,
   WorkspaceBoard,
   WorkspaceBoardCard,
   WorkspaceBoardColumn,
   WorkspaceCardComment,
   WorkspaceCoworker,
+  WorkspaceMeeting,
   WorkspaceNote,
 } from './types';
 
@@ -286,6 +290,54 @@ export const workspaceMcpUnregister = (agent?: string) =>
  *  port if the server isn't running yet). */
 export const workspaceMcpNewToken = (port: number) =>
   invoke<string>('workspace_mcp_new_token', { port });
+
+// ── Meetings ─────────────────────────────────────────────────────────
+
+/** Rows come back with `transcript` blanked to "[]" — use
+ *  `workspaceMeetingGet` to load the full transcript. */
+export const workspaceMeetingList = () =>
+  invoke<WorkspaceMeeting[]>('workspace_meeting_list');
+export const workspaceMeetingGet = (id: string) =>
+  invoke<WorkspaceMeeting>('workspace_meeting_get', { id });
+export const workspaceMeetingUpdateTitle = (id: string, title: string) =>
+  invoke<void>('workspace_meeting_update_title', { id, title });
+export const workspaceMeetingUpdateNotes = (id: string, notesMd: string) =>
+  invoke<void>('workspace_meeting_update_notes', { id, notesMd });
+export const workspaceMeetingDelete = (id: string) =>
+  invoke<void>('workspace_meeting_delete', { id });
+
+/** Exact error string `workspace_meeting_start` rejects with when the
+ *  requested whisper model isn't downloaded yet. */
+export const MEETING_MODEL_MISSING = 'model_missing';
+
+/** Resolves to the new meeting id. Omitted `model` / `language` fall
+ *  back to the recorder defaults server-side. */
+export const workspaceMeetingStart = (params: {
+  sourceApp?: string | null;
+  model?: string | null;
+  language?: string | null;
+} = {}) => invoke<string>('workspace_meeting_start', params);
+/** Resolves to the stopped meeting's id. */
+export const workspaceMeetingStop = () =>
+  invoke<string>('workspace_meeting_stop');
+export const workspaceMeetingRecordingStatus = () =>
+  invoke<RecordingStatus>('workspace_meeting_recording_status');
+
+export const workspaceMeetingModelsList = () =>
+  invoke<WhisperModelInfo[]>('workspace_meeting_models_list');
+export const workspaceMeetingModelDownload = (name: string) =>
+  invoke<void>('workspace_meeting_model_download', { name });
+export const workspaceMeetingModelDelete = (name: string) =>
+  invoke<void>('workspace_meeting_model_delete', { name });
+
+export const workspaceMeetingDetectSetEnabled = (enabled: boolean) =>
+  invoke<void>('workspace_meeting_detect_set_enabled', { enabled });
+export const workspaceMeetingDetectGetEnabled = () =>
+  invoke<boolean>('workspace_meeting_detect_get_enabled');
+export const workspaceMeetingDetectStatus = () =>
+  invoke<MeetingDetectStatus>('workspace_meeting_detect_status');
+export const workspaceMeetingDetectDismiss = () =>
+  invoke<void>('workspace_meeting_detect_dismiss');
 
 // ── Project issue scan ───────────────────────────────────────────────
 

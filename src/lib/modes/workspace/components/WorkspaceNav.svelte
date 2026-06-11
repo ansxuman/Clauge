@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { workspaces, loadWorkspaces, refreshInboxUnread, loadCoworkers } from '../stores';
+  import { workspaces, loadWorkspaces, refreshInboxUnread, loadCoworkers, loadMeetings, initMeetingListeners } from '../stores';
   import WorkspaceItem from './WorkspaceItem.svelte';
   import { WORKSPACE_EVENT } from '$lib/shared/constants/events';
 
@@ -14,6 +14,8 @@
     loadWorkspaces();
     refreshInboxUnread();
     loadCoworkers();
+    loadMeetings();
+    initMeetingListeners();
   });
 
   const filtered = $derived(

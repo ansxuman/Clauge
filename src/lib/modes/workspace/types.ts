@@ -174,6 +174,84 @@ export interface InboxItem {
   updatedAt: string;
 }
 
+// ── Meetings ──────────────────────────────────────────────────────────
+
+export interface WorkspaceMeeting {
+  id: string;
+  /** Nullable — meetings can be captured before being assigned to a
+   *  workspace, and survive workspace deletion (ON DELETE SET NULL). */
+  workspaceId: string | null;
+  title: string;
+  /** App the audio was captured from ('zoom', 'meet', …), when the
+   *  call detector identified one. */
+  sourceApp: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  /** Whisper language hint; 'auto' = detect. */
+  language: string;
+  /** JSON-encoded `TranscriptSegment[]` on the wire — parse with
+   *  `parseTranscript`. Blanked to "[]" by the list command; only
+   *  `workspace_meeting_get` returns the full transcript. */
+  transcript: string;
+  notesMd: string | null;
+  /** Provider/model that generated `notesMd`. All three notes* fields
+   *  stay null on manual edits — only AI generation stamps them. */
+  notesProvider: string | null;
+  notesModel: string | null;
+  notesGeneratedAt: string | null;
+  status: 'recording' | 'transcribed' | 'notes_ready' | (string & {});
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One transcribed chunk of meeting audio — element of the JSON array
+ *  in `WorkspaceMeeting.transcript`. */
+export interface TranscriptSegment {
+  startMs: number;
+  endMs: number;
+  /** Audio origin. */
+  source: 'mic' | 'system' | (string & {});
+  text: string;
+}
+
+/** Parse a meeting's transcript wire string. Falls back to `[]` on
+ *  malformed JSON or a non-array payload. */
+export function parseTranscript(m: Pick<WorkspaceMeeting, 'transcript'>): TranscriptSegment[] {
+  try {
+    const parsed = JSON.parse(m.transcript);
+    return Array.isArray(parsed) ? (parsed as TranscriptSegment[]) : [];
+  } catch { return []; }
+}
+
+/** Mirror of Rust's `RecorderStatus`. */
+export interface RecordingStatus {
+  recording: boolean;
+  /** True while a stop is in flight: capture handles already taken but
+   *  the pipeline is still finalizing. */
+  stopping: boolean;
+  meetingId: string | null;
+  startedAt: string | null;
+  sourceApp: string | null;
+  systemAudio: boolean;
+  elapsedSecs: number;
+}
+
+/** Mirror of Rust's whisper `ModelInfo` catalog row. */
+export interface WhisperModelInfo {
+  name: string;
+  sizeMb: number;
+  multilingual: boolean;
+  downloaded: boolean;
+}
+
+/** Mirror of Rust's `DetectStatus` — call-detection snapshot. */
+export interface MeetingDetectStatus {
+  enabled: boolean;
+  /** Lowercase `MeetingApp` variant when a call is active. */
+  app: 'zoom' | 'teams' | 'webex' | 'discord' | 'slack' | 'browser' | null;
+  active: boolean;
+}
+
 export type ProjectScanResult =
   | { kind: 'success'; issues: ProjectIssue[]; remote: string; source: string }
   | { kind: 'notGitRepo' }

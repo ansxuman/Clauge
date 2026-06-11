@@ -3,16 +3,22 @@
 // don't have to thread the actor argument every time.
 
 import { writable, derived, get } from 'svelte/store';
+import { listen } from '@tauri-apps/api/event';
 import type {
+  RecordingStatus,
+  TranscriptSegment,
   Workspace,
   WorkspaceBoard,
   WorkspaceBoardCard,
   WorkspaceBoardColumn,
+  WorkspaceMeeting,
   WorkspaceNote,
 } from './types';
 import type { WorkspaceCoworker } from './types';
 import * as cmd from './commands';
 import { currentUserActor } from './attribution';
+import { showToast } from '$lib/shared/primitives/toast';
+import { MEETING_EVENT } from '$lib/shared/constants/events';
 
 // ── List + active selection ───────────────────────────────────────────
 
@@ -387,4 +393,144 @@ export async function deleteBoard(boardId: string, workspaceId: string) {
     next.delete(boardId);
     return next;
   });
+}
+
+// ── Meetings ──────────────────────────────────────────────────────────
+// One global list (meetings aren't strictly workspace-scoped — rows
+// survive workspace deletion). Selection reuses the tab system: T12's
+// MeetingView receives its id from a `meeting:<id>` tab key, mirroring
+// NoteView / BoardView.
+
+export const meetings = writable<WorkspaceMeeting[]>([]);
+
+export async function loadMeetings() {
+  try {
+    meetings.set(await cmd.workspaceMeetingList());
+  } catch (e) {
+    console.error('Failed to load meetings:', e);
+  }
+}
+
+/** Recorder snapshot — statusbar indicator + MeetingView subscribe.
+ *  Refreshed from the backend on init and on every started/stopped
+ *  event; elapsed time between refreshes is derived in the UI from
+ *  `startedAt`. */
+export const recordingStatus = writable<RecordingStatus>({
+  recording: false,
+  stopping: false,
+  meetingId: null,
+  startedAt: null,
+  sourceApp: null,
+  systemAudio: false,
+  elapsedSecs: 0,
+});
+
+export async function loadRecordingStatus() {
+  try {
+    recordingStatus.set(await cmd.workspaceMeetingRecordingStatus());
+  } catch { /* ignore */ }
+}
+
+/** Segments streamed while a recording is live, keyed by meeting id.
+ *  An open MeetingView renders `parseTranscript(meeting)` + this list.
+ *  The stop-event handler below clears the entry itself after
+ *  `loadMeetings()` resolves (the refetched row then contains every
+ *  segment), so entries can't leak when no view is open. Also cleared
+ *  when a new recording starts for the same meeting. */
+export const liveSegmentsByMeeting = writable<Map<string, TranscriptSegment[]>>(new Map());
+
+export function clearLiveSegments(meetingId: string) {
+  liveSegmentsByMeeting.update((m) => {
+    if (!m.has(meetingId)) return m;
+    const next = new Map(m);
+    next.delete(meetingId);
+    return next;
+  });
+}
+
+/** In-flight whisper model downloads: name → progress. `total` 0 =
+ *  indeterminate (server omitted Content-Length). Entries are removed
+ *  on completion, so presence in the map means "downloading" — T13's
+ *  models list keys its progress bars off this. */
+export const modelDownloadProgress = writable<Map<string, { downloaded: number; total: number }>>(
+  new Map(),
+);
+
+/** Start a whisper model download. Always use this over calling the
+ *  command directly: the finally clears the progress entry whether the
+ *  download succeeds, fails, or the final 100% event never arrives. */
+export async function downloadModel(name: string): Promise<void> {
+  try {
+    await cmd.workspaceMeetingModelDownload(name);
+  } finally {
+    modelDownloadProgress.update((m) => {
+      if (!m.has(name)) return m;
+      const next = new Map(m);
+      next.delete(name);
+      return next;
+    });
+  }
+}
+
+let meetingListenersStarted = false;
+
+/** Bind the meeting backend events once per app lifetime. Idempotent —
+ *  every surface that depends on the stores above (WorkspaceNav boot,
+ *  statusbar indicator) can call it safely. Listeners are global and
+ *  never unbound: the stores they feed outlive any one component. */
+export async function initMeetingListeners() {
+  if (meetingListenersStarted) return;
+  meetingListenersStarted = true;
+  loadRecordingStatus();
+  try {
+    await Promise.all([
+      listen<{ meetingId: string }>(MEETING_EVENT.RECORDING_STARTED, (e) => {
+        clearLiveSegments(e.payload.meetingId);
+        loadMeetings();
+        loadRecordingStatus();
+      }),
+      listen<{ meetingId: string }>(MEETING_EVENT.RECORDING_STOPPED, async (e) => {
+        loadRecordingStatus();
+        // Clear AFTER the refetch lands so an open MeetingView swaps to
+        // the full transcript row without a flash of missing segments.
+        await loadMeetings();
+        clearLiveSegments(e.payload.meetingId);
+      }),
+      listen<{ meetingId: string; segment: TranscriptSegment }>(
+        MEETING_EVENT.TRANSCRIPT_SEGMENT,
+        (e) => {
+          liveSegmentsByMeeting.update((m) => {
+            const next = new Map(m);
+            next.set(e.payload.meetingId, [...(next.get(e.payload.meetingId) ?? []), e.payload.segment]);
+            return next;
+          });
+        },
+      ),
+      listen<{ meetingId: string; message: string }>(MEETING_EVENT.RECORDING_ERROR, (e) => {
+        showToast(e.payload.message, 'error');
+        loadMeetings();
+        loadRecordingStatus();
+      }),
+      listen<{ meetingId: string; message: string }>(MEETING_EVENT.RECORDING_WARNING, (e) => {
+        showToast(e.payload.message, 'info');
+      }),
+      listen<{ name: string; downloaded: number; total: number }>(
+        MEETING_EVENT.MODEL_DOWNLOAD_PROGRESS,
+        (e) => {
+          const { name, downloaded, total } = e.payload;
+          modelDownloadProgress.update((m) => {
+            const next = new Map(m);
+            if (total > 0 && downloaded >= total) next.delete(name);
+            else next.set(name, { downloaded, total });
+            return next;
+          });
+        },
+      ),
+    ]);
+  } catch (e) {
+    // Allow a later call to retry registration instead of permanently
+    // running without listeners.
+    meetingListenersStarted = false;
+    console.warn('meeting event listen failed:', e);
+  }
 }
