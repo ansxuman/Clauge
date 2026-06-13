@@ -159,11 +159,10 @@ jobs:
 
       - name: Build app
         # tauri-action with no tagName just runs tauri build — no release is
-        # created. macOS bundles are Developer ID-signed (stable TCC identity
-        # for mic/system-audio permission grants) but NOT notarized — DMGs
-        # still trigger Gatekeeper warnings; Windows NSIS triggers SmartScreen.
-        # Fine for verifying the bundler. Notarized builds come from
-        # publish.yml when you tag a release.
+        # created. Signs AND notarizes the macOS bundle (same Apple env as
+        # publish.yml) so this pre-release smoke test matches the shipped
+        # artifact: a notarized, Gatekeeper-clean DMG. Windows NSIS still
+        # trips SmartScreen (no EV cert) — unchanged.
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -172,6 +171,9 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           args: ${{ matrix.args }}
 
