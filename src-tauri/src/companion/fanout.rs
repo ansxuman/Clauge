@@ -4,24 +4,29 @@
 // statics (same shape as cloud/scheduler.rs) because the publishers are
 // the PTY reader threads / russh tasks, which have no AppHandle.
 //
-// Resize rule (desktop-authoritative): the desktop's viewport drives the
-// PTY. Phones NEVER resize it — resizing the shared PTY makes agent TUIs
-// (Codex/Antigravity/OpenCode) redraw at the phone's width and breaks them.
-// The phone instead adopts the desktop's reported size and renders that
-// desktop view fitted-to-width with native pinch-zoom. With no desktop
-// attached (a phone-only session), the PTY falls back to the min over the
-// remaining clients so a phone-spawned session is still usable.
-// Recomputed on attach/detach/resize; `set_client_size`/`remove_client`
-// return the new effective size only when it actually changed, so
-// callers never fire redundant resizes.
+// Resize rule (phone-authoritative when a phone is the active driver):
+// while a phone is attached and the desktop isn't focused on this session,
+// the shared PTY adopts the PHONE's fit size (smallest fits all phones).
+// The desktop reclaims its size when the phone leaves (after a detach
+// grace) OR the moment the desktop is focused on the session. All size
+// application + the client size-echo flow through `reconcile`, the single
+// chokepoint: it diffs the desired size against the applied size and, when
+// they differ, resizes the real PTY master through the terminal registry
+// and broadcasts a `FanoutEvent::Size` so every client renders at it.
+// Debounced both ends (detach grace + blur debounce) so blips/app-switches
+// don't thrash. The PTY resize + broadcast NEVER run under the hubs lock.
 
 use parking_lot::Mutex;
+use portable_pty::PtySize;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{broadcast, mpsc};
+
+use crate::modes::agent::models::TerminalState;
+use crate::modes::ssh::models::{SshCommand, SshTerminalState};
 
 /// Client id the desktop registers its viewport under.
 pub const DESKTOP_CLIENT: &str = "desktop";
@@ -60,7 +65,25 @@ pub enum TermKind {
 pub enum FanoutEvent {
     Out(Vec<u8>),
     Exit,
+    /// The reconcile chokepoint resized the PTY: every client must render
+    /// at this (cols, rows). ws.rs forwards it as a `{t:"size"}` message —
+    /// the same wire shape the desktop emits on its own resizes.
+    Size(u16, u16),
 }
+
+/// Grace after the last phone detaches before the desktop reclaims its
+/// size — absorbs network blips and quick app-switches without flapping.
+/// Public so ws.rs can schedule the post-grace reconcile with it.
+pub const DETACH_GRACE: Duration = Duration::from_secs(4);
+
+/// How long desktop ownership survives a blur, so a transient focus loss
+/// (alt-tab, clicking a dialog) doesn't hand the PTY to the phone.
+pub const BLUR_DEBOUNCE: Duration = Duration::from_secs(3);
+
+/// Safe floor for any size we push to a PTY. Phones reporting zero/garbage
+/// dimensions are ignored upstream; this clamps the rest.
+const MIN_COLS: u16 = 10;
+const MIN_ROWS: u16 = 4;
 
 /// Push-dispatch signals fanout hands to `push.rs`. Kept minimal so
 /// fanout stays decoupled from the Worker/cloud plumbing: it reports
@@ -100,6 +123,21 @@ struct TermHub {
     /// disabled for this hub (the hook is authoritative — the heuristic must
     /// not fight it). Reset to false on `register` for a fresh hub.
     hook_driven: bool,
+    /// The desktop is focused on this session right now. While true the
+    /// desktop owns the PTY size (the scenario-8 reclaim).
+    desktop_focused: bool,
+    /// When the desktop last blurred this session. Desktop ownership is
+    /// held until `blur_at + BLUR_DEBOUNCE` so a flicker doesn't hand off.
+    blur_at: Option<Instant>,
+    /// The most recent phone-owned size, held through the detach grace so a
+    /// reconnecting phone re-adopts it instantly (no wide→narrow churn).
+    last_phone_size: Option<(u16, u16)>,
+    /// When the last phone detached (no phones remaining). The detach grace
+    /// runs from here.
+    last_phone_detach_at: Option<Instant>,
+    /// The size currently pushed to the PTY master. `reconcile` is a no-op
+    /// when the desired size already equals this.
+    applied_size: Option<(u16, u16)>,
 }
 
 /// Everything a WS connection needs at attach time, captured under one
@@ -186,6 +224,8 @@ fn phone_attached(hub: &TermHub) -> bool {
 }
 
 /// Register a WS viewer (phone) on attach. No-op if the hub is gone.
+/// Pure state mutation — the caller fires `reconcile_now` so the PTY
+/// adopts the new phone's size.
 pub fn add_viewer(terminal_id: &str, client_id: &str) {
     let mut map = hubs().lock();
     if let Some(hub) = map.get_mut(terminal_id) {
@@ -193,11 +233,21 @@ pub fn add_viewer(terminal_id: &str, client_id: &str) {
     }
 }
 
-/// Forget a WS viewer on every detach path. No-op if the hub is gone.
+/// Forget a WS viewer on every detach path. If no phone remains, stamp
+/// `last_phone_detach_at` so the detach grace runs (keeping
+/// `last_phone_size` for an instant reconnect). No-op if the hub is gone.
+/// The caller fires `reconcile_now` + `reconcile_after(DETACH_GRACE)`.
 pub fn remove_viewer(terminal_id: &str, client_id: &str) {
     let mut map = hubs().lock();
     if let Some(hub) = map.get_mut(terminal_id) {
         hub.viewers.remove(client_id);
+        let phones_left = hub
+            .viewers
+            .iter()
+            .any(|c| c.as_str() != DESKTOP_CLIENT);
+        if !phones_left {
+            hub.last_phone_detach_at = Some(Instant::now());
+        }
     }
 }
 
@@ -366,23 +416,91 @@ fn matches_prompt_phrases(text: &str) -> bool {
         || lower.contains("yes, and don")
 }
 
-/// The PTY size the hub should be driven at, given every client's
-/// reported viewport.
+/// Clamp a candidate size to the safe PTY floor.
+fn clamp_size((c, r): (u16, u16)) -> (u16, u16) {
+    (c.max(MIN_COLS), r.max(MIN_ROWS))
+}
+
+/// A size is usable only if both dimensions are non-zero — phones can
+/// briefly report a 0 fit before their container has real width.
+fn valid_size((c, r): (u16, u16)) -> bool {
+    c > 0 && r > 0
+}
+
+/// The min (cols, rows) across every attached phone with a reported,
+/// non-garbage size. None if no phone qualifies.
+fn min_phone_size(hub: &TermHub) -> Option<(u16, u16)> {
+    hub.viewers
+        .iter()
+        .filter(|c| c.as_str() != DESKTOP_CLIENT)
+        .filter_map(|c| hub.sizes.get(c).copied())
+        .filter(|&s| valid_size(s))
+        .reduce(|(ac, ar), (c, r)| (ac.min(c), ar.min(r)))
+}
+
+/// The PTY size the hub should be driven at right now — phone-authoritative
+/// when a phone is the active driver.
 ///
-/// Desktop-authoritative: the desktop's size drives the PTY. Phones never
-/// resize it (resizing the shared PTY makes agent TUIs redraw at the phone's
-/// width and breaks them); the phone adopts the desktop size and renders it
-/// fitted-to-width with native pinch-zoom. With no desktop attached, fall
-/// back to the min over the remaining clients (phone-only edge case).
-fn effective(sizes: &HashMap<String, (u16, u16)>) -> Option<(u16, u16)> {
-    // Desktop-authoritative: the desktop's size drives the PTY. Phones NEVER
-    // resize it (resizing the shared PTY makes agent TUIs redraw at the phone's
-    // width and breaks them). With no desktop attached, fall back to min over
-    // the remaining clients.
-    if let Some(&d) = sizes.get(DESKTOP_CLIENT) {
-        return Some(d);
+/// - The desktop keeps ownership while focused, and through the blur
+///   debounce after losing focus (desktop present/focused wins — scenario 8).
+/// - Otherwise an attached phone owns the size: the min over all phones, so
+///   the smallest viewport fits all. Cached in `last_phone_size`.
+/// - When the last phone has just left, the held phone size is kept through
+///   the detach grace so a quick reconnect re-adopts it instantly.
+/// - Otherwise the desktop's size drives the PTY (default / fully restored).
+///
+/// Mutates `last_phone_size` / honours `last_phone_detach_at`, so it takes
+/// `&mut TermHub`. Result is clamped to the safe floor.
+fn desired_size(hub: &mut TermHub, now: Instant) -> Option<(u16, u16)> {
+    let desktop = hub.sizes.get(DESKTOP_CLIENT).copied();
+
+    let effective_focused = hub.desktop_focused
+        || hub
+            .blur_at
+            .map_or(false, |t| now < t + BLUR_DEBOUNCE);
+
+    if effective_focused {
+        return desktop.map(clamp_size);
     }
-    sizes.values().copied().reduce(|(ac, ar), (c, r)| (ac.min(c), ar.min(r)))
+
+    if let Some(phone) = min_phone_size(hub) {
+        hub.last_phone_size = Some(phone);
+        return Some(clamp_size(phone));
+    }
+
+    let in_grace = hub
+        .last_phone_detach_at
+        .map_or(false, |t| now < t + DETACH_GRACE);
+    if in_grace {
+        if let Some(held) = hub.last_phone_size {
+            return Some(clamp_size(held));
+        }
+    }
+
+    desktop.map(clamp_size)
+}
+
+/// Read-only desired size for snapshot callers (attach). Mirrors
+/// `desired_size` but without mutating `last_phone_size`.
+fn desired_size_readonly(hub: &TermHub, now: Instant) -> Option<(u16, u16)> {
+    let desktop = hub.sizes.get(DESKTOP_CLIENT).copied();
+    let effective_focused = hub.desktop_focused
+        || hub.blur_at.map_or(false, |t| now < t + BLUR_DEBOUNCE);
+    if effective_focused {
+        return desktop.map(clamp_size);
+    }
+    if let Some(phone) = min_phone_size(hub) {
+        return Some(clamp_size(phone));
+    }
+    let in_grace = hub
+        .last_phone_detach_at
+        .map_or(false, |t| now < t + DETACH_GRACE);
+    if in_grace {
+        if let Some(held) = hub.last_phone_size {
+            return Some(clamp_size(held));
+        }
+    }
+    desktop.map(clamp_size)
 }
 
 /// Create the hub for a freshly spawned terminal. Must run before the
@@ -402,6 +520,11 @@ pub fn register(terminal_id: &str, kind: TermKind, title: &str) {
             notified: false,
             viewers: HashSet::new(),
             hook_driven: false,
+            desktop_focused: false,
+            blur_at: None,
+            last_phone_size: None,
+            last_phone_detach_at: None,
+            applied_size: None,
         },
     );
 }
@@ -502,7 +625,7 @@ pub fn attach(terminal_id: &str) -> Option<Attached> {
         scrollback: [a, b].concat(),
         rx: hub.tx.subscribe(),
         kind: hub.kind,
-        effective_size: effective(&hub.sizes),
+        effective_size: desired_size_readonly(hub, Instant::now()),
     })
 }
 
@@ -512,39 +635,134 @@ pub fn attach(terminal_id: &str) -> Option<Attached> {
 #[allow(dead_code)]
 pub fn effective_size(terminal_id: &str) -> Option<(u16, u16)> {
     let map = hubs().lock();
-    effective(&map.get(terminal_id)?.sizes)
+    desired_size_readonly(map.get(terminal_id)?, Instant::now())
 }
 
-/// Record a client's viewport. Returns the new effective size only if
-/// it differs from the previous effective size — the caller applies
-/// the PTY resize exactly then, so a desktop-only terminal sees the
-/// same resize cadence it does today.
-pub fn set_client_size(terminal_id: &str, client: &str, cols: u16, rows: u16) -> Option<(u16, u16)> {
+/// Record a client's viewport. Pure state mutation — application of the
+/// PTY resize is the caller's `reconcile_now` (the single chokepoint).
+/// No-op if the hub is gone.
+pub fn set_client_size(terminal_id: &str, client: &str, cols: u16, rows: u16) {
     let mut map = hubs().lock();
-    let hub = map.get_mut(terminal_id)?;
-    let before = effective(&hub.sizes);
-    hub.sizes.insert(client.to_string(), (cols, rows));
-    let after = effective(&hub.sizes);
-    if after != before {
-        after
-    } else {
-        None
+    if let Some(hub) = map.get_mut(terminal_id) {
+        hub.sizes.insert(client.to_string(), (cols, rows));
     }
 }
 
-/// Forget a detached client. Returns the new effective size only if it
-/// changed AND at least one client remains (nothing to apply when the
-/// last client leaves).
-pub fn remove_client(terminal_id: &str, client: &str) -> Option<(u16, u16)> {
+/// Forget a detached client's recorded viewport. Pure state mutation;
+/// the caller fires `reconcile_now`. No-op if the hub is gone.
+pub fn remove_client(terminal_id: &str, client: &str) {
     let mut map = hubs().lock();
-    let hub = map.get_mut(terminal_id)?;
-    let before = effective(&hub.sizes);
-    hub.sizes.remove(client);
-    let after = effective(&hub.sizes);
-    if after != before {
-        after
-    } else {
-        None
+    if let Some(hub) = map.get_mut(terminal_id) {
+        hub.sizes.remove(client);
+    }
+}
+
+/// Set the desktop-focus flag for a session. On focus → instant reclaim
+/// of the desktop size. On blur → stamp `blur_at` so ownership survives
+/// the debounce. The caller fires the reconcile (now on focus,
+/// after BLUR_DEBOUNCE on blur). No-op if the hub is gone.
+pub fn set_desktop_focused(terminal_id: &str, focused: bool) {
+    let mut map = hubs().lock();
+    if let Some(hub) = map.get_mut(terminal_id) {
+        hub.desktop_focused = focused;
+        if !focused {
+            hub.blur_at = Some(Instant::now());
+        }
+    }
+}
+
+/// True if the hub exists (so a command can skip its reconcile/spawn for a
+/// stale terminal id).
+pub fn hub_exists(terminal_id: &str) -> bool {
+    hubs().lock().contains_key(terminal_id)
+}
+
+// ---------------------------------------------------------------------------
+// reconcile — the single size-application chokepoint.
+// ---------------------------------------------------------------------------
+
+/// Compute the desired size for a terminal and, if it differs from the
+/// size currently applied to the PTY, push the resize and broadcast the
+/// new size to every client. Idempotent: desired == applied → no-op.
+///
+/// The PTY resize and the broadcast are performed with the hubs lock
+/// DROPPED — only the desired/applied diff happens under the lock.
+pub fn reconcile_now(terminal_id: &str) {
+    let to_apply = {
+        let mut map = hubs().lock();
+        let Some(hub) = map.get_mut(terminal_id) else {
+            return;
+        };
+        let desired = desired_size(hub, Instant::now());
+        match desired {
+            Some(size) if Some(size) != hub.applied_size => {
+                hub.applied_size = Some(size);
+                Some((hub.kind, size))
+            }
+            // No desired size yet (no client reported one), or already
+            // applied — nothing to do.
+            _ => None,
+        }
+    };
+    if let Some((kind, (cols, rows))) = to_apply {
+        apply_pty_resize(terminal_id, kind, cols, rows);
+        broadcast_size(terminal_id, cols, rows);
+    }
+}
+
+/// `reconcile_now` after `delay`. Spawns a tokio task on the companion
+/// runtime (mirrors how push.rs spawns). Used for the detach grace and
+/// the blur debounce, where the desired size only changes once a timer
+/// elapses. No-op if no tokio runtime / hub is gone by then.
+pub fn reconcile_after(terminal_id: &str, delay: Duration) {
+    let id = terminal_id.to_string();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(delay).await;
+        reconcile_now(&id);
+    });
+}
+
+/// Resize the real PTY master through the terminal registry — the same
+/// path the desktop resize commands use (agent: `master.resize`; ssh:
+/// `SshCommand::Resize`). Reaches the registries via the desktop
+/// AppHandle stashed in `set_app_handle`. No-op if the handle/entry is
+/// gone. MUST be called with the hubs lock dropped.
+fn apply_pty_resize(terminal_id: &str, kind: TermKind, cols: u16, rows: u16) {
+    let guard = app_handle().lock();
+    let Some(app) = guard.as_ref() else {
+        return;
+    };
+    match kind {
+        TermKind::Agent => {
+            let state = app.state::<TerminalState>();
+            let map = state.terminals.lock();
+            if let Some(entry) = map.get(terminal_id) {
+                let _ = entry.master.resize(PtySize {
+                    rows,
+                    cols,
+                    pixel_width: 0,
+                    pixel_height: 0,
+                });
+            }
+        }
+        TermKind::Ssh => {
+            let state = app.state::<SshTerminalState>();
+            let map = state.terminals.lock();
+            if let Some(entry) = map.get(terminal_id) {
+                let _ = entry.handle_tx.send(SshCommand::Resize { cols, rows });
+            }
+        }
+    }
+}
+
+/// Broadcast the applied size to every WS client through the fan-out
+/// channel; ws.rs turns it into a `{t:"size"}` message (the same wire
+/// shape the desktop already emits). MUST be called with the hubs lock
+/// dropped (broadcast::send never blocks, but we keep the invariant).
+fn broadcast_size(terminal_id: &str, cols: u16, rows: u16) {
+    let map = hubs().lock();
+    if let Some(hub) = map.get(terminal_id) {
+        let _ = hub.tx.send(FanoutEvent::Size(cols, rows));
     }
 }
 
@@ -636,108 +854,148 @@ mod tests {
         unregister(id);
     }
 
-    #[test]
-    fn desktop_authoritative_phone_never_changes_pty_size() {
-        let id = "fanout-test-size";
-        register(id, TermKind::Ssh, "test");
-        assert_eq!(effective_size(id), None);
-
-        // Desktop-only: its size is the effective size.
-        assert_eq!(
-            set_client_size(id, DESKTOP_CLIENT, 120, 40),
-            Some((120, 40))
-        );
-        // Same size again → no change → no resize to fire.
-        assert_eq!(set_client_size(id, DESKTOP_CLIENT, 120, 40), None);
-
-        // Phone attaches with a SMALLER viewport: it must NOT change the
-        // effective size — the desktop stays authoritative.
-        assert_eq!(set_client_size(id, "phone-1", 80, 24), None);
-        assert_eq!(effective_size(id), Some((120, 40)));
-
-        // A second, larger phone: still no effect on the PTY size.
-        assert_eq!(set_client_size(id, "phone-2", 200, 50), None);
-        assert_eq!(effective_size(id), Some((120, 40)));
-
-        // Phones leave → desktop size unchanged throughout.
-        assert_eq!(remove_client(id, "phone-2"), None);
-        assert_eq!(remove_client(id, "ghost"), None);
-        assert_eq!(remove_client(id, "phone-1"), None);
-        assert_eq!(effective_size(id), Some((120, 40)));
-
-        // The desktop's own resize still drives the PTY exactly.
-        assert_eq!(set_client_size(id, DESKTOP_CLIENT, 100, 30), Some((100, 30)));
-
-        // Desktop leaves last → empty, nothing to apply.
-        assert_eq!(remove_client(id, DESKTOP_CLIENT), None);
-        assert_eq!(effective_size(id), None);
-
-        // Unknown terminal → None everywhere.
-        assert_eq!(set_client_size("nope", "x", 1, 1), None);
-        unregister(id);
+    /// Build a bare in-memory hub for pure `desired_size` testing — no
+    /// global map, no runtime, no PTY. Just the fields the resolver reads.
+    fn test_hub() -> TermHub {
+        let (tx, _) = broadcast::channel(BROADCAST_CAP);
+        TermHub {
+            tx,
+            scrollback: VecDeque::new(),
+            sizes: HashMap::new(),
+            kind: TermKind::Agent,
+            title: String::new(),
+            last_output: Instant::now(),
+            prompt_flag: false,
+            notified: false,
+            viewers: HashSet::new(),
+            hook_driven: false,
+            desktop_focused: false,
+            blur_at: None,
+            last_phone_size: None,
+            last_phone_detach_at: None,
+            applied_size: None,
+        }
     }
 
-    /// A phone that is taller or wider than the desktop must NOT enlarge the
-    /// PTY: the desktop's size is authoritative so agent TUIs never redraw at
-    /// the phone's dimensions. The phone adopts the desktop view fitted-to-width.
-    #[test]
-    fn phone_does_not_resize_when_larger_than_desktop() {
-        let id = "fanout-test-size-phone-taller";
-        register(id, TermKind::Ssh, "test");
-
-        // Desktop is narrow and SHORT (e.g. a half-height window).
-        assert_eq!(set_client_size(id, DESKTOP_CLIENT, 120, 20), Some((120, 20)));
-
-        // Phone attaches with more rows than the desktop → no change: the
-        // desktop stays authoritative.
-        assert_eq!(set_client_size(id, "phone-1", 80, 40), None);
-        assert_eq!(effective_size(id), Some((120, 20)));
-
-        // Phone detaches → desktop size unchanged.
-        assert_eq!(remove_client(id, "phone-1"), None);
-        assert_eq!(effective_size(id), Some((120, 20)));
-
-        unregister(id);
+    /// Record a phone as both a viewer and a sized client (what attach +
+    /// resize do together).
+    fn attach_phone(hub: &mut TermHub, id: &str, cols: u16, rows: u16) {
+        hub.viewers.insert(id.to_string());
+        hub.sizes.insert(id.to_string(), (cols, rows));
     }
 
     #[test]
-    fn effective_size_is_phone_size_when_no_desktop() {
-        let id = "fanout-test-size-phone-only";
-        register(id, TermKind::Ssh, "test");
+    fn desired_desktop_only() {
+        let now = Instant::now();
+        let mut hub = test_hub();
+        // No client reported a size yet.
+        assert_eq!(desired_size(&mut hub, now), None);
+        // Desktop reports → desktop drives the PTY (today's behavior).
+        hub.sizes.insert(DESKTOP_CLIENT.to_string(), (120, 40));
+        assert_eq!(desired_size(&mut hub, now), Some((120, 40)));
+    }
 
-        // No desktop tab: the phone's size defines the PTY so a
-        // phone-spawned session is still usable.
-        assert_eq!(set_client_size(id, "phone-1", 80, 24), Some((80, 24)));
+    #[test]
+    fn desired_phone_attached_owns_size() {
+        let now = Instant::now();
+        let mut hub = test_hub();
+        hub.sizes.insert(DESKTOP_CLIENT.to_string(), (120, 40));
+        attach_phone(&mut hub, "phone-1", 80, 24);
+        // Desktop unfocused → the phone's (smaller) size owns the PTY.
+        assert_eq!(desired_size(&mut hub, now), Some((80, 24)));
+        // And it's cached for the detach grace.
+        assert_eq!(hub.last_phone_size, Some((80, 24)));
+    }
+
+    #[test]
+    fn desired_phone_plus_focused_desktop_wins() {
+        let now = Instant::now();
+        let mut hub = test_hub();
+        hub.sizes.insert(DESKTOP_CLIENT.to_string(), (120, 40));
+        attach_phone(&mut hub, "phone-1", 80, 24);
+        // Desktop focused on the session → it reclaims (scenario 8).
+        hub.desktop_focused = true;
+        assert_eq!(desired_size(&mut hub, now), Some((120, 40)));
+    }
+
+    #[test]
+    fn desired_two_phones_min() {
+        let now = Instant::now();
+        let mut hub = test_hub();
+        hub.sizes.insert(DESKTOP_CLIENT.to_string(), (200, 60));
+        // phone-1=(80,24), phone-2=(60,30) → min cols/rows = (60,24).
+        attach_phone(&mut hub, "phone-1", 80, 24);
+        attach_phone(&mut hub, "phone-2", 60, 30);
+        assert_eq!(desired_size(&mut hub, now), Some((60, 24)));
+    }
+
+    #[test]
+    fn desired_detach_grace_holds_phone_size() {
+        let now = Instant::now();
+        let mut hub = test_hub();
+        hub.sizes.insert(DESKTOP_CLIENT.to_string(), (120, 40));
+        // A phone owned the PTY, then detached just now (no phones left).
+        hub.last_phone_size = Some((80, 24));
+        hub.last_phone_detach_at = Some(now);
+        // Within the grace → hold the phone size (quick reconnect = no churn).
+        assert_eq!(desired_size(&mut hub, now), Some((80, 24)));
+        // Past the grace → desktop reclaims.
+        let later = now + DETACH_GRACE + Duration::from_secs(1);
+        assert_eq!(desired_size(&mut hub, later), Some((120, 40)));
+    }
+
+    #[test]
+    fn desired_blur_debounce_holds_desktop() {
+        let now = Instant::now();
+        let mut hub = test_hub();
+        hub.sizes.insert(DESKTOP_CLIENT.to_string(), (120, 40));
+        attach_phone(&mut hub, "phone-1", 80, 24);
+        // Desktop just blurred (not focused, but within the debounce).
+        hub.desktop_focused = false;
+        hub.blur_at = Some(now);
+        // Within the debounce → desktop keeps ownership despite the phone.
+        assert_eq!(desired_size(&mut hub, now), Some((120, 40)));
+        // Past the debounce → the still-attached phone takes over.
+        let later = now + BLUR_DEBOUNCE + Duration::from_secs(1);
+        assert_eq!(desired_size(&mut hub, later), Some((80, 24)));
+    }
+
+    #[test]
+    fn desired_clamps_and_ignores_garbage() {
+        let now = Instant::now();
+        let mut hub = test_hub();
+        hub.sizes.insert(DESKTOP_CLIENT.to_string(), (120, 40));
+        // A phone reporting a zero dimension is ignored → desktop stays.
+        attach_phone(&mut hub, "phone-bad", 0, 24);
+        assert_eq!(desired_size(&mut hub, now), Some((120, 40)));
+        // A tiny-but-valid phone size is clamped to the safe floor.
+        attach_phone(&mut hub, "phone-tiny", 2, 1);
+        assert_eq!(desired_size(&mut hub, now), Some((MIN_COLS, MIN_ROWS)));
+    }
+
+    #[test]
+    fn effective_size_reflects_phone_when_attached() {
+        let id = "fanout-test-size-eff";
+        register(id, TermKind::Ssh, "test");
+        assert_eq!(effective_size(id), None);
+
+        // Desktop-only → desktop size.
+        set_client_size(id, DESKTOP_CLIENT, 120, 40);
+        assert_eq!(effective_size(id), Some((120, 40)));
+
+        // Phone attaches (viewer + size) → phone owns the size.
+        add_viewer(id, "phone-1");
+        set_client_size(id, "phone-1", 80, 24);
         assert_eq!(effective_size(id), Some((80, 24)));
 
-        // A second phone: min over phones (both cols and rows).
-        // phone-1=(80,24), phone-2=(60,30) → min=(60,24).
-        assert_eq!(set_client_size(id, "phone-2", 60, 30), Some((60, 24)));
-        assert_eq!(effective_size(id), Some((60, 24)));
-
-        // phone-2 leaves → only phone-1 remains, effective relaxes back.
-        assert_eq!(remove_client(id, "phone-2"), Some((80, 24)));
-        unregister(id);
-    }
-
-    #[test]
-    fn desktop_size_is_stable_through_phone_churn() {
-        let id = "fanout-test-size-churn";
-        register(id, TermKind::Agent, "test");
-
-        assert_eq!(set_client_size(id, DESKTOP_CLIENT, 150, 45), Some((150, 45)));
-
-        // Phones attach, resize, and join in any combination → none of it
-        // moves the PTY size off the desktop's.
-        assert_eq!(set_client_size(id, "phone-1", 40, 20), None);
-        assert_eq!(set_client_size(id, "phone-1", 200, 80), None);
-        assert_eq!(set_client_size(id, "phone-2", 30, 10), None);
-        assert_eq!(effective_size(id), Some((150, 45)));
-
-        // Phones detach in any order → desktop size unchanged throughout.
-        assert_eq!(remove_client(id, "phone-1"), None);
-        assert_eq!(remove_client(id, "phone-2"), None);
-        assert_eq!(effective_size(id), Some((150, 45)));
+        // Phone leaves (viewer + size gone). `last_phone_size` is only
+        // cached by the mutating reconcile path, not the read-only
+        // `effective_size`, so with no phone present the desktop size is
+        // the snapshot value here (the grace-hold is covered by the pure
+        // `desired_detach_grace_holds_phone_size` test).
+        remove_viewer(id, "phone-1");
+        remove_client(id, "phone-1");
+        assert_eq!(effective_size(id), Some((120, 40)));
 
         unregister(id);
     }

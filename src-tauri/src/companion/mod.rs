@@ -86,3 +86,24 @@ pub fn companion_report_open_failed(
 ) -> Result<(), String> {
     state.lifecycle.resolve(&request_id, Err(error))
 }
+
+/// Desktop focus signal for phone-authoritative sizing (scenario 8). The
+/// frontend calls this on focus / blur / active-session change for a
+/// terminal. On focus → instant reclaim of the desktop size; on blur →
+/// the desktop keeps ownership through BLUR_DEBOUNCE before the phone (if
+/// still attached) takes over. No-op if the hub doesn't exist.
+#[tauri::command]
+pub fn companion_set_terminal_focus(terminal_id: String, focused: bool) {
+    if !fanout::hub_exists(&terminal_id) {
+        return;
+    }
+    fanout::set_desktop_focused(&terminal_id, focused);
+    if focused {
+        fanout::reconcile_now(&terminal_id);
+    } else {
+        // Hold the desktop size through the debounce, then re-evaluate
+        // (phone takes over only if still attached past the window).
+        fanout::reconcile_now(&terminal_id);
+        fanout::reconcile_after(&terminal_id, fanout::BLUR_DEBOUNCE);
+    }
+}

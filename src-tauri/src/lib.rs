@@ -668,6 +668,7 @@ pub fn run() {
             companion::devices::companion_purge_revoked,
             companion::companion_report_opened,
             companion::companion_report_open_failed,
+            companion::companion_set_terminal_focus,
 
             // Canvas mode
             modes::canvas::commands::canvas_resolve_tiles,

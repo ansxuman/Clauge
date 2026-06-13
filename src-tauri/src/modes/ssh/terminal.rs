@@ -124,18 +124,15 @@ pub fn ssh_resize_terminal(
     cols: u16,
     rows: u16,
 ) -> Result<(), String> {
-    let map = state.terminals.lock();
-    let entry = map.get(&terminal_id).ok_or("Terminal not found")?;
-    // Mirror-aware sizing: record the desktop viewport and forward the
-    // effective (min over clients) size, which equals the desktop size
-    // whenever no phone is attached. None = no change → nothing sent.
-    if let Some((c, r)) = fanout::set_client_size(&terminal_id, fanout::DESKTOP_CLIENT, cols, rows)
     {
-        entry
-            .handle_tx
-            .send(SshCommand::Resize { cols: c, rows: r })
-            .map_err(|e| format!("send resize: {}", e))?;
+        let map = state.terminals.lock();
+        map.get(&terminal_id).ok_or("Terminal not found")?;
     }
+    // Mirror-aware sizing: record the desktop viewport, then let the
+    // reconcile chokepoint forward the effective size. Equals the desktop
+    // size whenever no phone owns it; while phone-owned the resize is held.
+    fanout::set_client_size(&terminal_id, fanout::DESKTOP_CLIENT, cols, rows);
+    fanout::reconcile_now(&terminal_id);
     Ok(())
 }
 

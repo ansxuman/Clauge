@@ -372,18 +372,16 @@ pub fn agent_write_to_terminal(state: State<'_, TerminalState>, terminal_id: Str
 
 #[tauri::command]
 pub fn agent_resize_terminal(state: State<'_, TerminalState>, terminal_id: String, cols: u32, rows: u32) -> Result<(), String> {
-    let terminals = state.terminals.lock();
-    let entry = terminals.get(&terminal_id).ok_or("Terminal not found")?;
-    // The desktop is one mirror client among potentially many: record
-    // its viewport and drive the PTY at the effective (min) size, which
-    // is exactly the desktop size while no phone is attached. None =
-    // effective size unchanged → nothing to apply.
-    if let Some((c, r)) =
-        fanout::set_client_size(&terminal_id, fanout::DESKTOP_CLIENT, cols as u16, rows as u16)
     {
-        entry.master.resize(PtySize { rows: r, cols: c, pixel_width: 0, pixel_height: 0 })
-            .map_err(|e| format!("Resize error: {}", e))?;
+        let terminals = state.terminals.lock();
+        terminals.get(&terminal_id).ok_or("Terminal not found")?;
     }
+    // The desktop is one mirror client among potentially many: record its
+    // viewport, then let the reconcile chokepoint drive the PTY. While no
+    // phone owns the size this equals the desktop size (today's behavior);
+    // while phone-owned the reconcile keeps the phone size (resize ignored).
+    fanout::set_client_size(&terminal_id, fanout::DESKTOP_CLIENT, cols as u16, rows as u16);
+    fanout::reconcile_now(&terminal_id);
     Ok(())
 }
 
