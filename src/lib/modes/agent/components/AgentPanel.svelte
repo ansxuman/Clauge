@@ -22,6 +22,7 @@
     agentDockBounceEnabled,
   } from '../stores';
   import { getSetting, setSetting } from '$lib/commands/settings';
+  import { setTerminalFocus } from '$lib/commands/companion';
   import { tabs as tabsStore, closeTab, activateTab } from '$lib/shared/stores/tabs';
   import {
     agentSpawnTerminal,
@@ -316,6 +317,47 @@
   let dockBounceActive = false;
   let unlistenFileDrop: (() => void) | null = null;
   let unlistenAttentionCleared: UnlistenFn | null = null;
+
+  // Desktop terminal-focus reporting for phone-authoritative sizing. The
+  // backend reclaims the desktop's size when focused and lets the phone take
+  // over (after its own 3s blur debounce) when not. We track which terminalId
+  // we last reported as focused so we only emit on real transitions.
+  let focusedTerminalId: string | null = null;
+
+  function reportTerminalFocus(terminalId: string | null, focused: boolean) {
+    if (focused) {
+      if (!terminalId || focusedTerminalId === terminalId) return;
+      if (focusedTerminalId) setTerminalFocus(focusedTerminalId, false);
+      focusedTerminalId = terminalId;
+      setTerminalFocus(terminalId, true);
+    } else {
+      const target = terminalId ?? focusedTerminalId;
+      // Only emit blur for the terminal we currently hold focus on — avoids
+      // spamming the backend for terminals we never claimed.
+      if (!target || focusedTerminalId !== target) return;
+      focusedTerminalId = null;
+      setTerminalFocus(target, false);
+    }
+  }
+
+  // Resolve the active session's terminalId and report focus for it, gating
+  // on real window focus so a blurred desktop never claims the size.
+  function syncActiveTerminalFocus() {
+    const session = get(activeAgentSession);
+    const termId = session ? get(agentTerminalIds).get(session.id) ?? null : null;
+    if (termId && document.hasFocus()) {
+      reportTerminalFocus(termId, true);
+    } else {
+      reportTerminalFocus(focusedTerminalId, false);
+    }
+  }
+
+  function onWindowFocus() {
+    syncActiveTerminalFocus();
+  }
+  function onWindowBlur() {
+    reportTerminalFocus(focusedTerminalId, false);
+  }
 
   // Per-session rolling ANSI-stripped output buffer (for prompt detection).
   const notifyBuffers = new Map<string, string>();
@@ -1337,6 +1379,10 @@
       console.log(`[TERM] Spawn complete: termId=${termId}, gen=${myGeneration}`);
       agentTerminalIds.update(m => { m.set(session.id, termId); return new Map(m); });
 
+      // Now that this session has a terminalId, claim desktop focus for it if
+      // it's the on-screen active session and the window is focused.
+      if (get(activeAgentSession)?.id === session.id) syncActiveTerminalFocus();
+
       // Start context usage polling (Feature 2)
       startContextUsagePolling(session);
 
@@ -1403,6 +1449,11 @@
   // React to session changes
   const unsubSession = activeAgentSession.subscribe((session) => {
     console.log(`[TERM] SUBSCRIBER: session=${session?.id || 'null'}, currentSessionId=${currentSessionId}, match=${session?.id === currentSessionId}`);
+    // Hand desktop focus to the newly-active session's terminal (and release
+    // the previously-active one). selectSession runs on a later frame, so the
+    // new terminalId may not exist yet — spawnTerminal calls syncActiveTerminalFocus
+    // once it does. This also covers the no-session case (release only).
+    syncActiveTerminalFocus();
     if (session && session.id !== currentSessionId) {
       console.log(`[TERM] SUBSCRIBER: triggering selectSession via rAF`);
       // Sync tab activation
@@ -1466,6 +1517,7 @@
     const tIds = get(agentTerminalIds);
     const termId = tIds.get(session.id);
     if (termId) {
+      reportTerminalFocus(termId, false);
       _suppressedTerminalIds.add(termId);
       agentKillTerminal(termId).catch(() => {});
     }
@@ -1523,6 +1575,7 @@
     const tIds = get(agentTerminalIds);
     const termId = tIds.get(session.id);
     if (termId) {
+      reportTerminalFocus(termId, false);
       _suppressedTerminalIds.add(termId);
       agentKillTerminal(termId).catch(() => {});
     }
@@ -1572,7 +1625,10 @@
     // instead of trying to close a tab that no longer exists.
     const tIdsClose = get(agentTerminalIds);
     const closingTermId = tIdsClose.get(sessionId);
-    if (closingTermId) _suppressedTerminalIds.add(closingTermId);
+    if (closingTermId) {
+      reportTerminalFocus(closingTermId, false);
+      _suppressedTerminalIds.add(closingTermId);
+    }
 
     // Cleanup terminal entry
     const tMap = get(agentTerminalMap);
@@ -1610,6 +1666,7 @@
     const tIds = get(agentTerminalIds);
     const termId = tIds.get(session.id);
     if (termId) {
+      reportTerminalFocus(termId, false);
       _suppressedTerminalIds.add(termId);
       await agentKillTerminal(termId).catch(() => {});
     }
@@ -1716,6 +1773,12 @@
     window.addEventListener(AGENT_EVENT.CLOSE_TAB_SESSION, handleCloseTabSession);
     window.addEventListener(AGENT_EVENT.RELAUNCH_SESSION, handleRelaunchSession);
 
+    // Report desktop terminal focus so phone-authoritative sizing can reclaim
+    // the desktop's size while the user is looking at this session.
+    window.addEventListener('focus', onWindowFocus);
+    window.addEventListener('blur', onWindowBlur);
+    syncActiveTerminalFocus();
+
     // File drag-and-drop: write dropped file paths into the active terminal
     try {
       const win = getCurrentWindow();
@@ -1772,6 +1835,10 @@
     window.removeEventListener(AGENT_EVENT.DELETE_SESSION, handleDeleteSession);
     window.removeEventListener(AGENT_EVENT.CLOSE_TAB_SESSION, handleCloseTabSession);
     window.removeEventListener(AGENT_EVENT.RELAUNCH_SESSION, handleRelaunchSession);
+    window.removeEventListener('focus', onWindowFocus);
+    window.removeEventListener('blur', onWindowBlur);
+    // Release desktop focus on unmount so the phone can take over.
+    reportTerminalFocus(focusedTerminalId, false);
     if (unlistenFileDrop) unlistenFileDrop();
     if (unlistenAttentionCleared) unlistenAttentionCleared();
   });
