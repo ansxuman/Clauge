@@ -172,8 +172,8 @@ pub fn run() {
             app.manage(modes::explorer::transfers::Transfers::default());
             app.manage(shared::ai::types::PendingFrontendTools::default());
             app.manage(shared::updater::state::PendingUpdate::default());
-            // Companion (mobile) server state. The server itself stays
-            // OFF until companion_start — no autostart by design.
+            // Companion (mobile) server state. Auto-starts below if the user
+            // had it enabled last session (persisted via `companion_enabled`).
             app.manage(companion::CompanionState::default());
 
             // ── Cloud auth + sync scheduler ──────────────────────────
@@ -275,6 +275,15 @@ pub fn run() {
                 let pool_for_autostart = app.state::<sqlx::SqlitePool>().inner().clone();
                 tauri::async_runtime::spawn(async move {
                     modes::workspace::commands::maybe_autostart_mcp(app_handle, pool_for_autostart).await;
+                });
+            }
+
+            // Auto-start the companion (mobile) server if the user left it on.
+            {
+                let app_handle = app.handle().clone();
+                let pool_for_companion = app.state::<sqlx::SqlitePool>().inner().clone();
+                tauri::async_runtime::spawn(async move {
+                    companion::server::maybe_autostart_companion(app_handle, pool_for_companion).await;
                 });
             }
 
