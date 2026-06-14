@@ -747,7 +747,7 @@ fn run_system_drain(
                 EVT_WARNING,
                 RecordingMessage {
                     meeting_id: &meeting_id,
-                    message: "System audio seems silent — check System Settings → Privacy & Security → Screen & System Audio Recording and enable Clauge, then restart the recording.",
+                    message: "No system audio — enable Clauge in System Settings ▸ Screen & System Audio Recording.",
                 },
             );
         })
