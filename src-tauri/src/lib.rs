@@ -422,6 +422,7 @@ pub fn run() {
             commands::logs::app_log,
             commands::logs::set_log_level,
             commands::logs::get_app_config_path,
+            shared::app_config::app_diagnostics_enabled,
             telemetry::telemetry_bump,
             appearance::vibrancy::set_vibrancy,
             appearance::vibrancy::get_appearance,
@@ -678,6 +679,7 @@ pub fn run() {
             companion::companion_report_opened,
             companion::companion_report_open_failed,
             companion::companion_set_terminal_focus,
+            companion::push::companion_send_test_push,
 
             // Canvas mode
             modes::canvas::commands::canvas_resolve_tiles,

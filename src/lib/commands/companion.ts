@@ -50,6 +50,11 @@ export const companionApprovePair = (requestId: string) =>
 export const companionDenyPair = (requestId: string) =>
   invoke<void>('companion_deny_pair', { requestId });
 
+// Fire a one-off test notification to every paired device — confirms the
+// full FCM path (Worker → FCM → phone). Returns a human-readable result.
+export const companionSendTestPush = () =>
+  invoke<string>('companion_send_test_push');
+
 // Report whether the desktop is actively presenting a given terminal so the
 // phone-authoritative sizing can reclaim the desktop's size on focus. No-ops
 // in the backend when no hub exists, so this is best-effort: errors are

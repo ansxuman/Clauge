@@ -13,6 +13,12 @@ export async function getAllSettings(): Promise<Record<string, string>> {
   return invoke('get_all_settings');
 }
 
+// Whether a diagnostic `area` is enabled in settings.json (`"diagnostics": [..]`).
+// Used to reveal debug-only UI in release builds — see app_config.rs.
+export async function appDiagnosticsEnabled(area: string): Promise<boolean> {
+  return invoke('app_diagnostics_enabled', { area });
+}
+
 export async function setVibrancy(material: string): Promise<void> {
   return invoke('set_vibrancy', { material });
 }
