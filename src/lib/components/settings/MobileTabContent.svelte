@@ -10,10 +10,16 @@
         companionRevokeDevice,
         companionDeleteDevice,
         companionPurgeRevoked,
+        companionSendTestPush,
         type CompanionStatus,
         type PairCodeInfo,
         type CompanionDevice,
     } from "$lib/commands/companion";
+    import {
+        getSetting,
+        setSetting,
+        appDiagnosticsEnabled,
+    } from "$lib/commands/settings";
     import ConfirmDialog from "$lib/shared/primitives/ConfirmDialog.svelte";
     import { showToast } from "$lib/shared/primitives/toast";
     import { friendlyError } from "$lib/utils/errors";
@@ -28,6 +34,60 @@
     let devices = $state<CompanionDevice[]>([]);
     let androidQrDataUrl = $state("");
     let iosQrDataUrl = $state("");
+
+    // Push-notification preferences (persisted in the settings table; all
+    // default on so an unconfigured install behaves as before).
+    let notifAttention = $state(true);
+    let notifDone = $state(true);
+    let notifExit = $state(true);
+    let notifDoneOnlyAway = $state(true);
+    let notifDoneMinSecs = $state(90);
+    const DONE_MIN_OPTIONS = [45, 60, 90, 120];
+    // The "Send test" button is a debug-only affordance — shown only when the
+    // `notify` diagnostic area is enabled in settings.json.
+    let showTestButton = $state(false);
+    let sendingTest = $state(false);
+
+    async function sendTestPush() {
+        if (sendingTest) return;
+        sendingTest = true;
+        try {
+            const msg = await companionSendTestPush();
+            showToast(msg, "success");
+        } catch (e) {
+            showToast(friendlyError(e), "error");
+        } finally {
+            sendingTest = false;
+        }
+    }
+
+    async function loadNotifPrefs() {
+        try {
+            const [att, done, exit, away, mins] = await Promise.all([
+                getSetting("push_attention_enabled"),
+                getSetting("push_done_enabled"),
+                getSetting("push_exit_enabled"),
+                getSetting("push_done_only_when_away"),
+                getSetting("push_done_min_secs"),
+            ]);
+            notifAttention = att !== "false";
+            notifDone = done !== "false";
+            notifExit = exit !== "false";
+            notifDoneOnlyAway = away !== "false";
+            const n = mins ? parseInt(mins, 10) : NaN;
+            notifDoneMinSecs = Number.isFinite(n) ? n : 90;
+        } catch (e) {
+            console.warn("[companion] load notif prefs failed:", e);
+        }
+    }
+
+    async function saveNotif(key: string, value: string) {
+        try {
+            await setSetting(key, value);
+        } catch (e) {
+            showToast(friendlyError(e), "error");
+        }
+    }
 
     // Pairing flow state.
     let pairInfo = $state<PairCodeInfo | null>(null);
@@ -215,6 +275,12 @@
     onMount(async () => {
         await refreshStatus();
         await refreshDevices();
+        await loadNotifPrefs();
+        try {
+            showTestButton = await appDiagnosticsEnabled("notify");
+        } catch (e) {
+            console.warn("[companion] diagnostics check failed:", e);
+        }
         try {
             androidQrDataUrl = await QRCode.toDataURL(ANDROID_RELEASES_URL, {
                 margin: 1,
@@ -514,6 +580,138 @@
             {/if}
         </div>
     </section>
+
+    <!-- Push notifications -->
+    <section class="stg-card">
+        <header class="stg-card-hd">
+            <span class="stg-card-icon" aria-hidden="true">
+                <svg
+                    viewBox="0 0 24 24"
+                    width="14"
+                    height="14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+            </span>
+            <div class="stg-card-titles">
+                <h3 class="stg-card-title">Notifications</h3>
+                <p class="stg-card-sub">
+                    Choose which session events push to your paired phones.
+                </p>
+            </div>
+        </header>
+        <div class="stg-card-body">
+            <div class="stg-card-row">
+                <span class="stg-card-row-label">Task complete</span>
+                <label class="stg-toggle">
+                    <input
+                        type="checkbox"
+                        checked={notifDone}
+                        onchange={(e) => {
+                            notifDone = e.currentTarget.checked;
+                            saveNotif("push_done_enabled", String(notifDone));
+                        }}
+                        aria-label="Notify when a task completes"
+                    />
+                    <span class="stg-toggle-slider"></span>
+                </label>
+            </div>
+            {#if notifDone}
+                <div class="stg-card-row stg-card-row-sub">
+                    <span class="stg-card-row-label">After running at least</span>
+                    <select
+                        class="stg-select"
+                        value={notifDoneMinSecs}
+                        onchange={(e) => {
+                            notifDoneMinSecs = parseInt(
+                                e.currentTarget.value,
+                                10,
+                            );
+                            saveNotif(
+                                "push_done_min_secs",
+                                String(notifDoneMinSecs),
+                            );
+                        }}
+                        aria-label="Minimum task duration before notifying"
+                    >
+                        {#each DONE_MIN_OPTIONS as secs}
+                            <option value={secs}>{secs}s</option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="stg-card-row stg-card-row-sub">
+                    <span class="stg-card-row-label">Only when I'm away</span>
+                    <label class="stg-toggle">
+                        <input
+                            type="checkbox"
+                            checked={notifDoneOnlyAway}
+                            onchange={(e) => {
+                                notifDoneOnlyAway = e.currentTarget.checked;
+                                saveNotif(
+                                    "push_done_only_when_away",
+                                    String(notifDoneOnlyAway),
+                                );
+                            }}
+                            aria-label="Only notify when the desktop is unfocused"
+                        />
+                        <span class="stg-toggle-slider"></span>
+                    </label>
+                </div>
+            {/if}
+            <div class="stg-card-row">
+                <span class="stg-card-row-label">Approval &amp; input</span>
+                <label class="stg-toggle">
+                    <input
+                        type="checkbox"
+                        checked={notifAttention}
+                        onchange={(e) => {
+                            notifAttention = e.currentTarget.checked;
+                            saveNotif(
+                                "push_attention_enabled",
+                                String(notifAttention),
+                            );
+                        }}
+                        aria-label="Notify when an agent needs input or approval"
+                    />
+                    <span class="stg-toggle-slider"></span>
+                </label>
+            </div>
+            <div class="stg-card-row">
+                <span class="stg-card-row-label">Session ended</span>
+                <label class="stg-toggle">
+                    <input
+                        type="checkbox"
+                        checked={notifExit}
+                        onchange={(e) => {
+                            notifExit = e.currentTarget.checked;
+                            saveNotif("push_exit_enabled", String(notifExit));
+                        }}
+                        aria-label="Notify when a session ends"
+                    />
+                    <span class="stg-toggle-slider"></span>
+                </label>
+            </div>
+            {#if showTestButton}
+                <div class="stg-card-row">
+                    <span class="stg-card-row-label">Test delivery</span>
+                    <button
+                        type="button"
+                        class="stg-btn"
+                        disabled={sendingTest}
+                        onclick={sendTestPush}
+                    >
+                        {sendingTest ? "Sending…" : "Send test"}
+                    </button>
+                </div>
+            {/if}
+        </div>
+    </section>
 </div>
 
 <ConfirmDialog
@@ -637,6 +835,31 @@
         color: var(--t2);
         font-family: var(--ui);
         white-space: nowrap;
+    }
+
+    /* Indented child rows under a parent toggle (task-complete tuning). */
+    .stg-card-row-sub {
+        padding-left: 14px;
+    }
+    .stg-card-row-sub .stg-card-row-label {
+        color: var(--t3);
+    }
+
+    /* -- Inline select (matches the card language) -- */
+    .stg-select {
+        font-family: var(--ui);
+        font-size: 11.5px;
+        color: var(--t1);
+        background: var(--surface-hover);
+        border: 1px solid var(--b1);
+        border-radius: 7px;
+        padding: 4px 8px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .stg-select:focus-visible {
+        outline: none;
+        border-color: var(--acc);
     }
 
     /* -- Toggle switch (shared) -- */

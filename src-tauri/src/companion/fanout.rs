@@ -82,16 +82,42 @@ pub const DETACH_GRACE: Duration = Duration::from_secs(4);
 const MIN_COLS: u16 = 10;
 const MIN_ROWS: u16 = 4;
 
+/// Why a terminal wants the user — lets push.rs title the notification
+/// precisely. Both still fire under the same conditions; only the copy
+/// differs.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AttentionKind {
+    /// Blocked awaiting a permission/approval decision (claude PreToolUse,
+    /// codex `*_approval_request`). The agent cannot proceed.
+    Approval,
+    /// Asked a question or went idle at a prompt (claude Notification,
+    /// codex request_user_input, or the output heuristic).
+    Input,
+}
+
 /// Push-dispatch signals fanout hands to `push.rs`. Kept minimal so
 /// fanout stays decoupled from the Worker/cloud plumbing: it reports
-/// *what happened*, push.rs decides whether to notify.
+/// *what happened*, push.rs decides whether to notify (it owns the
+/// settings: enable toggles, the task-complete threshold, presence gate).
 #[derive(Debug, Clone)]
 pub enum PushTrigger {
     /// A terminal's PTY exited. `title` is the session/profile label for
     /// the notification body.
     Exit { terminal_id: String, title: String },
     /// A terminal has been idle at a prompt and wants the user's input.
-    Attention { terminal_id: String, title: String },
+    Attention {
+        terminal_id: String,
+        title: String,
+        kind: AttentionKind,
+    },
+    /// A turn/task finished. `busy_secs` is how long it ran — push.rs
+    /// drops it below the configured threshold. Only emitted when no
+    /// phone is attached.
+    Done {
+        terminal_id: String,
+        title: String,
+        busy_secs: u64,
+    },
 }
 
 struct TermHub {
@@ -110,6 +136,13 @@ struct TermHub {
     /// Reset whenever new output arrives so each fresh prompt notifies
     /// at most once.
     notified: bool,
+    /// Why this hub is awaiting — sets the attention notification's title.
+    /// Updated on each needs-user hook event; defaults to `Input`.
+    attention_kind: AttentionKind,
+    /// When the current turn/task began (a hook work-start event). Taken
+    /// on the matching finish event to measure the turn's duration for the
+    /// task-complete push. `None` between turns.
+    work_started: Option<Instant>,
     /// Client ids of WS connections currently mirroring this terminal —
     /// i.e. phones actively viewing. Tracked separately from `sizes` so
     /// attach/detach gates push without touching the desktop-authoritative
@@ -324,27 +357,38 @@ pub fn is_awaiting(terminal_id: &str) -> bool {
 pub fn set_hook_event(terminal_id: &str, event: &str) {
     #[derive(PartialEq)]
     enum Kind {
-        NeedsUser,
+        /// Blocked on a permission/approval decision.
+        Approval,
+        /// Asked a question / went idle.
+        Input,
+        /// A turn or task began — start the duration clock.
+        WorkStart,
+        /// A turn or task finished — measure it for the task-complete push.
+        Finish,
+        /// Some other "not waiting on the user" boundary.
         Clear,
         Unknown,
     }
     let lower = event.trim().to_ascii_lowercase();
     let kind = match lower.as_str() {
-        // Claude: Notification + PreToolUse mean the agent is asking the
-        // user (permission prompt / idle notification). Codex emits
-        // *_approval_request / request_user_input.
-        "notification" | "pretooluse" | "permissionrequest" | "request_user_input" => {
-            Kind::NeedsUser
-        }
-        // Claude lifecycle resume/turn boundaries + Codex task lifecycle —
-        // all mean "not waiting on the user".
-        "stop" | "start" | "userpromptsubmit" | "posttooluse" | "sessionstart"
-        | "sessionend" | "task_complete" | "task_started" => Kind::Clear,
+        // Blocked-on-approval: claude PreToolUse fires before a gated tool;
+        // codex emits PermissionRequest. Only the genuinely-blocked ones
+        // survive to a push (an auto-approved tool clears via PostToolUse
+        // before the sweep), so titling these "Approval needed" is safe.
+        "pretooluse" | "permissionrequest" => Kind::Approval,
+        // Softer: a question or the idle notification.
+        "notification" | "request_user_input" => Kind::Input,
+        // A turn/task began.
+        "userpromptsubmit" | "task_started" | "start" => Kind::WorkStart,
+        // A turn/task finished.
+        "stop" | "task_complete" => Kind::Finish,
+        // Other boundaries that just mean "not waiting on the user".
+        "posttooluse" | "sessionstart" | "sessionend" => Kind::Clear,
         other => {
             // Codex approval requests carry an agent-specific prefix
             // (`exec_approval_request`, `apply_patch_approval_request`, …).
             if other.ends_with("_approval_request") {
-                Kind::NeedsUser
+                Kind::Approval
             } else {
                 Kind::Unknown
             }
@@ -353,29 +397,70 @@ pub fn set_hook_event(terminal_id: &str, event: &str) {
     if kind == Kind::Unknown {
         return;
     }
-    let cleared = {
+    let is_finish = kind == Kind::Finish;
+    // (was_awaiting, optional task-complete payload) computed under the lock,
+    // acted on after it drops (emit_* must never run while holding it).
+    let (cleared, done) = {
         let mut map = hubs().lock();
         let Some(hub) = map.get_mut(terminal_id) else {
             return;
         };
         hub.hook_driven = true;
         match kind {
-            Kind::NeedsUser => {
+            Kind::Approval | Kind::Input => {
                 hub.prompt_flag = true;
+                hub.attention_kind = if kind == Kind::Approval {
+                    AttentionKind::Approval
+                } else {
+                    AttentionKind::Input
+                };
                 hub.last_output = Instant::now();
-                false
+                (false, None)
+            }
+            Kind::WorkStart => {
+                let was_awaiting = hub.prompt_flag || hub.notified;
+                hub.prompt_flag = false;
+                hub.notified = false;
+                hub.work_started = Some(Instant::now());
+                (was_awaiting, None)
+            }
+            Kind::Finish => {
+                let was_awaiting = hub.prompt_flag || hub.notified;
+                hub.prompt_flag = false;
+                hub.notified = false;
+                // Measure the turn and hand it to push.rs (it applies the
+                // duration threshold + presence gate). Suppress when a phone
+                // is attached — the user is already watching it finish.
+                let watching = phone_attached(hub);
+                let title = hub.title.clone();
+                let done = hub
+                    .work_started
+                    .take()
+                    .filter(|_| !watching)
+                    .map(|t| (t.elapsed().as_secs(), title));
+                (was_awaiting, done)
             }
             Kind::Clear => {
                 let was_awaiting = hub.prompt_flag || hub.notified;
                 hub.prompt_flag = false;
                 hub.notified = false;
-                was_awaiting
+                (was_awaiting, None)
             }
-            Kind::Unknown => false,
+            Kind::Unknown => (false, None),
         }
     };
     if cleared {
         emit_cleared(terminal_id);
+    }
+    if let Some((busy_secs, title)) = done {
+        crate::diag!(area: "notify", "task finished on {terminal_id}: ran {busy_secs}s \u{2192} emitting Done");
+        emit_push(PushTrigger::Done {
+            terminal_id: terminal_id.to_string(),
+            title,
+            busy_secs,
+        });
+    } else if is_finish {
+        crate::diag!(area: "notify", "task finished on {terminal_id}: no Done (phone attached or no tracked turn-start)");
     }
 }
 
@@ -530,6 +615,8 @@ pub fn register(terminal_id: &str, kind: TermKind, title: &str) {
             last_output: Instant::now(),
             prompt_flag: false,
             notified: false,
+            attention_kind: AttentionKind::Input,
+            work_started: None,
             viewers: HashSet::new(),
             hook_driven: false,
             last_phone_size: None,
@@ -828,6 +915,7 @@ pub fn sweep_attention() {
             emit_push(PushTrigger::Attention {
                 terminal_id: id.clone(),
                 title: hub.title.clone(),
+                kind: hub.attention_kind,
             });
         }
     }
@@ -912,6 +1000,8 @@ mod tests {
             last_output: Instant::now(),
             prompt_flag: false,
             notified: false,
+            attention_kind: AttentionKind::Input,
+            work_started: None,
             viewers: HashSet::new(),
             hook_driven: false,
             last_phone_size: None,
